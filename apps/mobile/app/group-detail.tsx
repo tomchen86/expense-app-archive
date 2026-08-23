@@ -32,6 +32,8 @@ import {
 } from '../src/utils/expenseDomain';
 import { formatMinorUnits } from '../src/utils/money';
 import { buildEditExpenseRoute } from '../src/navigation/expense-edit-route';
+import { isExpenseGroupArchived } from '../src/utils/groupDomain';
+import { mobileTheme } from '../src/theme/tokens';
 
 const GroupDetailScreen = () => {
   const params = useLocalSearchParams();
@@ -40,6 +42,7 @@ const GroupDetailScreen = () => {
   const expenses = useExpenseStore((state) => state.expenses);
   const groups = useExpenseStore((state) => state.groups);
   const deleteExpense = useExpenseStore((state) => state.deleteExpense);
+  const restoreGroup = useExpenseStore((state) => state.restoreGroup);
   const internalUserId = useExpenseStore((state) => state.internalUserId);
   const allParticipants = useExpenseStore((state) => state.participants);
 
@@ -80,6 +83,7 @@ const GroupDetailScreen = () => {
   const groupMembers = useMemo(() => {
     return group?.participants || [];
   }, [group]);
+  const isArchived = group ? isExpenseGroupArchived(group) : false;
 
   const _groupMap = useMemo(() => {
     const map = new Map<string, ExpenseGroup>();
@@ -124,7 +128,25 @@ const GroupDetailScreen = () => {
     <View style={styles.container}>
       <Stack.Screen options={{ title: group.name }} />
 
+      {isArchived && (
+        <View style={styles.archivedBanner}>
+          <Text style={styles.archivedBannerText}>
+            Archived group. Expenses and allocations are read-only.
+          </Text>
+          <TouchableOpacity
+            accessibilityLabel='Restore group'
+            accessibilityRole='button'
+            onPress={() => restoreGroup(group.id)}
+            style={styles.restoreButton}
+          >
+            <Text style={styles.restoreButtonText}>Restore Group</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TouchableOpacity
+        accessibilityLabel={`View insights for ${group.name}`}
+        accessibilityRole='button'
         onPress={() =>
           router.push({
             pathname: '/insights',
@@ -146,6 +168,8 @@ const GroupDetailScreen = () => {
 
       {currentGroupParticipantId && (
         <TouchableOpacity
+          accessibilityLabel={`View balances for ${group.name}`}
+          accessibilityRole='button'
           onPress={() => setIsBalancesOverlayVisible(true)}
           style={styles.totalContainer}
         >
@@ -180,7 +204,7 @@ const GroupDetailScreen = () => {
           allParticipants={allParticipants}
         />
       )}
-      <FloatingActionButton groupId={groupId as string} />
+      {!isArchived && <FloatingActionButton groupId={groupId as string} />}
     </View>
   );
 };
@@ -188,36 +212,64 @@ const GroupDetailScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    padding: mobileTheme.spacing.xl,
+    backgroundColor: mobileTheme.colors.background,
   },
   totalContainer: {
-    backgroundColor: '#ffffff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
+    backgroundColor: mobileTheme.colors.surface,
+    padding: mobileTheme.spacing.lg,
+    borderRadius: mobileTheme.radii.card,
+    marginBottom: mobileTheme.spacing.xl,
     alignItems: 'center',
-    boxShadow: '0 1px 1.41px rgba(0, 0, 0, 0.2)',
+    ...mobileTheme.shadows.card,
   },
   totalText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700',
+    color: mobileTheme.colors.text,
   },
   list: {
     flex: 1,
   },
   emptyListText: {
     textAlign: 'center',
-    marginTop: 50,
+    marginTop: mobileTheme.spacing.xxxl,
     fontSize: 16,
-    color: '#6c757d',
+    color: mobileTheme.colors.textMuted,
   },
   errorText: {
     textAlign: 'center',
-    marginTop: 50,
+    marginTop: mobileTheme.spacing.xxxl,
     fontSize: 18,
-    color: 'red',
+    color: mobileTheme.colors.danger,
+  },
+  archivedBanner: {
+    padding: mobileTheme.spacing.lg,
+    marginBottom: mobileTheme.spacing.lg,
+    borderRadius: mobileTheme.radii.card,
+    backgroundColor: mobileTheme.colors.surfaceVariant,
+    borderColor: mobileTheme.colors.border,
+    borderWidth: 1,
+  },
+  archivedBannerText: {
+    color: mobileTheme.colors.text,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '600',
+  },
+  restoreButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+    marginTop: mobileTheme.spacing.md,
+    paddingHorizontal: mobileTheme.spacing.lg,
+    borderRadius: mobileTheme.radii.control,
+    backgroundColor: mobileTheme.colors.primary,
+  },
+  restoreButtonText: {
+    color: mobileTheme.colors.onPrimary,
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
 

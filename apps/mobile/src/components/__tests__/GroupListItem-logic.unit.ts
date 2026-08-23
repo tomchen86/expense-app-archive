@@ -178,21 +178,21 @@ describe('GroupListItem Logic', () => {
       expect(navData.participantCount).toBe(3);
     });
 
-    it('should prepare delete confirmation data', () => {
-      const prepareDeleteConfirmation = (group: ExpenseGroup) => {
+    it('should prepare archive confirmation data', () => {
+      const prepareArchiveConfirmation = (group: ExpenseGroup) => {
         return {
-          title: 'Delete Group',
-          message: `Are you sure you want to delete "${group.name}"? This will also delete all associated expenses.`,
+          title: 'Archive Group',
+          message: `Archive "${group.name}" while retaining its expenses and allocations.`,
           groupId: group.id,
           hasParticipants: group.participants.length > 0,
         };
       };
 
-      const deleteData = prepareDeleteConfirmation(mockGroup);
-      expect(deleteData.title).toBe('Delete Group');
-      expect(deleteData.message).toContain('Test Group');
-      expect(deleteData.groupId).toBe('group-1');
-      expect(deleteData.hasParticipants).toBe(true);
+      const archiveData = prepareArchiveConfirmation(mockGroup);
+      expect(archiveData.title).toBe('Archive Group');
+      expect(archiveData.message).toContain('Test Group');
+      expect(archiveData.groupId).toBe('group-1');
+      expect(archiveData.hasParticipants).toBe(true);
     });
 
     it('should prepare participant removal data', () => {
@@ -231,13 +231,15 @@ describe('GroupListItem Logic', () => {
 
     it('should validate callback functions exist', () => {
       const validateCallbacks = (callbacks: {
-        onDeleteGroup?: (groupId: string) => void;
+        onArchiveGroup?: (groupId: string) => void;
+        onRestoreGroup?: (groupId: string) => void;
         onRemoveParticipant?: (groupId: string, participantId: string) => void;
         onAddParticipant?: (group: ExpenseGroup) => void;
         onPress?: (groupId: string) => void;
       }) => {
         return {
-          hasDeleteCallback: typeof callbacks.onDeleteGroup === 'function',
+          hasArchiveCallback: typeof callbacks.onArchiveGroup === 'function',
+          hasRestoreCallback: typeof callbacks.onRestoreGroup === 'function',
           hasRemoveParticipantCallback:
             typeof callbacks.onRemoveParticipant === 'function',
           hasAddParticipantCallback:
@@ -247,20 +249,23 @@ describe('GroupListItem Logic', () => {
       };
 
       const allCallbacks = {
-        onDeleteGroup: jest.fn(),
+        onArchiveGroup: jest.fn(),
+        onRestoreGroup: jest.fn(),
         onRemoveParticipant: jest.fn(),
         onAddParticipant: jest.fn(),
         onPress: jest.fn(),
       };
 
       const validation1 = validateCallbacks(allCallbacks);
-      expect(validation1.hasDeleteCallback).toBe(true);
+      expect(validation1.hasArchiveCallback).toBe(true);
+      expect(validation1.hasRestoreCallback).toBe(true);
       expect(validation1.hasRemoveParticipantCallback).toBe(true);
       expect(validation1.hasAddParticipantCallback).toBe(true);
       expect(validation1.hasPressCallback).toBe(true);
 
       const noCallbacks = validateCallbacks({});
-      expect(noCallbacks.hasDeleteCallback).toBe(false);
+      expect(noCallbacks.hasArchiveCallback).toBe(false);
+      expect(noCallbacks.hasRestoreCallback).toBe(false);
       expect(noCallbacks.hasRemoveParticipantCallback).toBe(false);
       expect(noCallbacks.hasAddParticipantCallback).toBe(false);
       expect(noCallbacks.hasPressCallback).toBe(false);
@@ -348,7 +353,8 @@ describe('GroupListItem Logic', () => {
       interface GroupListItemProps {
         group: ExpenseGroup;
         totalAmount: number;
-        onDeleteGroup: (groupId: string) => void;
+        onArchiveGroup: (groupId: string) => void;
+        onRestoreGroup: (groupId: string) => void;
         onRemoveParticipant: (groupId: string, participantId: string) => void;
         onAddParticipant: (group: ExpenseGroup) => void;
         onPress: (groupId: string) => void;
@@ -365,8 +371,11 @@ describe('GroupListItem Logic', () => {
         if (!isFiniteNumber(props.totalAmount)) {
           errors.push('totalAmount must be a number');
         }
-        if (typeof props.onDeleteGroup !== 'function') {
-          errors.push('onDeleteGroup callback is required');
+        if (typeof props.onArchiveGroup !== 'function') {
+          errors.push('onArchiveGroup callback is required');
+        }
+        if (typeof props.onRestoreGroup !== 'function') {
+          errors.push('onRestoreGroup callback is required');
         }
         if (typeof props.onRemoveParticipant !== 'function') {
           errors.push('onRemoveParticipant callback is required');
@@ -388,7 +397,8 @@ describe('GroupListItem Logic', () => {
       const validProps: GroupListItemProps = {
         group: mockGroup,
         totalAmount: 150.75,
-        onDeleteGroup: jest.fn(),
+        onArchiveGroup: jest.fn(),
+        onRestoreGroup: jest.fn(),
         onRemoveParticipant: jest.fn(),
         onAddParticipant: jest.fn(),
         onPress: jest.fn(),
@@ -402,14 +412,15 @@ describe('GroupListItem Logic', () => {
       const invalidProps = {
         group: null,
         totalAmount: 'invalid',
-        onDeleteGroup: 'not a function',
+        onArchiveGroup: 'not a function',
       } as unknown as Partial<GroupListItemProps>;
 
       // Invalid props (semantic validation)
       const invalidSemanticProps = {
         group: mockGroup,
         totalAmount: NaN,
-        onDeleteGroup: jest.fn(),
+        onArchiveGroup: jest.fn(),
+        onRestoreGroup: jest.fn(),
         onRemoveParticipant: jest.fn(),
         onAddParticipant: jest.fn(),
         onPress: jest.fn(),

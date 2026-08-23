@@ -7,6 +7,7 @@ describe('GroupStore', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -49,15 +50,92 @@ describe('GroupStore', () => {
     expect(group).toMatchObject({ name: 'Renamed' });
   });
 
-  it('deletes groups by identifier', () => {
+  it('archives a group without removing or rewriting its participants', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-24T01:02:03.000Z'));
+    const { addGroup, archiveGroup } = useGroupStore.getState();
+    const id = addGroup('Trip History', sampleParticipant);
+    const originalGroup = useGroupStore.getState().getGroupById(id)!;
+    const originalParticipants = originalGroup.participants;
+
+    archiveGroup(id);
+
+    const archivedGroup = useGroupStore.getState().getGroupById(id);
+    expect(archivedGroup).toEqual({
+      ...originalGroup,
+      archivedAt: '2026-08-24T01:02:03.000Z',
+    });
+    expect(archivedGroup?.participants).toBe(originalParticipants);
+  });
+
+  it('keeps the first archive timestamp when archiving repeatedly', () => {
+    jest.useFakeTimers();
+    const { addGroup, archiveGroup } = useGroupStore.getState();
+    const id = addGroup('Stable Archive', sampleParticipant);
+
+    jest.setSystemTime(new Date('2026-08-24T01:02:03.000Z'));
+    archiveGroup(id);
+    jest.setSystemTime(new Date('2026-08-25T04:05:06.000Z'));
+    archiveGroup(id);
+
+    expect(useGroupStore.getState().getGroupById(id)?.archivedAt).toBe(
+      '2026-08-24T01:02:03.000Z',
+    );
+  });
+
+  it('restores an archived group by removing only archivedAt', () => {
+    const { addGroup, archiveGroup, restoreGroup } = useGroupStore.getState();
+    const id = addGroup('Return Trip', sampleParticipant);
+    const originalGroup = useGroupStore.getState().getGroupById(id)!;
+    const originalParticipants = originalGroup.participants;
+
+    archiveGroup(id);
+    restoreGroup(id);
+
+    const restoredGroup = useGroupStore.getState().getGroupById(id);
+    expect(restoredGroup).toEqual(originalGroup);
+    expect(restoredGroup?.participants).toBe(originalParticipants);
+  });
+
+  it('keeps archived membership and metadata read-only until restore', () => {
+    const participant: Participant = { id: 'p2', name: 'Blake' };
+    const newcomer: Participant = { id: 'p3', name: 'Casey' };
+    const {
+      addGroup,
+      addParticipantToGroup,
+      archiveGroup,
+      removeParticipantFromAllGroups,
+      removeParticipantFromGroup,
+      updateGroup,
+      updateParticipantInGroups,
+    } = useGroupStore.getState();
+    const id = addGroup('Immutable History', sampleParticipant);
+    addParticipantToGroup(id, participant.id, participant);
+    archiveGroup(id);
+    const archivedGroup = useGroupStore.getState().getGroupById(id)!;
+
+    updateGroup({ ...archivedGroup, name: 'Unexpected rename' });
+    addParticipantToGroup(id, newcomer.id, newcomer);
+    removeParticipantFromGroup(id, sampleParticipant.id);
+    updateParticipantInGroups(participant.id, {
+      ...participant,
+      name: 'Unexpected update',
+    });
+    removeParticipantFromAllGroups(participant.id);
+
+    expect(useGroupStore.getState().getGroupById(id)).toBe(archivedGroup);
+  });
+
+  it('keeps deleteGroup as an archive-compatible facade', () => {
     const { addGroup, deleteGroup } = useGroupStore.getState();
-    const id = addGroup('Disposable', sampleParticipant);
+    const id = addGroup('Legacy Delete Call', sampleParticipant);
 
     deleteGroup(id);
 
-    expect(
-      useGroupStore.getState().groups.find((group) => group.id === id),
-    ).toBeUndefined();
+    expect(useGroupStore.getState().getGroupById(id)).toMatchObject({
+      id,
+      archivedAt: expect.any(String),
+    });
   });
 
   it('retrieves groups by identifier', () => {

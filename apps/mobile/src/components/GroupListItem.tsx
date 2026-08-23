@@ -4,11 +4,13 @@ import { ExpenseGroup, Participant as _Participant } from '../types';
 import type { CurrencyTotal } from '../utils/groupCalculations';
 import { formatMinorUnits } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
+import { isExpenseGroupArchived } from '../utils/groupDomain';
 
 interface GroupListItemProps {
   group: ExpenseGroup;
   totals: CurrencyTotal[];
-  onDeleteGroup: (groupId: string) => void;
+  onArchiveGroup: (groupId: string) => void;
+  onRestoreGroup: (groupId: string) => void;
   onRemoveParticipant: (groupId: string, participantId: string) => void;
   onAddParticipant: (group: ExpenseGroup) => void;
   onPress: (groupId: string) => void; // Add onPress prop for navigation
@@ -17,11 +19,14 @@ interface GroupListItemProps {
 const GroupListItem: React.FC<GroupListItemProps> = ({
   group,
   totals,
-  onDeleteGroup,
+  onArchiveGroup,
+  onRestoreGroup,
   onRemoveParticipant,
   onAddParticipant,
   onPress, // Destructure onPress
 }) => {
+  const isArchived = isExpenseGroupArchived(group);
+
   return (
     <View style={styles.groupCard}>
       {/* Group Header */}
@@ -36,12 +41,24 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
           <Text style={styles.openGroupText}>View details</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          accessibilityLabel={`Delete ${group.name}`}
+          accessibilityLabel={`${isArchived ? 'Restore' : 'Archive'} ${group.name}`}
           accessibilityRole='button'
-          onPress={() => onDeleteGroup(group.id)}
-          style={styles.deleteButton}
+          onPress={() =>
+            isArchived ? onRestoreGroup(group.id) : onArchiveGroup(group.id)
+          }
+          style={[
+            styles.lifecycleButton,
+            isArchived ? styles.restoreButton : styles.archiveButton,
+          ]}
         >
-          <Text style={styles.deleteButtonText}>Delete</Text>
+          <Text
+            style={[
+              styles.lifecycleButtonText,
+              isArchived && styles.restoreButtonText,
+            ]}
+          >
+            {isArchived ? 'Restore' : 'Archive'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -62,25 +79,28 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
         {group.participants.map((participant) => (
           <View key={participant.id} style={styles.participantItem}>
             <Text style={styles.participantName}>{participant.name}</Text>
-            <TouchableOpacity
-              accessibilityLabel={`Remove ${participant.name} from ${group.name}`}
-              accessibilityRole='button'
-              onPress={() => onRemoveParticipant(group.id, participant.id)}
-              style={styles.removeParticipantButton}
-            >
-              <Text style={styles.removeParticipantText}>×</Text>
-            </TouchableOpacity>
+            {!isArchived && (
+              <TouchableOpacity
+                accessibilityLabel={`Remove ${participant.name} from ${group.name}`}
+                accessibilityRole='button'
+                onPress={() => onRemoveParticipant(group.id, participant.id)}
+                style={styles.removeParticipantButton}
+              >
+                <Text style={styles.removeParticipantText}>×</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ))}
-        {/* Add Participant Button */}
-        <TouchableOpacity
-          accessibilityLabel={`Add participant to ${group.name}`}
-          accessibilityRole='button'
-          style={styles.addParticipantButton}
-          onPress={() => onAddParticipant(group)}
-        >
-          <Text style={styles.addParticipantText}>+ Add Participant</Text>
-        </TouchableOpacity>
+        {!isArchived && (
+          <TouchableOpacity
+            accessibilityLabel={`Add participant to ${group.name}`}
+            accessibilityRole='button'
+            style={styles.addParticipantButton}
+            onPress={() => onAddParticipant(group)}
+          >
+            <Text style={styles.addParticipantText}>+ Add Participant</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -120,20 +140,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: mobileTheme.spacing.xs,
   },
-  deleteButton: {
+  lifecycleButton: {
     minHeight: 44,
     minWidth: 68,
-    backgroundColor: mobileTheme.colors.danger,
     paddingHorizontal: mobileTheme.spacing.md,
     paddingVertical: mobileTheme.spacing.sm,
     borderRadius: mobileTheme.radii.control,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteButtonText: {
-    color: mobileTheme.colors.onPrimary,
+  archiveButton: {
+    backgroundColor: mobileTheme.colors.primaryContainer,
+  },
+  restoreButton: {
+    backgroundColor: mobileTheme.colors.primary,
+  },
+  lifecycleButtonText: {
+    color: mobileTheme.colors.onPrimaryContainer,
     fontSize: 14,
     fontWeight: '600',
+  },
+  restoreButtonText: {
+    color: mobileTheme.colors.onPrimary,
   },
   groupTotal: {
     fontSize: 16,

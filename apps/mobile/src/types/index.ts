@@ -26,6 +26,7 @@ export interface ExpenseGroup {
   name: string;
   participants: Participant[];
   createdAt: string;
+  archivedAt?: string;
 }
 
 export type ExpenseSpaceKind = 'personal' | 'shared';
@@ -129,6 +130,9 @@ export interface ExpenseState {
   // Group management
   addGroup: (name: string) => string; // Returns new group ID
   updateGroup: (group: ExpenseGroup) => void;
+  archiveGroup: (id: string) => void;
+  restoreGroup: (id: string) => void;
+  /** @deprecated Use archiveGroup for the non-destructive lifecycle action. */
   deleteGroup: (id: string) => void;
   getGroupById: (id: string) => ExpenseGroup | undefined;
 

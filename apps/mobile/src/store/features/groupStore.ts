@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ExpenseGroup, Participant } from '../../types';
+import {
+  archiveExpenseGroup,
+  isExpenseGroupArchived,
+  restoreExpenseGroup,
+} from '../../utils/groupDomain';
 import { createUuid } from '../../utils/ids';
 
 export interface GroupState {
@@ -10,6 +15,9 @@ export interface GroupState {
   // Actions
   addGroup: (name: string, creatorParticipant?: Participant) => string;
   updateGroup: (group: ExpenseGroup) => void;
+  archiveGroup: (id: string) => void;
+  restoreGroup: (id: string) => void;
+  /** @deprecated Use archiveGroup for the non-destructive lifecycle action. */
   deleteGroup: (id: string) => void;
   getGroupById: (id: string) => ExpenseGroup | undefined;
 
@@ -51,14 +59,29 @@ export const useGroupStore = create<GroupState>()(
       updateGroup: (updatedGroup) =>
         set((state) => ({
           groups: state.groups.map((group) =>
-            group.id === updatedGroup.id ? updatedGroup : group,
+            group.id === updatedGroup.id && !isExpenseGroupArchived(group)
+              ? updatedGroup
+              : group,
           ),
         })),
 
-      deleteGroup: (id) =>
+      archiveGroup: (id) => {
+        const archivedAt = new Date().toISOString();
         set((state) => ({
-          groups: state.groups.filter((group) => group.id !== id),
+          groups: state.groups.map((group) =>
+            group.id === id ? archiveExpenseGroup(group, archivedAt) : group,
+          ),
+        }));
+      },
+
+      restoreGroup: (id) =>
+        set((state) => ({
+          groups: state.groups.map((group) =>
+            group.id === id ? restoreExpenseGroup(group) : group,
+          ),
         })),
+
+      deleteGroup: (id) => get().archiveGroup(id),
 
       getGroupById: (id) => get().groups.find((group) => group.id === id),
 
@@ -66,6 +89,7 @@ export const useGroupStore = create<GroupState>()(
         set((state) => ({
           groups: state.groups.map((group) =>
             group.id === groupId &&
+            !isExpenseGroupArchived(group) &&
             !group.participants.some((p) => p.id === participantId)
               ? {
                   ...group,
@@ -78,7 +102,7 @@ export const useGroupStore = create<GroupState>()(
       removeParticipantFromGroup: (groupId, participantId) =>
         set((state) => ({
           groups: state.groups.map((group) =>
-            group.id === groupId
+            group.id === groupId && !isExpenseGroupArchived(group)
               ? {
                   ...group,
                   participants: group.participants.filter(
@@ -91,22 +115,30 @@ export const useGroupStore = create<GroupState>()(
 
       updateParticipantInGroups: (participantId, updatedParticipant) =>
         set((state) => ({
-          groups: state.groups.map((group) => ({
-            ...group,
-            participants: group.participants.map((p) =>
-              p.id === participantId ? updatedParticipant : p,
-            ),
-          })),
+          groups: state.groups.map((group) =>
+            isExpenseGroupArchived(group)
+              ? group
+              : {
+                  ...group,
+                  participants: group.participants.map((p) =>
+                    p.id === participantId ? updatedParticipant : p,
+                  ),
+                },
+          ),
         })),
 
       removeParticipantFromAllGroups: (participantId) =>
         set((state) => ({
-          groups: state.groups.map((group) => ({
-            ...group,
-            participants: group.participants.filter(
-              (p) => p.id !== participantId,
-            ),
-          })),
+          groups: state.groups.map((group) =>
+            isExpenseGroupArchived(group)
+              ? group
+              : {
+                  ...group,
+                  participants: group.participants.filter(
+                    (p) => p.id !== participantId,
+                  ),
+                },
+          ),
         })),
     }),
     {

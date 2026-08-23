@@ -1,7 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Expense, ExpenseGroup, Participant } from '../types'; // Import necessary types
-import { getExpenseCurrency, getExpensePayments } from '../utils/expenseDomain';
+import {
+  getExpenseCurrency,
+  getExpensePayments,
+  getExpenseSpaceKind,
+} from '../utils/expenseDomain';
 import { formatMinorUnits } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
 
@@ -30,6 +34,9 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
     payerId && allParticipants
       ? allParticipants.find((p) => p.id === payerId)
       : null;
+  const isHistoricalSharedExpense =
+    getExpenseSpaceKind(item) === 'shared' &&
+    (!group || Boolean(group.archivedAt));
 
   const handleDeletePress = () => {
     Alert.alert(
@@ -81,25 +88,30 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
         </View>
       </View>
 
-      {/* Action Buttons Area */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          accessibilityLabel={`Edit ${item.title}`}
-          accessibilityRole='button'
-          style={styles.editButton}
-          onPress={() => onEdit(item)}
-        >
-          <Text style={styles.editButtonText}>Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityLabel={`Delete ${item.title}`}
-          accessibilityRole='button'
-          style={styles.deleteButton}
-          onPress={handleDeletePress}
-        >
-          <Text style={styles.deleteButtonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
+      {isHistoricalSharedExpense ? (
+        <Text accessibilityRole='text' style={styles.readOnlyLabel}>
+          {group ? 'Archived shared history' : 'Historical shared expense'}
+        </Text>
+      ) : (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            accessibilityLabel={`Edit ${item.title}`}
+            accessibilityRole='button'
+            style={styles.editButton}
+            onPress={() => onEdit(item)}
+          >
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel={`Delete ${item.title}`}
+            accessibilityRole='button'
+            style={styles.deleteButton}
+            onPress={handleDeletePress}
+          >
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -187,6 +199,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end', // Align buttons to the right
     marginTop: mobileTheme.spacing.md,
     gap: mobileTheme.spacing.sm,
+  },
+  readOnlyLabel: {
+    alignSelf: 'flex-start',
+    marginTop: mobileTheme.spacing.md,
+    color: mobileTheme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
   editButton: {
     minHeight: 44,

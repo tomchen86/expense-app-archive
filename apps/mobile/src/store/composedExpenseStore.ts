@@ -163,6 +163,14 @@ export const useExpenseStore = create(
         useGroupStore.getState().updateGroup(group);
       },
 
+      archiveGroup: (id) => {
+        useGroupStore.getState().archiveGroup(id);
+      },
+
+      restoreGroup: (id) => {
+        useGroupStore.getState().restoreGroup(id);
+      },
+
       deleteGroup: (id) => {
         useGroupStore.getState().deleteGroup(id);
       },

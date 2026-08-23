@@ -230,6 +230,42 @@ describe('useExpenseForm', () => {
 
     expect(ref.current!.formState.selectedGroup?.id).toBe(group.id);
   });
+
+  it('excludes archived groups from new expense selection and route preselection', () => {
+    const archivedGroup: ExpenseGroup = {
+      id: 'archived-space',
+      name: 'Archived Space',
+      participants: [],
+      createdAt: '2025-02-01T00:00:00.000Z',
+      archivedAt: '2026-08-24T00:00:00.000Z',
+    };
+    const activeGroup: ExpenseGroup = {
+      id: 'active-space',
+      name: 'Active Space',
+      participants: [],
+      createdAt: '2025-02-02T00:00:00.000Z',
+    };
+    act(() => {
+      useGroupStore.setState({ groups: [archivedGroup, activeGroup] });
+      useComposedExpenseStore.setState({
+        groups: [archivedGroup, activeGroup],
+      });
+    });
+
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={ref}
+          editingExpense={null}
+          initialSpaceId={archivedGroup.id}
+        />,
+      );
+    });
+
+    expect(ref.current!.groups).toEqual([activeGroup]);
+    expect(ref.current!.formState.selectedGroup).toBeNull();
+  });
   it('updates an existing expense when editing', async () => {
     const participant: Participant = { id: 'p1', name: 'Alex' };
     const group: ExpenseGroup = {
@@ -724,6 +760,63 @@ describe('useExpenseForm', () => {
         <HookHarness ref={ref} editingExpense={existingExpense} />,
       );
     });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Changed title');
+    });
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      existingExpense,
+    ]);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Historical Shared Expense',
+      'Restore its group before editing this expense.',
+    );
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('loads archived shared context but requires restore before editing', async () => {
+    const participant: Participant = { id: 'p1', name: 'Alex' };
+    const archivedGroup: ExpenseGroup = {
+      id: 'archived-group-edit',
+      name: 'Archived Group',
+      participants: [participant],
+      createdAt: '2026-08-01T00:00:00.000Z',
+      archivedAt: '2026-08-24T00:00:00.000Z',
+    };
+    const existingExpense: Expense = {
+      id: 'archived-expense-edit',
+      title: 'Historical dinner',
+      amountMinor: 9000,
+      currency: 'AUD',
+      date: '2026-08-20',
+      category: 'Food & Dining',
+      spaceId: archivedGroup.id,
+      spaceKind: 'shared',
+      payments: [{ participantId: participant.id, amountMinor: 9000 }],
+      shares: [{ participantId: participant.id, amountMinor: 9000 }],
+    };
+    act(() => {
+      useParticipantStore.setState({ participants: [participant] });
+      useGroupStore.setState({ groups: [archivedGroup] });
+      useExpenseFeatureStore.setState({ expenses: [existingExpense] });
+      useComposedExpenseStore.setState({
+        expenses: [existingExpense],
+        groups: [archivedGroup],
+        participants: [participant],
+      });
+    });
+    await flushExpensePersistence();
+
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness ref={ref} editingExpense={existingExpense} />,
+      );
+    });
+    expect(ref.current!.formState.selectedGroup?.id).toBe(archivedGroup.id);
     act(() => {
       ref.current!.handleUpdateFormState('title', 'Changed title');
     });

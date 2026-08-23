@@ -105,14 +105,41 @@ describe('adaptive UI accessibility contracts', () => {
     );
   });
 
+  it('keeps archived shared history read-only', () => {
+    const archivedGroup: ExpenseGroup = {
+      ...group,
+      archivedAt: '2026-08-24T00:00:00.000Z',
+    };
+    const screen = render(
+      <ExpenseListItem
+        allParticipants={participants}
+        currency='AUD'
+        displayAmountMinor={4_000}
+        group={archivedGroup}
+        item={expense}
+        onDelete={jest.fn()}
+        onEdit={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: `Edit ${expense.title}` }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: `Delete ${expense.title}` }),
+    ).toBeNull();
+    expect(screen.getByText('Archived shared history')).toBeTruthy();
+  });
+
   it('separates group navigation from labelled participant actions', () => {
     const screen = render(
       <GroupListItem
         group={group}
         onAddParticipant={jest.fn()}
-        onDeleteGroup={jest.fn()}
+        onArchiveGroup={jest.fn()}
         onPress={jest.fn()}
         onRemoveParticipant={jest.fn()}
+        onRestoreGroup={jest.fn()}
         totals={[{ amountMinor: 12_000, currency: 'AUD' }]}
       />,
     );
@@ -121,7 +148,7 @@ describe('adaptive UI accessibility contracts', () => {
       screen.getByRole('button', { name: `Open ${group.name}` }),
     ).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: `Delete ${group.name}` }),
+      screen.getByRole('button', { name: `Archive ${group.name}` }),
     ).toBeTruthy();
     expect(
       screen.getByRole('button', {
@@ -133,6 +160,38 @@ describe('adaptive UI accessibility contracts', () => {
         name: `Add participant to ${group.name}`,
       }),
     ).toBeTruthy();
+  });
+
+  it('offers restore without membership mutations for an archived group', () => {
+    const archivedGroup: ExpenseGroup = {
+      ...group,
+      archivedAt: '2026-08-24T00:00:00.000Z',
+    };
+    const screen = render(
+      <GroupListItem
+        group={archivedGroup}
+        onAddParticipant={jest.fn()}
+        onArchiveGroup={jest.fn()}
+        onPress={jest.fn()}
+        onRemoveParticipant={jest.fn()}
+        onRestoreGroup={jest.fn()}
+        totals={[{ amountMinor: 12_000, currency: 'AUD' }]}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: `Restore ${group.name}` }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', {
+        name: `Remove ${participants[1].name} from ${group.name}`,
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', {
+        name: `Add participant to ${group.name}`,
+      }),
+    ).toBeNull();
   });
 
   it('keeps Settings scrollable when the keyboard or larger text reduces space', () => {

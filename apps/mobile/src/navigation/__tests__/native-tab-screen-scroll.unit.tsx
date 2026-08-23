@@ -50,8 +50,8 @@ const mockMobileState = {
   addGroup: jest.fn(),
   addParticipant: jest.fn(),
   addParticipantToGroup: jest.fn(),
+  archiveGroup: jest.fn(),
   deleteExpense: jest.fn(),
-  deleteGroup: jest.fn(),
   expenses: [],
   groups: [],
   internalUserId: 'user-1',
@@ -59,6 +59,7 @@ const mockMobileState = {
   personalParticipantId: 'personal-participant-1',
   personalSpaceId: 'personal-space-1',
   removeParticipantFromGroup: jest.fn(),
+  restoreGroup: jest.fn(),
   userSettings: { name: 'Alex' },
 };
 

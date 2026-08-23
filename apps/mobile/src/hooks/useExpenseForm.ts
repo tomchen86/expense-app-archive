@@ -34,6 +34,7 @@ import {
   getExpenseSpaceId,
   getExpenseSpaceKind,
 } from '../utils/expenseDomain';
+import { isExpenseGroupArchived } from '../utils/groupDomain';
 
 // Define the shape of the form data
 interface FormState {
@@ -103,7 +104,7 @@ export const useExpenseForm = ({
   // Get data and actions from the Zustand store
   const addExpenseToStore = useExpenseStore((state) => state.addExpense);
   const updateExpenseToStore = useExpenseStore((state) => state.updateExpense);
-  const groups = useExpenseStore((state) => state.groups);
+  const allGroups = useExpenseStore((state) => state.groups);
   const participants = useExpenseStore((state) => state.participants);
   const categories = useExpenseStore((state) => state.categories);
   const userSettings = useExpenseStore((state) => state.userSettings);
@@ -116,6 +117,10 @@ export const useExpenseForm = ({
   );
 
   const isEditing = !!editingExpense;
+  const groups = useMemo(
+    () => allGroups.filter((group) => !isExpenseGroupArchived(group)),
+    [allGroups],
+  );
 
   // Find the current user's participant entry
   const _currentUserParticipant = useMemo(() => {
@@ -200,7 +205,7 @@ export const useExpenseForm = ({
     const expenseSpaceId = getExpenseSpaceId(editingExpense);
     const group =
       expenseSpaceId && getExpenseSpaceKind(editingExpense) !== 'personal'
-        ? (groups.find((g) => g.id === expenseSpaceId) ?? null)
+        ? (allGroups.find((g) => g.id === expenseSpaceId) ?? null)
         : null;
     const paymentParticipantId =
       getExpensePayments(editingExpense)[0]?.participantId;
@@ -234,7 +239,14 @@ export const useExpenseForm = ({
       paidByParticipant: paidBy,
       selectedParticipants: splitBetween,
     });
-  }, [editingExpense, groups, participants, categories, initialSpaceId]);
+  }, [
+    editingExpense,
+    allGroups,
+    groups,
+    participants,
+    categories,
+    initialSpaceId,
+  ]);
 
   useEffect(() => {
     submissionContextGeneration.current += 1;
@@ -310,11 +322,11 @@ export const useExpenseForm = ({
       : undefined;
     const originalSharedGroup =
       originalSpaceKind === 'shared' && originalSpaceId
-        ? groups.find((group) => group.id === originalSpaceId)
+        ? allGroups.find((group) => group.id === originalSpaceId)
         : undefined;
 
     if (editingExpense && originalSpaceKind === 'shared') {
-      if (!originalSharedGroup) {
+      if (!originalSharedGroup || isExpenseGroupArchived(originalSharedGroup)) {
         Alert.alert(
           'Historical Shared Expense',
           'Restore its group before editing this expense.',

@@ -1,4 +1,4 @@
-import React, { useState, useMemo as _useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import FloatingActionButton from '../../src/components/FloatingActionButton';
 import { calculateGroupTotalsByCurrency } from '../../src/utils/groupCalculations';
 import { ScreenHeading } from '../../src/components/ui/screen-heading';
 import { mobileTheme } from '../../src/theme/tokens';
+import { isExpenseGroupArchived } from '../../src/utils/groupDomain';
 
 const HistoryScreen = () => {
   const groups = useExpenseStore((state) => state.groups);
@@ -32,24 +33,35 @@ const HistoryScreen = () => {
   const removeParticipantFromGroup = useExpenseStore(
     (state) => state.removeParticipantFromGroup,
   );
-  const deleteGroup = useExpenseStore((state) => state.deleteGroup);
+  const archiveGroup = useExpenseStore((state) => state.archiveGroup);
+  const restoreGroup = useExpenseStore((state) => state.restoreGroup);
 
   const [isNewGroupModalVisible, setIsNewGroupModalVisible] = useState(false);
+  const [showArchivedGroups, setShowArchivedGroups] = useState(false);
   const [isAddParticipantModalVisible, setIsAddParticipantModalVisible] =
     useState(false);
   const [groupToAddParticipantTo, setGroupToAddParticipantTo] =
     useState<ExpenseGroup | null>(null);
 
-  const handleDeleteGroup = (groupId: string) => {
+  const activeGroups = useMemo(
+    () => groups.filter((group) => !isExpenseGroupArchived(group)),
+    [groups],
+  );
+  const archivedGroups = useMemo(
+    () => groups.filter(isExpenseGroupArchived),
+    [groups],
+  );
+  const visibleGroups = showArchivedGroups ? archivedGroups : activeGroups;
+
+  const handleArchiveGroup = (groupId: string) => {
     Alert.alert(
-      'Delete Group',
-      'Are you sure you want to delete this group? This will not delete the expenses.',
+      'Archive Group',
+      'This hides the group from daily use while retaining its expenses, participants, payments, and shares.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteGroup(groupId),
+          text: 'Archive',
+          onPress: () => archiveGroup(groupId),
         },
       ],
     );
@@ -121,10 +133,11 @@ const HistoryScreen = () => {
       <GroupListItem
         group={group}
         totals={totals}
-        onDeleteGroup={handleDeleteGroup}
+        onArchiveGroup={handleArchiveGroup}
         onRemoveParticipant={handleRemoveParticipant}
         onAddParticipant={openAddParticipantModal}
         onPress={handleGroupPress}
+        onRestoreGroup={restoreGroup}
       />
     );
   };
@@ -133,25 +146,55 @@ const HistoryScreen = () => {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       <FlatList
         contentContainerStyle={styles.groupsList}
-        data={groups}
+        data={visibleGroups}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View>
             <ScreenHeading
               title='Groups'
-              subtitle='Shared spending without the guesswork.'
+              subtitle={
+                showArchivedGroups
+                  ? 'Read-only shared history.'
+                  : 'Shared spending without the guesswork.'
+              }
             />
-            <TouchableOpacity
-              accessibilityRole='button'
-              style={styles.createGroupButton}
-              onPress={openNewGroupModal}
-            >
-              <Text style={styles.createGroupButtonText}>Create New Group</Text>
-            </TouchableOpacity>
+            {(archivedGroups.length > 0 || showArchivedGroups) && (
+              <TouchableOpacity
+                accessibilityLabel={
+                  showArchivedGroups
+                    ? 'View active groups'
+                    : 'View archived groups'
+                }
+                accessibilityRole='button'
+                style={styles.archiveToggleButton}
+                onPress={() => setShowArchivedGroups((visible) => !visible)}
+              >
+                <Text style={styles.archiveToggleButtonText}>
+                  {showArchivedGroups
+                    ? 'View Active Groups'
+                    : `View Archived Groups (${archivedGroups.length})`}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {!showArchivedGroups && (
+              <TouchableOpacity
+                accessibilityRole='button'
+                style={styles.createGroupButton}
+                onPress={openNewGroupModal}
+              >
+                <Text style={styles.createGroupButtonText}>
+                  Create New Group
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         }
         ListEmptyComponent={
-          <Text style={styles.emptyListText}>No groups yet. Create one!</Text>
+          <Text style={styles.emptyListText}>
+            {showArchivedGroups
+              ? 'No archived groups.'
+              : 'No groups yet. Create one!'}
+          </Text>
         }
         renderItem={renderGroupListItem}
       />
@@ -176,7 +219,9 @@ const HistoryScreen = () => {
           setGroupToAddParticipantTo(null);
         }}
       />
-      <FloatingActionButton nativeTabsContentInsetApplied />
+      {!showArchivedGroups && (
+        <FloatingActionButton nativeTabsContentInsetApplied />
+      )}
     </SafeAreaView>
   );
 };
@@ -198,6 +243,21 @@ const styles = StyleSheet.create({
   createGroupButtonText: {
     color: mobileTheme.colors.onPrimary,
     fontSize: 17,
+    fontWeight: '700',
+  },
+  archiveToggleButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: mobileTheme.spacing.md,
+    borderRadius: mobileTheme.radii.control,
+    backgroundColor: mobileTheme.colors.surfaceVariant,
+    borderColor: mobileTheme.colors.border,
+    borderWidth: 1,
+  },
+  archiveToggleButtonText: {
+    color: mobileTheme.colors.primary,
+    fontSize: 15,
     fontWeight: '700',
   },
   groupsList: {

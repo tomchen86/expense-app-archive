@@ -301,9 +301,8 @@ describe('HistoryScreen Logic', () => {
           options.push({ label: 'Edit Group', action: 'edit-group' });
           options.push({ label: 'Manage Members', action: 'manage-members' });
           options.push({
-            label: 'Delete Group',
-            action: 'delete-group',
-            destructive: true,
+            label: 'Archive Group',
+            action: 'archive-group',
           });
         } else {
           options.push({
@@ -323,13 +322,13 @@ describe('HistoryScreen Logic', () => {
       const memberOptions = getGroupActionOptions(memberGroup, 'user1');
 
       expect(
-        ownerOptions.find((opt) => opt.action === 'delete-group'),
+        ownerOptions.find((opt) => opt.action === 'archive-group'),
       ).toBeDefined();
       expect(
         memberOptions.find((opt) => opt.action === 'leave-group'),
       ).toBeDefined();
       expect(
-        memberOptions.find((opt) => opt.action === 'delete-group'),
+        memberOptions.find((opt) => opt.action === 'archive-group'),
       ).toBeUndefined();
     });
   });

@@ -53,6 +53,7 @@ describe('ComposedExpenseStore', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     resetAllStores();
   });
 
@@ -120,41 +121,101 @@ describe('ComposedExpenseStore', () => {
     ).toBeUndefined();
   });
 
-  it('removes a group while retaining linked expense history', () => {
+  it('archives and restores a group without rewriting financial or participant records', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-24T01:02:03.000Z'));
+    const participants: Participant[] = [
+      {
+        id: 'participant-1',
+        name: 'Casey',
+        spaceId: 'group-1',
+        userId: 'user-1',
+      },
+      { id: 'participant-2', name: 'Drew', spaceId: 'group-1' },
+    ];
+    const payments = [{ participantId: 'participant-1', amountMinor: 20000 }];
+    const shares = [
+      { participantId: 'participant-1', amountMinor: 10000 },
+      { participantId: 'participant-2', amountMinor: 10000 },
+    ];
+    const sync = {
+      mutationId: 'mutation-1',
+      serverVersion: 3,
+      localRevision: 0,
+      status: 'synced' as const,
+      updatedAt: '2026-08-23T00:00:00.000Z',
+    };
     const expense: Expense = {
       id: 'expense-1',
       title: 'Hotel',
-      amount: 200,
+      amountMinor: 20000,
+      currency: 'AUD',
       date: '2025-03-01',
       category: 'Travel',
-      groupId: 'group-1',
+      spaceId: 'group-1',
+      spaceKind: 'shared',
+      payments,
+      shares,
+      sync,
     };
     const group: ExpenseGroup = {
       id: 'group-1',
       name: 'Trip Crew',
-      participants: [],
+      participants,
       createdAt: '2025-02-01T00:00:00.000Z',
     };
 
+    useParticipantStore.setState({ participants });
     useGroupStore.setState({ groups: [group] });
     useExpenseFeatureStore.setState({ expenses: [expense] });
     useComposedExpenseStore.setState({
+      participants,
       groups: [group],
       expenses: [expense],
     });
+    const featureExpensesBefore = useExpenseFeatureStore.getState().expenses;
+    const featureParticipantsBefore =
+      useParticipantStore.getState().participants;
+    const composedExpensesBefore = useComposedExpenseStore.getState().expenses;
+    const composedParticipantsBefore =
+      useComposedExpenseStore.getState().participants;
 
     useComposedExpenseStore.getState().deleteGroup('group-1');
 
-    expect(useGroupStore.getState().groups).toHaveLength(0);
-    const updatedExpense = useExpenseFeatureStore
-      .getState()
-      .expenses.find((item) => item.id === 'expense-1');
-    expect(updatedExpense?.groupId).toBe('group-1');
+    const archivedGroup = useGroupStore.getState().getGroupById('group-1');
+    expect(archivedGroup).toEqual({
+      ...group,
+      archivedAt: '2026-08-24T01:02:03.000Z',
+    });
+    expect(archivedGroup?.participants).toBe(participants);
+    expect(useExpenseFeatureStore.getState().expenses).toBe(
+      featureExpensesBefore,
+    );
+    expect(useParticipantStore.getState().participants).toBe(
+      featureParticipantsBefore,
+    );
+    expect(useComposedExpenseStore.getState().expenses).toBe(
+      composedExpensesBefore,
+    );
+    expect(useComposedExpenseStore.getState().participants).toBe(
+      composedParticipantsBefore,
+    );
+    expect(featureExpensesBefore[0]).toBe(expense);
+    expect(featureExpensesBefore[0].payments).toBe(payments);
+    expect(featureExpensesBefore[0].shares).toBe(shares);
+    expect(featureExpensesBefore[0].sync).toBe(sync);
 
-    const composedExpense = useComposedExpenseStore
-      .getState()
-      .expenses.find((item) => item.id === 'expense-1');
-    expect(composedExpense?.groupId).toBe('group-1');
+    useComposedExpenseStore.getState().restoreGroup('group-1');
+
+    const restoredGroup = useGroupStore.getState().getGroupById('group-1');
+    expect(restoredGroup).toEqual(group);
+    expect(restoredGroup?.participants).toBe(participants);
+    expect(useExpenseFeatureStore.getState().expenses).toBe(
+      featureExpensesBefore,
+    );
+    expect(useParticipantStore.getState().participants).toBe(
+      featureParticipantsBefore,
+    );
   });
 
   it('deactivates a participant while retaining expense allocations', () => {

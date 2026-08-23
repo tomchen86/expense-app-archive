@@ -8,6 +8,7 @@ import { useCategoryStore } from '../features/categoryStore';
 import { useGroupStore } from '../features/groupStore';
 import { useParticipantStore } from '../features/participantStore';
 import type { Expense } from '../../types';
+import { isExpenseGroupArchived } from '../../utils/groupDomain';
 
 const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 
@@ -17,6 +18,7 @@ describe('durable mobile store hydration', () => {
     storage.getItem.mockResolvedValue(null);
     storage.setItem.mockResolvedValue(undefined);
     useExpenseFeatureStore.setState({ expenses: [] });
+    useGroupStore.setState({ groups: [] });
     await useExpenseFeatureStore.persist.clearStorage();
   });
 
@@ -204,6 +206,54 @@ describe('durable mobile store hydration', () => {
       status: 'pending',
       deletedAt: expect.any(String),
     });
+  });
+
+  it('persists archive and restore under the existing group storage contract', async () => {
+    const group = {
+      id: 'group-archive-persist',
+      name: 'Persisted Archive',
+      participants: [],
+      createdAt: '2026-08-20T00:00:00.000Z',
+    };
+    useGroupStore.setState({ groups: [group] });
+    await Promise.resolve();
+    storage.setItem.mockClear();
+
+    useGroupStore.getState().archiveGroup(group.id);
+    await Promise.resolve();
+
+    const archiveWrite = storage.setItem.mock.calls.find(
+      ([key, value]) =>
+        key === 'expense-mobile-groups-v2' && value.includes('archivedAt'),
+    );
+    expect(archiveWrite).toBeDefined();
+
+    storage.setItem.mockClear();
+    useGroupStore.getState().restoreGroup(group.id);
+    await Promise.resolve();
+
+    const restoreWrite = storage.setItem.mock.calls.find(
+      ([key]) => key === 'expense-mobile-groups-v2',
+    );
+    expect(restoreWrite?.[1]).not.toContain('archivedAt');
+  });
+
+  it('rehydrates a legacy v2 group as active', async () => {
+    const legacyGroup = {
+      id: 'legacy-active-group',
+      name: 'Legacy Active',
+      participants: [],
+      createdAt: '2025-01-01T00:00:00.000Z',
+    };
+    storage.getItem.mockResolvedValueOnce(
+      JSON.stringify({ state: { groups: [legacyGroup] }, version: 2 }),
+    );
+
+    await useGroupStore.persist.rehydrate();
+
+    const hydrated = useGroupStore.getState().getGroupById(legacyGroup.id);
+    expect(hydrated).toEqual(legacyGroup);
+    expect(isExpenseGroupArchived(hydrated!)).toBe(false);
   });
 
   it('rehydrates the same expense after an offline restart', async () => {
