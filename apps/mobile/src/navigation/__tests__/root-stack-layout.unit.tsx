@@ -47,6 +47,7 @@ describe('RootLayout', () => {
     expect(screen.getByTestId('root-stack').props.screenOptions).toEqual(
       expect.objectContaining({
         headerBackButtonDisplayMode: 'minimal',
+        headerBackTitle: 'Back',
       }),
     );
   });
