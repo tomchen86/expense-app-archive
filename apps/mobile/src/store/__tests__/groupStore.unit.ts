@@ -13,7 +13,7 @@ describe('GroupStore', () => {
 
   const sampleParticipant: Participant = { id: 'p1', name: 'Alice' };
 
-  it('creates a group with the optional creator participant', () => {
+  it('creates a group with its required creator participant', () => {
     const { addGroup } = useGroupStore.getState();
 
     const id = addGroup('Weekend Trip', sampleParticipant);
@@ -30,6 +30,15 @@ describe('GroupStore', () => {
       participants: [sampleParticipant],
     });
     expect(new Date(created!.createdAt).toString()).not.toBe('Invalid Date');
+  });
+
+  it('rejects an ownerless group write at the feature-store boundary', () => {
+    const { addGroup } = useGroupStore.getState();
+
+    expect(() =>
+      addGroup('Ownerless', undefined as unknown as Participant),
+    ).toThrow('A group owner is required.');
+    expect(useGroupStore.getState().groups).toEqual([]);
   });
 
   it("updates a group's fields", () => {
@@ -110,18 +119,25 @@ describe('GroupStore', () => {
       updateParticipantInGroups,
     } = useGroupStore.getState();
     const id = addGroup('Immutable History', sampleParticipant);
-    addParticipantToGroup(id, participant.id, participant);
+    addParticipantToGroup(
+      id,
+      participant.id,
+      participant,
+      sampleParticipant.id,
+    );
     archiveGroup(id);
     const archivedGroup = useGroupStore.getState().getGroupById(id)!;
 
     updateGroup({ ...archivedGroup, name: 'Unexpected rename' });
-    addParticipantToGroup(id, newcomer.id, newcomer);
-    removeParticipantFromGroup(id, sampleParticipant.id);
+    addParticipantToGroup(id, newcomer.id, newcomer, sampleParticipant.id);
+    removeParticipantFromGroup(id, sampleParticipant.id, sampleParticipant.id);
     updateParticipantInGroups(participant.id, {
       ...participant,
       name: 'Unexpected update',
     });
-    removeParticipantFromAllGroups(participant.id);
+    removeParticipantFromAllGroups(participant.id, {
+      [id]: sampleParticipant.id,
+    });
 
     expect(useGroupStore.getState().getGroupById(id)).toBe(archivedGroup);
   });
@@ -153,8 +169,18 @@ describe('GroupStore', () => {
 
     const participant: Participant = { id: 'p2', name: 'Blake' };
 
-    addParticipantToGroup(id, participant.id, participant);
-    addParticipantToGroup(id, participant.id, participant);
+    addParticipantToGroup(
+      id,
+      participant.id,
+      participant,
+      sampleParticipant.id,
+    );
+    addParticipantToGroup(
+      id,
+      participant.id,
+      participant,
+      sampleParticipant.id,
+    );
 
     const group = useGroupStore
       .getState()
@@ -174,7 +200,12 @@ describe('GroupStore', () => {
     const id = addGroup('Club', sampleParticipant);
     const participant: Participant = { id: 'p2', name: 'Blake' };
 
-    addParticipantToGroup(id, participant.id, participant);
+    addParticipantToGroup(
+      id,
+      participant.id,
+      participant,
+      sampleParticipant.id,
+    );
     updateParticipantInGroups(participant.id, {
       id: 'p2',
       name: 'Blake Updated',
@@ -188,17 +219,53 @@ describe('GroupStore', () => {
       name: 'Blake Updated',
     });
 
-    removeParticipantFromGroup(id, participant.id);
+    removeParticipantFromGroup(id, participant.id, sampleParticipant.id);
     group = useGroupStore
       .getState()
       .groups.find((existing) => existing.id === id);
     expect(group?.participants).toEqual([sampleParticipant]);
 
-    addParticipantToGroup(id, participant.id, participant);
-    removeParticipantFromAllGroups(participant.id);
+    addParticipantToGroup(
+      id,
+      participant.id,
+      participant,
+      sampleParticipant.id,
+    );
+    removeParticipantFromAllGroups(participant.id, {
+      [id]: sampleParticipant.id,
+    });
     group = useGroupStore
       .getState()
       .groups.find((existing) => existing.id === id);
     expect(group?.participants).toEqual([sampleParticipant]);
+  });
+
+  it('guards the signed-in and final group members from removal', () => {
+    const { addGroup, addParticipantToGroup, removeParticipantFromGroup } =
+      useGroupStore.getState();
+    const id = addGroup('Protected membership', sampleParticipant);
+    const participant: Participant = { id: 'p2', name: 'Blake' };
+    addParticipantToGroup(
+      id,
+      participant.id,
+      participant,
+      sampleParticipant.id,
+    );
+
+    removeParticipantFromGroup(id, sampleParticipant.id, sampleParticipant.id);
+    expect(useGroupStore.getState().getGroupById(id)?.participants).toEqual([
+      sampleParticipant,
+      participant,
+    ]);
+
+    removeParticipantFromGroup(id, participant.id, sampleParticipant.id);
+    expect(useGroupStore.getState().getGroupById(id)?.participants).toEqual([
+      sampleParticipant,
+    ]);
+
+    removeParticipantFromGroup(id, sampleParticipant.id, sampleParticipant.id);
+    expect(useGroupStore.getState().getGroupById(id)?.participants).toEqual([
+      sampleParticipant,
+    ]);
   });
 });

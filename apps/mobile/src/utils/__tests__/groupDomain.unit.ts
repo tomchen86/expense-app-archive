@@ -1,5 +1,9 @@
 import type { ExpenseGroup } from '../../types';
-import { getExpenseGroupStatus, isExpenseGroupArchived } from '../groupDomain';
+import {
+  canRemoveParticipantFromGroup,
+  getExpenseGroupStatus,
+  isExpenseGroupArchived,
+} from '../groupDomain';
 
 const legacyGroup: ExpenseGroup = {
   id: 'group-legacy',
@@ -22,5 +26,37 @@ describe('group lifecycle domain', () => {
 
     expect(getExpenseGroupStatus(archivedGroup)).toBe('archived');
     expect(isExpenseGroupArchived(archivedGroup)).toBe(true);
+  });
+
+  it('requires a resolved signed-in participant before allowing removal', () => {
+    const group: ExpenseGroup = {
+      ...legacyGroup,
+      participants: [
+        { id: 'participant-alex', name: 'Alex' },
+        { id: 'participant-blake', name: 'Blake' },
+      ],
+    };
+
+    expect(
+      canRemoveParticipantFromGroup(group, 'participant-blake', null),
+    ).toBe(false);
+  });
+
+  it('rejects a stale protected participant that is not in the group', () => {
+    const group: ExpenseGroup = {
+      ...legacyGroup,
+      participants: [
+        { id: 'participant-alex', name: 'Alex' },
+        { id: 'participant-blake', name: 'Blake' },
+      ],
+    };
+
+    expect(
+      canRemoveParticipantFromGroup(
+        group,
+        'participant-blake',
+        'participant-from-another-group',
+      ),
+    ).toBe(false);
   });
 });

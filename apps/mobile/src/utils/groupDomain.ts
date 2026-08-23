@@ -24,3 +24,17 @@ export const restoreExpenseGroup = (group: ExpenseGroup): ExpenseGroup => {
   const { archivedAt: _archivedAt, ...restoredGroup } = group;
   return restoredGroup;
 };
+
+export const canRemoveParticipantFromGroup = (
+  group: ExpenseGroup,
+  participantId: string,
+  protectedParticipantId: string | null,
+): boolean =>
+  protectedParticipantId !== null &&
+  group.participants.some(
+    (participant) => participant.id === protectedParticipantId,
+  ) &&
+  !isExpenseGroupArchived(group) &&
+  group.participants.length > 1 &&
+  participantId !== protectedParticipantId &&
+  group.participants.some((participant) => participant.id === participantId);

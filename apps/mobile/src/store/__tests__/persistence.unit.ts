@@ -5,8 +5,11 @@ import {
 } from '../features/expenseStore';
 import { flushUserPersistence, useUserStore } from '../features/userStore';
 import { useCategoryStore } from '../features/categoryStore';
-import { useGroupStore } from '../features/groupStore';
-import { useParticipantStore } from '../features/participantStore';
+import { flushGroupPersistence, useGroupStore } from '../features/groupStore';
+import {
+  flushParticipantPersistence,
+  useParticipantStore,
+} from '../features/participantStore';
 import type { Expense } from '../../types';
 import { isExpenseGroupArchived } from '../../utils/groupDomain';
 
@@ -264,6 +267,57 @@ describe('durable mobile store hydration', () => {
     await expect(flushExpensePersistence()).resolves.toBeUndefined();
     expect(storage.setItem).toHaveBeenCalledTimes(2);
     expect(storage.setItem.mock.calls[1]).toEqual(failedWrite);
+  });
+
+  it('retains a failed group payload so a later flush retries the exact snapshot', async () => {
+    await flushGroupPersistence();
+    storage.setItem.mockClear();
+    storage.setItem.mockRejectedValueOnce(new Error('group disk unavailable'));
+    useGroupStore.setState({
+      groups: [
+        {
+          id: 'group-retry',
+          name: 'Retry group snapshot',
+          participants: [{ id: 'owner-1', name: 'Owner' }],
+          createdAt: '2026-08-24T00:00:00.000Z',
+        },
+      ],
+    });
+
+    await expect(flushGroupPersistence()).rejects.toThrow(
+      'group disk unavailable',
+    );
+    const failedWrite = storage.setItem.mock.calls[0];
+
+    await expect(flushGroupPersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual(failedWrite);
+  });
+
+  it('exposes a participant flush that waits for the durable snapshot', async () => {
+    await flushParticipantPersistence();
+    storage.setItem.mockClear();
+    let releaseWrite: (() => void) | undefined;
+    storage.setItem.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseWrite = resolve;
+        }),
+    );
+    useParticipantStore.setState({
+      participants: [{ id: 'participant-await', name: 'Await durability' }],
+    });
+
+    let flushed = false;
+    const flush = flushParticipantPersistence().then(() => {
+      flushed = true;
+    });
+    await Promise.resolve();
+    expect(flushed).toBe(false);
+
+    releaseWrite!();
+    await flush;
+    expect(flushed).toBe(true);
   });
 
   it('does not revive a failed snapshot after storage is cleared', async () => {

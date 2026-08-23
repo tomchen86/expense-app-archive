@@ -73,10 +73,20 @@ export interface UserState {
   updateSettings: (settingsData: Partial<Settings>) => void;
   createUser: (displayName: string) => string; // Returns user ID
   ensureLocalIdentityPersisted: () => Promise<void>;
+  restoreProfileIfCurrent: (
+    expected: UserProfileSnapshot,
+    previous: UserProfileSnapshot,
+  ) => boolean;
 
   // Legacy actions (temporary)
   updateUserSettings: (settings: UserSettings) => void;
   getInternalUserId: () => string;
+}
+
+export interface UserProfileSnapshot {
+  user: User | null;
+  userSettings: UserSettings | null;
+  internalUserId: string | null;
 }
 
 export const useUserStore = create<UserState>()(
@@ -93,6 +103,7 @@ export const useUserStore = create<UserState>()(
         currency: 'USD',
         dateFormat: 'MM/DD/YYYY',
         notifications: true,
+        insightsChartPreference: 'auto',
       };
 
       return {
@@ -109,16 +120,21 @@ export const useUserStore = create<UserState>()(
         // New actions
         updateUser: (userData) => {
           const currentUser = get().user;
+          const repairedInternalUserId =
+            get().internalUserId || currentUser?.id || initialUserId;
           const updatedUser = currentUser
             ? { ...currentUser, ...userData }
             : {
-                id: get().internalUserId || initialUserId,
+                id: repairedInternalUserId,
                 displayName: '',
                 personalSpaceId: get().personalSpaceId,
                 ...userData,
               };
 
-          set({ user: updatedUser });
+          set({
+            internalUserId: repairedInternalUserId,
+            user: updatedUser,
+          });
         },
 
         updateSettings: (settingsData) => {
@@ -138,31 +154,69 @@ export const useUserStore = create<UserState>()(
         },
 
         ensureLocalIdentityPersisted: () => {
-          const { internalUserId, personalSpaceId, personalParticipantId } =
-            get();
+          const state = get();
+          const internalUserId =
+            state.internalUserId || state.user?.id || createUuid();
+          const personalSpaceId = state.personalSpaceId || createUuid();
+          const personalParticipantId =
+            state.personalParticipantId || createUuid();
+          const user = state.user
+            ? {
+                ...state.user,
+                personalSpaceId,
+              }
+            : state.userSettings?.name
+              ? {
+                  id: internalUserId,
+                  displayName: state.userSettings.name,
+                  personalSpaceId,
+                }
+              : null;
           set({
             internalUserId,
             personalSpaceId,
             personalParticipantId,
+            user,
           });
           return flushUserPersistence();
         },
 
+        restoreProfileIfCurrent: (expected, previous) => {
+          const state = get();
+          if (
+            state.user !== expected.user ||
+            state.userSettings !== expected.userSettings ||
+            state.internalUserId !== expected.internalUserId
+          ) {
+            return false;
+          }
+          set(previous);
+          return true;
+        },
+
         // Legacy actions (temporary)
         updateUserSettings: (settings) => {
-          set({ userSettings: settings });
+          const currentUser = get().user;
+          const repairedInternalUserId =
+            get().internalUserId || currentUser?.id || initialUserId;
+          set({
+            internalUserId: repairedInternalUserId,
+            userSettings: settings,
+          });
 
           // Sync to new structure if possible
           if (settings.name) {
-            const currentUser = get().user;
             const updatedUser = currentUser
               ? { ...currentUser, displayName: settings.name }
               : {
-                  id: get().internalUserId || initialUserId,
+                  id: repairedInternalUserId,
                   displayName: settings.name,
                   personalSpaceId: get().personalSpaceId,
                 };
-            set({ user: updatedUser });
+            set({
+              internalUserId: repairedInternalUserId,
+              user: updatedUser,
+            });
           }
         },
 

@@ -2,6 +2,7 @@ import {
   calculateGroupTotal,
   calculateUserTotalContributionInGroup,
   calculateAllMemberBalancesInGroup,
+  calculateCurrentUserGroupSummaryByCurrency,
   resolveGroupParticipantIdForUser,
 } from '../groupCalculations';
 import type { Expense, ExpenseGroup, Participant } from '../../types';
@@ -83,6 +84,9 @@ describe('groupCalculations', () => {
     expect(
       resolveGroupParticipantIdForUser(canonicalGroup, 'account-bob'),
     ).toBeNull();
+    expect(
+      resolveGroupParticipantIdForUser(canonicalGroup, null, 'account-alice'),
+    ).toBe('participant-alice');
   });
 
   it('calculates balances for each member', () => {
@@ -109,5 +113,131 @@ describe('groupCalculations', () => {
     expect(
       result.reduce((sum, balance) => sum + balance.netBalanceMinor, 0),
     ).toBe(0);
+  });
+
+  it('projects the current user share and aggregate balance per currency', () => {
+    const group: ExpenseGroup = {
+      id: 'shared-space',
+      name: 'Household',
+      createdAt: '2026-08-20T00:00:00.000Z',
+      participants: [
+        {
+          id: 'participant-alex',
+          name: 'Alex',
+          userId: 'account-alex',
+          spaceId: 'shared-space',
+        },
+        {
+          id: 'participant-blake',
+          name: 'Blake',
+          spaceId: 'shared-space',
+        },
+      ],
+    };
+    const sharedExpenses: Expense[] = [
+      {
+        id: 'aud-expense',
+        title: 'Groceries',
+        amountMinor: 10_000,
+        currency: 'AUD',
+        date: '2026-08-20',
+        category: 'Food & Dining',
+        spaceId: group.id,
+        spaceKind: 'shared',
+        payments: [{ participantId: 'participant-alex', amountMinor: 10_000 }],
+        shares: [
+          { participantId: 'participant-alex', amountMinor: 6_000 },
+          { participantId: 'participant-blake', amountMinor: 4_000 },
+        ],
+      },
+      {
+        id: 'usd-expense',
+        title: 'Tickets',
+        amountMinor: 5_000,
+        currency: 'USD',
+        date: '2026-08-21',
+        category: 'Entertainment',
+        spaceId: group.id,
+        spaceKind: 'shared',
+        payments: [{ participantId: 'participant-blake', amountMinor: 5_000 }],
+        shares: [
+          { participantId: 'participant-alex', amountMinor: 2_000 },
+          { participantId: 'participant-blake', amountMinor: 3_000 },
+        ],
+      },
+    ];
+
+    expect(
+      calculateCurrentUserGroupSummaryByCurrency(
+        group,
+        sharedExpenses,
+        'account-alex',
+      ),
+    ).toEqual([
+      {
+        currency: 'AUD',
+        myNetBalanceMinor: 4_000,
+        myShareMinor: 6_000,
+      },
+      {
+        currency: 'USD',
+        myNetBalanceMinor: -2_000,
+        myShareMinor: 2_000,
+      },
+    ]);
+  });
+
+  it('filters unrelated and deleted expenses and distinguishes unresolved identity', () => {
+    const group: ExpenseGroup = {
+      id: 'shared-space',
+      name: 'Household',
+      createdAt: '2026-08-20T00:00:00.000Z',
+      participants: [
+        {
+          id: 'participant-alex',
+          name: 'Alex',
+          userId: 'account-alex',
+        },
+      ],
+    };
+    const deletedExpense: Expense = {
+      id: 'deleted',
+      title: 'Deleted',
+      amountMinor: 1_000,
+      currency: 'AUD',
+      date: '2026-08-20',
+      category: 'Other',
+      spaceId: group.id,
+      spaceKind: 'shared',
+      payments: [{ participantId: 'participant-alex', amountMinor: 1_000 }],
+      shares: [{ participantId: 'participant-alex', amountMinor: 1_000 }],
+      sync: {
+        mutationId: 'delete-mutation',
+        status: 'pending',
+        updatedAt: '2026-08-24T00:00:00.000Z',
+        deletedAt: '2026-08-24T00:00:00.000Z',
+      },
+    };
+    const unrelatedExpense: Expense = {
+      ...deletedExpense,
+      id: 'other-space',
+      spaceId: 'other-space',
+      sync: undefined,
+    };
+
+    expect(
+      calculateCurrentUserGroupSummaryByCurrency(
+        group,
+        [deletedExpense, unrelatedExpense],
+        'account-alex',
+      ),
+    ).toEqual([]);
+    expect(
+      calculateCurrentUserGroupSummaryByCurrency(
+        group,
+        [unrelatedExpense],
+        'unknown-account',
+      ),
+    ).toBeNull();
   });
 });

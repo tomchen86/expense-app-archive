@@ -1,4 +1,12 @@
-import { useUserStore } from '../features/userStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { flushUserPersistence, useUserStore } from '../features/userStore';
+
+const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
+const initialIdentity = {
+  internalUserId: useUserStore.getState().internalUserId,
+  personalParticipantId: useUserStore.getState().personalParticipantId,
+  personalSpaceId: useUserStore.getState().personalSpaceId,
+};
 
 const defaultSettings = {
   theme: 'light' as const,
@@ -9,7 +17,7 @@ const defaultSettings = {
 
 const resetUserStore = () => {
   const { internalUserId, personalSpaceId, personalParticipantId } =
-    useUserStore.getState();
+    initialIdentity;
 
   useUserStore.setState({
     user: null,
@@ -62,6 +70,22 @@ describe('UserStore', () => {
     expect(settings.theme).toBe('light');
   });
 
+  it('persists the insights visualization preference with user settings', async () => {
+    await flushUserPersistence();
+    storage.setItem.mockClear();
+
+    useUserStore.getState().updateSettings({ insightsChartPreference: 'bar' });
+    await flushUserPersistence();
+
+    expect(useUserStore.getState().settings.insightsChartPreference).toBe(
+      'bar',
+    );
+    expect(storage.setItem).toHaveBeenCalledWith(
+      'expense-mobile-user-v2',
+      expect.stringContaining('"insightsChartPreference":"bar"'),
+    );
+  });
+
   it('syncs legacy user settings into the new structure', () => {
     const { internalUserId } = useUserStore.getState();
 
@@ -72,6 +96,43 @@ describe('UserStore', () => {
     expect(state.user).toMatchObject({
       id: internalUserId,
       displayName: 'Riley',
+    });
+  });
+
+  it('repairs a missing legacy internal identity when Settings saves a name', () => {
+    useUserStore.setState({
+      internalUserId: null,
+      user: null,
+      userSettings: null,
+    });
+
+    useUserStore.getState().updateUserSettings({ name: 'Legacy Riley' });
+
+    const state = useUserStore.getState();
+    expect(state.internalUserId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(state.user).toMatchObject({
+      id: state.internalUserId,
+      displayName: 'Legacy Riley',
+    });
+  });
+
+  it('preserves distinct canonical and legacy identities across the durability barrier', async () => {
+    useUserStore.setState({
+      internalUserId: 'legacy-account-id',
+      user: {
+        id: 'canonical-account-id',
+        displayName: 'Canonical User',
+        personalSpaceId: useUserStore.getState().personalSpaceId,
+      },
+    });
+
+    await useUserStore.getState().ensureLocalIdentityPersisted();
+
+    expect(useUserStore.getState()).toMatchObject({
+      internalUserId: 'legacy-account-id',
+      user: { id: 'canonical-account-id' },
     });
   });
 

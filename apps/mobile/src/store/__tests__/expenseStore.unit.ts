@@ -1,4 +1,7 @@
-import { useExpenseStore } from '../features/expenseStore';
+import {
+  getExpenseMutationVersion,
+  useExpenseStore,
+} from '../features/expenseStore';
 import { mockExpenses, createMockExpense } from '../../__tests__/fixtures';
 import type { Expense, ExpenseSyncStatus } from '../../types';
 
@@ -347,6 +350,216 @@ describe('ExpenseStore', () => {
 
       expect(expenses).toHaveLength(1);
       expect(expenses[0].title).toBe('Test');
+    });
+  });
+
+  describe('conditional draft rollback', () => {
+    const openingExpense: Expense = {
+      id: 'rollback-expense',
+      title: 'Opening title',
+      amountMinor: 2500,
+      currency: 'AUD',
+      date: '2026-08-24',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'payer', amountMinor: 2500 }],
+      shares: [{ participantId: 'payer', amountMinor: 2500 }],
+      sync: {
+        mutationId: 'opening-mutation',
+        serverVersion: 4,
+        localRevision: 2,
+        status: 'synced',
+        updatedAt: '2026-08-24T00:00:00.000Z',
+      },
+    };
+    const attemptedExpense: Expense = {
+      ...openingExpense,
+      title: 'Attempted title',
+      sync: {
+        mutationId: 'attempted-mutation',
+        serverVersion: 4,
+        localRevision: 3,
+        status: 'pending',
+        updatedAt: '2026-08-24T00:01:00.000Z',
+      },
+    };
+    const openingVersion = {
+      mutationId: 'opening-mutation',
+      serverVersion: 4,
+      localRevision: 2,
+      status: 'synced' as const,
+      updatedAt: '2026-08-24T00:00:00.000Z',
+    };
+    const attemptedVersion = {
+      mutationId: 'attempted-mutation',
+      serverVersion: 4,
+      localRevision: 3,
+      status: 'pending' as const,
+      updatedAt: '2026-08-24T00:01:00.000Z',
+    };
+
+    it('restores the opening snapshot only from the exact attempted version', () => {
+      useExpenseStore.setState({ expenses: [attemptedExpense] });
+
+      expect(
+        useExpenseStore
+          .getState()
+          .restoreExpenseSnapshot(
+            openingExpense,
+            attemptedVersion,
+            openingVersion,
+          ),
+      ).toEqual({ status: 'applied' });
+      expect(useExpenseStore.getState().expenses).toEqual([openingExpense]);
+    });
+
+    it('does not overwrite a newer revision or resurrect a missing expense', () => {
+      const newerExpense: Expense = {
+        ...attemptedExpense,
+        title: 'Newer title',
+        sync: {
+          ...attemptedExpense.sync!,
+          mutationId: 'newer-mutation',
+          localRevision: 4,
+          updatedAt: '2026-08-24T00:02:00.000Z',
+        },
+      };
+      useExpenseStore.setState({ expenses: [newerExpense] });
+
+      expect(
+        useExpenseStore
+          .getState()
+          .restoreExpenseSnapshot(
+            openingExpense,
+            attemptedVersion,
+            openingVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'version-mismatch' });
+      expect(useExpenseStore.getState().expenses).toEqual([newerExpense]);
+
+      useExpenseStore.setState({ expenses: [] });
+      expect(
+        useExpenseStore
+          .getState()
+          .restoreExpenseSnapshot(
+            openingExpense,
+            attemptedVersion,
+            openingVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'missing' });
+      expect(useExpenseStore.getState().expenses).toEqual([]);
+    });
+
+    it('hard-deletes a draft create only at its exact attempted version', () => {
+      useExpenseStore.setState({ expenses: [attemptedExpense] });
+      expect(
+        useExpenseStore
+          .getState()
+          .deleteExpenseDraftIfVersion(attemptedExpense.id, attemptedVersion),
+      ).toEqual({ status: 'applied' });
+      expect(useExpenseStore.getState().expenses).toEqual([]);
+
+      const newerExpense = {
+        ...attemptedExpense,
+        sync: {
+          ...attemptedExpense.sync!,
+          mutationId: 'newer-create-mutation',
+          localRevision: 4,
+        },
+      };
+      useExpenseStore.setState({ expenses: [newerExpense] });
+      expect(
+        useExpenseStore
+          .getState()
+          .deleteExpenseDraftIfVersion(attemptedExpense.id, attemptedVersion),
+      ).toEqual({ status: 'conflict', reason: 'version-mismatch' });
+      expect(useExpenseStore.getState().expenses).toEqual([newerExpense]);
+
+      useExpenseStore.setState({ expenses: [] });
+      expect(
+        useExpenseStore
+          .getState()
+          .deleteExpenseDraftIfVersion(attemptedExpense.id, attemptedVersion),
+      ).toEqual({ status: 'conflict', reason: 'missing' });
+    });
+
+    it('updates only the exact expected expense version', () => {
+      useExpenseStore.setState({ expenses: [attemptedExpense] });
+
+      const applied = useExpenseStore
+        .getState()
+        .updateExpenseIfVersion(
+          { ...attemptedExpense, title: 'Queued title' },
+          attemptedVersion,
+        );
+
+      expect(applied).toMatchObject({
+        status: 'applied',
+        version: {
+          localRevision: 4,
+          mutationId: expect.any(String),
+        },
+      });
+      expect(useExpenseStore.getState().expenses[0].title).toBe('Queued title');
+      expect(
+        getExpenseMutationVersion(useExpenseStore.getState().expenses[0]),
+      ).toEqual(applied.status === 'applied' ? applied.version : null);
+    });
+
+    it('does not conditionally update a newer, deleted, or missing expense', () => {
+      const newerExpense: Expense = {
+        ...attemptedExpense,
+        title: 'External title',
+        sync: {
+          ...attemptedExpense.sync!,
+          mutationId: 'external-newer-mutation',
+          localRevision: 4,
+          updatedAt: '2026-08-24T00:03:00.000Z',
+        },
+      };
+      useExpenseStore.setState({ expenses: [newerExpense] });
+      expect(
+        useExpenseStore
+          .getState()
+          .updateExpenseIfVersion(
+            { ...attemptedExpense, title: 'Stale overwrite' },
+            attemptedVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'version-mismatch' });
+      expect(useExpenseStore.getState().expenses).toEqual([newerExpense]);
+
+      const tombstone: Expense = {
+        ...newerExpense,
+        sync: {
+          ...newerExpense.sync!,
+          mutationId: 'external-delete-mutation',
+          localRevision: 5,
+          updatedAt: '2026-08-24T00:04:00.000Z',
+          deletedAt: '2026-08-24T00:04:00.000Z',
+        },
+      };
+      useExpenseStore.setState({ expenses: [tombstone] });
+      expect(
+        useExpenseStore
+          .getState()
+          .updateExpenseIfVersion(
+            { ...attemptedExpense, title: 'Stale resurrection' },
+            attemptedVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'version-mismatch' });
+      expect(useExpenseStore.getState().expenses).toEqual([tombstone]);
+
+      useExpenseStore.setState({ expenses: [] });
+      expect(
+        useExpenseStore
+          .getState()
+          .updateExpenseIfVersion(
+            { ...attemptedExpense, title: 'Stale resurrection' },
+            attemptedVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'missing' });
+      expect(useExpenseStore.getState().expenses).toEqual([]);
     });
   });
 

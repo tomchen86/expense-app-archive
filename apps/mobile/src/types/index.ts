@@ -51,6 +51,30 @@ export interface ExpenseSyncMetadata {
   lastError?: string;
 }
 
+export interface ExpenseMutationVersion {
+  mutationId: string;
+  serverVersion: number;
+  localRevision: number;
+  status: ExpenseSyncStatus;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export type ExpenseRollbackResult =
+  | { status: 'applied' }
+  | {
+      status: 'conflict';
+      reason: 'missing' | 'version-mismatch' | 'snapshot-version-mismatch';
+    };
+
+export type ExpenseVersionMatchResult =
+  | { status: 'matched' }
+  | { status: 'conflict'; reason: 'missing' | 'version-mismatch' };
+
+export type ExpenseConditionalUpdateResult =
+  | { status: 'applied'; version: ExpenseMutationVersion }
+  | { status: 'conflict'; reason: 'missing' | 'version-mismatch' };
+
 export interface Expense {
   id: string;
   title: string;
@@ -89,6 +113,7 @@ export interface Settings {
   currency: string;
   dateFormat: string;
   notifications?: boolean;
+  insightsChartPreference?: 'auto' | 'donut' | 'bar';
 }
 
 // Legacy interface - will be removed after refactor
@@ -116,24 +141,41 @@ export interface ExpenseState {
   // Expense management
   addExpense: (expense: Omit<Expense, 'id' | 'sync'>) => string;
   updateExpense: (expense: Expense) => void;
+  updateExpenseIfVersion: (
+    expense: Expense,
+    expectedCurrentVersion: ExpenseMutationVersion | null,
+  ) => ExpenseConditionalUpdateResult;
+  checkExpenseVersion: (
+    id: string,
+    expectedCurrentVersion: ExpenseMutationVersion,
+  ) => ExpenseVersionMatchResult;
   deleteExpense: (id: string) => void;
+  deleteExpenseDraftIfVersion: (
+    id: string,
+    expectedCurrentVersion: ExpenseMutationVersion,
+  ) => ExpenseRollbackResult;
+  restoreExpenseSnapshot: (
+    expense: Expense,
+    expectedCurrentVersion: ExpenseMutationVersion,
+    expectedSnapshotVersion: ExpenseMutationVersion | null,
+  ) => ExpenseRollbackResult;
   getExpenseById: (id: string) => Expense | undefined;
 
   // New user management
-  updateUser: (userData: Partial<User>) => void;
+  updateUser: (userData: Partial<User>) => Promise<boolean>;
   updateSettings: (settingsData: Partial<Settings>) => void;
   createUser: (displayName: string) => string; // Returns user ID
 
   // Legacy user management (temporary)
-  updateUserSettings: (settings: UserSettings) => void;
+  updateUserSettings: (settings: UserSettings) => Promise<boolean>;
 
   // Group management
-  addGroup: (name: string) => string; // Returns new group ID
+  addGroup: (name: string) => Promise<string>; // Resolves after identity, participant, and group durability
   updateGroup: (group: ExpenseGroup) => void;
-  archiveGroup: (id: string) => void;
-  restoreGroup: (id: string) => void;
+  archiveGroup: (id: string) => Promise<boolean>;
+  restoreGroup: (id: string) => Promise<boolean>;
   /** @deprecated Use archiveGroup for the non-destructive lifecycle action. */
-  deleteGroup: (id: string) => void;
+  deleteGroup: (id: string) => Promise<boolean>;
   getGroupById: (id: string) => ExpenseGroup | undefined;
 
   // Participant management
@@ -142,13 +184,23 @@ export interface ExpenseState {
     idOverride?: string,
     identity?: Pick<Participant, 'spaceId' | 'userId'>,
   ) => string;
-  updateParticipant: (participant: Participant) => void;
-  deleteParticipant: (id: string) => void;
+  updateParticipant: (participant: Participant) => Promise<boolean>;
+  deleteParticipant: (id: string) => Promise<boolean>;
   getParticipantById: (id: string) => Participant | undefined;
 
   // Group participants
-  addParticipantToGroup: (groupId: string, participantId: string) => void;
-  removeParticipantFromGroup: (groupId: string, participantId: string) => void;
+  addParticipantToGroup: (
+    groupId: string,
+    participantId: string,
+  ) => Promise<boolean>;
+  addParticipantToGroupByName: (
+    groupId: string,
+    participantName: string,
+  ) => Promise<string | null>;
+  removeParticipantFromGroup: (
+    groupId: string,
+    participantId: string,
+  ) => Promise<boolean>;
 
   // Category management
   addCategory: (categoryData: Omit<Category, 'id'>) => Category; // Returns the new category with an ID

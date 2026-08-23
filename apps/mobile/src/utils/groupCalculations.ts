@@ -17,19 +17,24 @@ export interface CurrencyTotal {
 export const resolveGroupParticipantIdForUser = (
   group: ExpenseGroup | undefined,
   internalUserId: string | null,
+  canonicalUserId?: string | null,
 ): string | null => {
-  if (!group || !internalUserId) {
+  if (!group) {
     return null;
   }
 
-  return (
-    group.participants.find(
-      (participant) => participant.userId === internalUserId,
-    )?.id ??
-    group.participants.find((participant) => participant.id === internalUserId)
-      ?.id ??
-    null
+  const identityIds = [...new Set([canonicalUserId, internalUserId])].filter(
+    (identityId): identityId is string => Boolean(identityId),
   );
+  for (const identityId of identityIds) {
+    const participant =
+      group.participants.find((candidate) => candidate.userId === identityId) ??
+      group.participants.find((candidate) => candidate.id === identityId);
+    if (participant) {
+      return participant.id;
+    }
+  }
+  return null;
 };
 
 export const calculateGroupTotalsByCurrency = (
@@ -116,6 +121,12 @@ export interface MemberBalanceDetails {
   netBalance: number;
 }
 
+export interface CurrentUserGroupCurrencySummary {
+  currency: string;
+  myShareMinor: number;
+  myNetBalanceMinor: number;
+}
+
 export const calculateAllMemberBalancesInGroup = (
   groupMembers: Participant[],
   groupExpenses: Expense[],
@@ -179,4 +190,37 @@ export const calculateAllMemberBalancesInGroup = (
       netBalance: minorUnitsToMajor(net, currency),
     };
   });
+};
+
+export const calculateCurrentUserGroupSummaryByCurrency = (
+  group: ExpenseGroup,
+  expenses: Expense[],
+  internalUserId: string | null,
+  canonicalUserId?: string | null,
+): CurrentUserGroupCurrencySummary[] | null => {
+  const participantId = resolveGroupParticipantIdForUser(
+    group,
+    internalUserId,
+    canonicalUserId,
+  );
+  if (!participantId) {
+    return null;
+  }
+
+  const groupExpenses = expenses.filter(
+    (expense) =>
+      !isExpenseDeleted(expense) && getExpenseSpaceId(expense) === group.id,
+  );
+  if (groupExpenses.length === 0) {
+    return [];
+  }
+
+  return calculateAllMemberBalancesInGroup(group.participants, groupExpenses)
+    .filter((balance) => balance.memberId === participantId)
+    .map((balance) => ({
+      currency: balance.currency,
+      myShareMinor: balance.totalShareMinor,
+      myNetBalanceMinor: balance.netBalanceMinor,
+    }))
+    .sort((left, right) => left.currency.localeCompare(right.currency));
 };
