@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
-import SettingsScreen from '../../../app/(tabs)/settings';
+import SettingsScreen from '../../screens/settings-screen';
 import type { Expense, ExpenseGroup, Participant } from '../../types';
 import ExpenseListItem from '../ExpenseListItem';
 import GroupListItem from '../GroupListItem';

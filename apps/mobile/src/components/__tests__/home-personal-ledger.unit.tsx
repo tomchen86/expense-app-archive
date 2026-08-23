@@ -1,7 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import ExpensesScreen from '../../../app/(tabs)/index';
+import ExpensesScreen from '../../screens/expenses-screen';
 import type { Expense, ExpenseGroup, Participant } from '../../types';
 
 jest.mock('react-native', () => {

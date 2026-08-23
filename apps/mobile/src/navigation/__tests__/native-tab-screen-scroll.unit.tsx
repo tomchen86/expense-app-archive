@@ -2,8 +2,9 @@ import type { ReactTestRendererJSON } from 'react-test-renderer';
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import GroupsScreen from '../../../app/(tabs)/history';
-import ExpensesScreen from '../../../app/(tabs)/index';
+import ExpensesScreen from '../../screens/expenses-screen';
+import GroupsScreen from '../../screens/groups-screen';
+import SettingsScreen from '../../screens/settings-screen';
 
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -26,11 +27,13 @@ jest.mock('react-native', () => {
         ListHeaderComponent,
         data.length === 0 ? ListEmptyComponent : null,
       ),
+    ScrollView: host('ScrollView'),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
       flatten: (style: unknown) => style,
     },
     Text: host('Text'),
+    TextInput: host('TextInput'),
     TouchableOpacity: host('View'),
     View: host('View'),
   };
@@ -60,12 +63,13 @@ const mockMobileState = {
   personalSpaceId: 'personal-space-1',
   removeParticipantFromGroup: jest.fn(),
   restoreGroup: jest.fn(),
+  updateUserSettings: jest.fn(),
   userSettings: { name: 'Alex' },
 };
 
 jest.mock('../../store/expenseStore', () => ({
-  useExpenseStore: (selector: (state: typeof mockMobileState) => unknown) =>
-    selector(mockMobileState),
+  useExpenseStore: (selector?: (state: typeof mockMobileState) => unknown) =>
+    selector ? selector(mockMobileState) : mockMobileState,
 }));
 
 jest.mock('../../components/ExpenseListItem', () => () => null);
@@ -77,21 +81,25 @@ jest.mock('../../components/FloatingActionButton', () => {
     React.createElement('View', { ...props, testID: 'floating-action' });
 });
 
-const expectNativeListFirst = (
+const expectNativeScrollFirst = (
   tree: ReactTestRendererJSON | ReactTestRendererJSON[] | null,
+  expectedType: 'FlatList' | 'ScrollView',
 ) => {
   expect(tree).not.toBeNull();
   expect(Array.isArray(tree)).toBe(false);
   const root = tree as ReactTestRendererJSON;
   expect(root.type).toBe('SafeAreaView');
+  expect(root.props.edges).toEqual(['left', 'right']);
   const firstChild = root.children?.[0] as ReactTestRendererJSON;
-  expect(firstChild.type).toBe('FlatList');
+  expect(firstChild.type).toBe(expectedType);
+  expect(firstChild.props.contentInsetAdjustmentBehavior).toBe('automatic');
 };
 
 describe('native tab scroll contracts', () => {
   it('keeps the Expenses FlatList on the first descendant chain', () => {
     const screen = render(<ExpensesScreen />);
-    expectNativeListFirst(screen.toJSON());
+    expectNativeScrollFirst(screen.toJSON(), 'FlatList');
+    expect(screen.queryByText('Expenses')).toBeNull();
     expect(
       screen.getByTestId('floating-action').props.nativeTabsContentInsetApplied,
     ).toBe(true);
@@ -99,9 +107,16 @@ describe('native tab scroll contracts', () => {
 
   it('keeps the Groups FlatList on the first descendant chain', () => {
     const screen = render(<GroupsScreen />);
-    expectNativeListFirst(screen.toJSON());
+    expectNativeScrollFirst(screen.toJSON(), 'FlatList');
+    expect(screen.queryByText('Groups')).toBeNull();
     expect(
       screen.getByTestId('floating-action').props.nativeTabsContentInsetApplied,
     ).toBe(true);
+  });
+
+  it('keeps the Settings ScrollView on the first descendant chain', () => {
+    const screen = render(<SettingsScreen />);
+    expectNativeScrollFirst(screen.toJSON(), 'ScrollView');
+    expect(screen.queryByText('Settings')).toBeNull();
   });
 });

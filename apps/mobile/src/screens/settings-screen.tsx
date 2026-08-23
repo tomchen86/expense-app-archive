@@ -10,9 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useExpenseStore } from '../../src/store/expenseStore';
-import { ScreenHeading } from '../../src/components/ui/screen-heading';
-import { mobileTheme } from '../../src/theme/tokens';
+import { useExpenseStore } from '../store/expenseStore';
+import { mobileTheme } from '../theme/tokens';
 
 const SettingsScreen = () => {
   const { userSettings, updateUserSettings } = useExpenseStore();
@@ -29,18 +28,14 @@ const SettingsScreen = () => {
   };
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+    <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
       <ScrollView
         automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior='automatic'
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps='handled'
         testID='settings-scroll-view'
       >
-        <ScreenHeading
-          title='Settings'
-          subtitle='Personalise your expense space.'
-        />
-
         <View style={styles.card}>
           <Text style={styles.label}>Your Name</Text>
           <TextInput

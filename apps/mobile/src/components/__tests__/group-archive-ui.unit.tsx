@@ -3,7 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
-import GroupsScreen from '../../../app/(tabs)/history';
+import GroupsScreen from '../../screens/groups-screen';
 import GroupDetailScreen from '../../../app/group-detail';
 import type { ExpenseGroup } from '../../types';
 

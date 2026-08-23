@@ -9,18 +9,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useExpenseStore } from '../../src/store/expenseStore';
-import { ExpenseGroup, Participant as _Participant } from '../../src/types';
+import { useExpenseStore } from '../store/expenseStore';
+import { ExpenseGroup, Participant as _Participant } from '../types';
 
-import GroupListItem from '../../src/components/GroupListItem';
-import TextInputModal from '../../src/components/TextInputModal';
-import FloatingActionButton from '../../src/components/FloatingActionButton';
-import { calculateGroupTotalsByCurrency } from '../../src/utils/groupCalculations';
-import { ScreenHeading } from '../../src/components/ui/screen-heading';
-import { mobileTheme } from '../../src/theme/tokens';
-import { isExpenseGroupArchived } from '../../src/utils/groupDomain';
+import GroupListItem from '../components/GroupListItem';
+import TextInputModal from '../components/TextInputModal';
+import FloatingActionButton from '../components/FloatingActionButton';
+import { calculateGroupTotalsByCurrency } from '../utils/groupCalculations';
+import { mobileTheme } from '../theme/tokens';
+import { isExpenseGroupArchived } from '../utils/groupDomain';
 
-const HistoryScreen = () => {
+const GroupsScreen = () => {
   const groups = useExpenseStore((state) => state.groups);
   const expenses = useExpenseStore((state) => state.expenses);
   const userSettings = useExpenseStore((state) => state.userSettings);
@@ -143,21 +142,14 @@ const HistoryScreen = () => {
   };
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
+    <SafeAreaView edges={['left', 'right']} style={styles.container}>
       <FlatList
+        contentInsetAdjustmentBehavior='automatic'
         contentContainerStyle={styles.groupsList}
         data={visibleGroups}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View>
-            <ScreenHeading
-              title='Groups'
-              subtitle={
-                showArchivedGroups
-                  ? 'Read-only shared history.'
-                  : 'Shared spending without the guesswork.'
-              }
-            />
             {(archivedGroups.length > 0 || showArchivedGroups) && (
               <TouchableOpacity
                 accessibilityLabel={
@@ -273,4 +265,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HistoryScreen;
+export default GroupsScreen;

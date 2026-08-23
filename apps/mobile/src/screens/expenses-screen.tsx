@@ -8,31 +8,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useExpenseStore } from '../../src/store/expenseStore';
+import { useExpenseStore } from '../store/expenseStore';
 import {
   Expense,
   Participant as _Participant,
   ExpenseGroup,
   UserSettings as _UserSettings,
-} from '../../src/types';
+} from '../types';
 
-import ExpenseListItem from '../../src/components/ExpenseListItem';
-import FloatingActionButton from '../../src/components/FloatingActionButton';
-import {
-  getExpenseCurrency,
-  getExpenseSpaceId,
-} from '../../src/utils/expenseDomain';
+import ExpenseListItem from '../components/ExpenseListItem';
+import FloatingActionButton from '../components/FloatingActionButton';
+import { getExpenseCurrency, getExpenseSpaceId } from '../utils/expenseDomain';
 import {
   resolvePersonalParticipantIds,
   selectPersonalLedgerExpenses,
   sumPersonalShareMinor,
-} from '../../src/utils/personalExpenseSelection';
-import { formatMinorUnits } from '../../src/utils/money';
-import { ScreenHeading } from '../../src/components/ui/screen-heading';
-import { mobileTheme } from '../../src/theme/tokens';
-import { buildEditExpenseRoute } from '../../src/navigation/expense-edit-route';
+} from '../utils/personalExpenseSelection';
+import { formatMinorUnits } from '../utils/money';
+import { mobileTheme } from '../theme/tokens';
+import { buildEditExpenseRoute } from '../navigation/expense-edit-route';
 
-const HomeScreen = () => {
+const ExpensesScreen = () => {
   const expenses = useExpenseStore((state) => state.expenses);
   const participants = useExpenseStore((state) => state.participants);
   const _userSettings = useExpenseStore((state) => state.userSettings);
@@ -131,17 +127,14 @@ const HomeScreen = () => {
           .join(', ')}.`;
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
+    <SafeAreaView edges={['left', 'right']} style={styles.container}>
       <FlatList
+        contentInsetAdjustmentBehavior='automatic'
         contentContainerStyle={styles.listContent}
         data={relevantExpenses}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View>
-            <ScreenHeading
-              title='Expenses'
-              subtitle='Your money, clearly shared.'
-            />
             <TouchableOpacity
               accessibilityHint='Opens charts and category breakdowns'
               accessibilityLabel={totalShareAccessibilityLabel}
@@ -230,4 +223,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HomeScreen;
+export default ExpensesScreen;
