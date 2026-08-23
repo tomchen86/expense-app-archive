@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "test": "node --expose-gc ./node_modules/jest/bin/jest.js",
     "test:watch": "node --expose-gc ./node_modules/jest/bin/jest.js --watch",
-    "test:unit": "node --expose-gc ./node_modules/jest/bin/jest.js --selectProjects unit",
+    "test:unit": "node --expose-gc ./node_modules/jest/bin/jest.js --selectProjects unit --runInBand",
     "test:unit:fast": "node --expose-gc ./node_modules/jest/bin/jest.js --selectProjects unit --bail --onlyChanged --passWithNoTests",
     "test:integration": "node --expose-gc ./node_modules/jest/bin/jest.js --selectProjects integration --runInBand",
     "test:component": "node --expose-gc ./node_modules/jest/bin/jest.js --selectProjects unit --runInBand --testPathPatterns=components/__tests__/",
