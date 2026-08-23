@@ -17,6 +17,7 @@ import type { RouteParam } from '../src/navigation/expense-edit-route';
 import { BasicInfoSection } from '../src/components/ExpenseForm/BasicInfoSection';
 import { GroupSection } from '../src/components/ExpenseForm/GroupSection';
 import { ExpenseModals } from '../src/components/ExpenseForm/ExpenseModals';
+import { ExpenseFormHeaderActions } from '../src/components/ExpenseForm/expense-form-header-actions';
 import { getExpenseCurrency } from '../src/utils/expenseDomain';
 import { mobileTheme } from '../src/theme/tokens';
 import { createUuid } from '../src/utils/ids';
@@ -168,24 +169,13 @@ const AddExpenseScreen = () => {
           title: isEditing ? 'Edit Expense' : 'New Expense',
         }}
       />
-      <Stack.Toolbar placement='left'>
-        <Stack.Toolbar.Button
-          accessibilityLabel='Cancel'
-          disabled={isSubmitting}
-          onPress={() => confirmDiscard(() => router.back())}
-        >
-          Cancel
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
-      <Stack.Toolbar placement='right'>
-        <Stack.Toolbar.Button
-          accessibilityLabel={isEditing ? 'Save' : 'Add'}
-          disabled={!canSubmit || isSubmitting}
-          onPress={handleSubmit}
-        >
-          {isEditing ? 'Save' : 'Add'}
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
+      <ExpenseFormHeaderActions
+        canSubmit={canSubmit}
+        isEditing={isEditing}
+        isSubmitting={isSubmitting}
+        onCancel={() => confirmDiscard(() => router.back())}
+        onSubmit={handleSubmit}
+      />
 
       <ScrollView
         automaticallyAdjustKeyboardInsets

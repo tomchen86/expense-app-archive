@@ -22,7 +22,7 @@ import { isExpenseGroupArchived } from '../src/utils/groupDomain';
 import { minorUnitsToDecimalString } from '../src/utils/money';
 import { formatLocalDateForDisplay } from '../src/utils/dateFormat';
 import { mobileTheme } from '../src/theme/tokens';
-import { ExpenseOverflowMenu } from '../src/components/navigation/expense-overflow-menu';
+import { ExpenseDetailHeaderActions } from '../src/components/navigation/expense-detail-header-actions';
 
 const ExpenseDetailScreen = () => {
   const params = useLocalSearchParams<{ expenseId?: RouteParam }>();
@@ -100,16 +100,11 @@ const ExpenseDetailScreen = () => {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ title: 'Expense' }} />
-      <Stack.Toolbar placement='right'>
-        <Stack.Toolbar.Button
-          accessibilityLabel='Edit expense'
-          disabled={isHistoricalSharedExpense}
-          onPress={() => router.push(buildEditExpenseRoute(expense.id))}
-        >
-          Edit
-        </Stack.Toolbar.Button>
-        <ExpenseOverflowMenu onDelete={handleDelete} />
-      </Stack.Toolbar>
+      <ExpenseDetailHeaderActions
+        editDisabled={isHistoricalSharedExpense}
+        onDelete={handleDelete}
+        onEdit={() => router.push(buildEditExpenseRoute(expense.id))}
+      />
 
       <ScrollView
         contentInsetAdjustmentBehavior='automatic'

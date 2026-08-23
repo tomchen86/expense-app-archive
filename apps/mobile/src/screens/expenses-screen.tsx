@@ -116,6 +116,7 @@ const ExpensesScreen = () => {
         item={item}
         group={groupForDisplay ?? null}
         allParticipants={participants}
+        currentParticipantIds={currentParticipantIds}
         displayAmountMinor={userShareMinor}
         currency={getExpenseCurrency(item)}
         onPress={handlePress}

@@ -17,6 +17,7 @@ interface ExpenseListItemProps {
   item: Expense;
   group: ExpenseGroup | null;
   allParticipants: Participant[]; // Add allParticipants prop
+  currentParticipantIds?: readonly string[];
   displayAmountMinor: number;
   currency?: string;
   onPress: (expense: Expense) => void;
@@ -27,11 +28,13 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
   item,
   group,
   allParticipants, // Destructure the new prop
+  currentParticipantIds = [],
   displayAmountMinor,
   currency,
   onPress,
   onDelete,
 }) => {
+  const currentParticipantIdSet = new Set(currentParticipantIds);
   // Safeguard: Ensure allParticipants is defined before calling .find()
   const payerIds = [
     ...new Set(
@@ -42,8 +45,10 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
   ];
   const payerSummary =
     payerIds.length === 1
-      ? (allParticipants.find((participant) => participant.id === payerIds[0])
-          ?.name ?? 'Former member')
+      ? currentParticipantIdSet.has(payerIds[0])
+        ? 'You'
+        : (allParticipants.find((participant) => participant.id === payerIds[0])
+            ?.name ?? 'Former member')
       : payerIds.length > 1
         ? `${payerIds.length} people`
         : null;

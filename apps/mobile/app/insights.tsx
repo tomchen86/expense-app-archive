@@ -8,7 +8,7 @@ import CategoryChart from '../src/components/insights/CategoryChart';
 import InsightsHeader from '../src/components/insights/InsightsHeader';
 import DatePickerModal from '../src/components/insights/DatePickerModal';
 import InsightsSummary from '../src/components/insights/InsightsSummary';
-import InsightsChartMenu from '../src/components/insights/insights-chart-menu';
+import InsightsChartHeaderAction from '../src/components/insights/insights-chart-header-action';
 import { mobileTheme } from '../src/theme/tokens';
 
 const ExpenseInsightsScreen = () => {
@@ -24,12 +24,10 @@ const ExpenseInsightsScreen = () => {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ title: insightsData.screenTitle }} />
-      <Stack.Toolbar placement='right'>
-        <InsightsChartMenu
-          onChange={insightsData.setChartPreference}
-          preference={insightsData.chartPreference}
-        />
-      </Stack.Toolbar>
+      <InsightsChartHeaderAction
+        onChange={insightsData.setChartPreference}
+        preference={insightsData.chartPreference}
+      />
 
       <ScrollView
         contentContainerStyle={styles.content}

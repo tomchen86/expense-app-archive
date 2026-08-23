@@ -139,4 +139,46 @@ describe('ExpenseListItem interactions', () => {
     expect(screen.getByText('Paid by: 2 people')).toBeTruthy();
     expect(screen.queryByText('Paid by: Tom')).toBeNull();
   });
+
+  it('identifies a fresh personal payer as the current user without a participant row', () => {
+    const personalExpense: Expense = {
+      ...expense,
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'personal-participant', amountMinor: 2400 }],
+      shares: [{ participantId: 'personal-participant', amountMinor: 2400 }],
+    };
+    const screen = render(
+      <ExpenseListItem
+        allParticipants={[]}
+        currentParticipantIds={['personal-participant']}
+        currency='USD'
+        displayAmountMinor={2400}
+        group={null}
+        item={personalExpense}
+        onDelete={jest.fn()}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Paid by: You')).toBeTruthy();
+    expect(screen.queryByText('Paid by: Former member')).toBeNull();
+  });
+
+  it('keeps the former-member label for a genuinely missing shared payer', () => {
+    const screen = render(
+      <ExpenseListItem
+        allParticipants={[]}
+        currentParticipantIds={['personal-participant']}
+        currency='USD'
+        displayAmountMinor={1200}
+        group={group}
+        item={expense}
+        onDelete={jest.fn()}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Paid by: Former member')).toBeTruthy();
+  });
 });

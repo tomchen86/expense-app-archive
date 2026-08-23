@@ -35,7 +35,7 @@ import { isExpenseGroupArchived } from '../src/utils/groupDomain';
 import { mobileTheme } from '../src/theme/tokens';
 import { useExpenseDeletion } from '../src/components/feedback/expense-deletion-context';
 import GroupMembersModal from '../src/components/groups/GroupMembersModal';
-import GroupOverflowMenu from '../src/components/navigation/group-overflow-menu';
+import { GroupDetailHeaderActions } from '../src/components/navigation/group-detail-header-actions';
 import TextInputModal from '../src/components/TextInputModal';
 
 const GroupDetailScreen = () => {
@@ -237,6 +237,9 @@ const GroupDetailScreen = () => {
         item={item}
         group={group ?? null}
         allParticipants={allParticipants}
+        currentParticipantIds={
+          currentGroupParticipantId ? [currentGroupParticipantId] : []
+        }
         displayAmountMinor={getExpenseAmountMinor(item)}
         currency={getExpenseCurrency(item)}
         onPress={handlePress}
@@ -257,9 +260,9 @@ const GroupDetailScreen = () => {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: group.name }} />
-      <Stack.Toolbar placement='right'>
-        <GroupOverflowMenu onOpenMembers={() => setIsMembersVisible(true)} />
-      </Stack.Toolbar>
+      <GroupDetailHeaderActions
+        onOpenMembers={() => setIsMembersVisible(true)}
+      />
 
       {isArchived && (
         <View style={styles.archivedBanner}>
