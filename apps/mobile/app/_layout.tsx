@@ -18,7 +18,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack>
+      <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
         <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
         <Stack.Screen
           name='add-expense'
