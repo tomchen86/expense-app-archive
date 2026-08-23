@@ -1,5 +1,29 @@
 import { useExpenseStore } from '../features/expenseStore';
 import { mockExpenses, createMockExpense } from '../../__tests__/fixtures';
+import type { Expense, ExpenseSyncStatus } from '../../types';
+
+const createSharedExpenseWithSync = (
+  status: ExpenseSyncStatus,
+  serverVersion: number,
+): Expense => ({
+  id: `shared-${status}-${serverVersion}`,
+  title: 'Shared expense',
+  amountMinor: 2500,
+  currency: 'AUD',
+  date: '2026-08-24',
+  category: 'Other',
+  spaceId: 'shared-space',
+  spaceKind: 'shared',
+  payments: [{ participantId: 'payer', amountMinor: 2500 }],
+  shares: [{ participantId: 'member', amountMinor: 2500 }],
+  sync: {
+    mutationId: `mutation-${status}-${serverVersion}`,
+    serverVersion,
+    localRevision: 1,
+    status,
+    updatedAt: '2026-08-24T00:00:00.000Z',
+  },
+});
 
 describe('ExpenseStore', () => {
   let randomSpy: jest.SpiedFunction<typeof Math.random>;
@@ -238,6 +262,53 @@ describe('ExpenseStore', () => {
   });
 
   describe('deleteExpense', () => {
+    it('hard-discards a pending shared create that has never been acknowledged', () => {
+      const pendingCreate = createSharedExpenseWithSync('pending', 0);
+      useExpenseStore.setState({ expenses: [pendingCreate] });
+
+      useExpenseStore.getState().deleteExpense(pendingCreate.id);
+
+      expect(useExpenseStore.getState().expenses).toEqual([]);
+    });
+
+    it('tombstones a pending shared update that has a server version', () => {
+      const pendingUpdate = createSharedExpenseWithSync('pending', 4);
+      useExpenseStore.setState({ expenses: [pendingUpdate] });
+
+      useExpenseStore.getState().deleteExpense(pendingUpdate.id);
+
+      expect(useExpenseStore.getState().expenses).toEqual([
+        expect.objectContaining({
+          id: pendingUpdate.id,
+          sync: expect.objectContaining({
+            deletedAt: expect.any(String),
+            localRevision: 2,
+            serverVersion: 4,
+            status: 'pending',
+          }),
+        }),
+      ]);
+    });
+
+    it('does not hard-discard an in-flight zero-version shared create', () => {
+      const syncingCreate = createSharedExpenseWithSync('syncing', 0);
+      useExpenseStore.setState({ expenses: [syncingCreate] });
+
+      useExpenseStore.getState().deleteExpense(syncingCreate.id);
+      useExpenseStore.getState().deleteExpense(syncingCreate.id);
+
+      expect(useExpenseStore.getState().expenses).toEqual([
+        expect.objectContaining({
+          id: syncingCreate.id,
+          sync: expect.objectContaining({
+            deletedAt: expect.any(String),
+            serverVersion: 0,
+            status: 'pending',
+          }),
+        }),
+      ]);
+    });
+
     it('should remove expense by ID', () => {
       const expense = createMockExpense({ title: 'To Delete' });
 

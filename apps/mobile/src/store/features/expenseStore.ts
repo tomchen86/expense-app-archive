@@ -174,6 +174,14 @@ export const useExpenseStore = create<ExpenseStoreState>()(
             if (expense.id !== id) {
               return [expense];
             }
+            const isUnacknowledgedPendingSharedCreate =
+              getExpenseSpaceKind(expense) === 'shared' &&
+              expense.sync?.status === 'pending' &&
+              expense.sync.serverVersion === 0 &&
+              expense.sync.deletedAt === undefined;
+            if (isUnacknowledgedPendingSharedCreate) {
+              return [];
+            }
             const requiresTombstone =
               getExpenseSpaceKind(expense) === 'shared' ||
               (expense.sync !== undefined &&
