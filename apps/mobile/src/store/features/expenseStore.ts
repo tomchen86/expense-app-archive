@@ -35,7 +35,14 @@ const scheduleExpenseWrite = (): Promise<void> => {
         while (pendingExpenseWrite) {
           const write = pendingExpenseWrite;
           pendingExpenseWrite = null;
-          await AsyncStorage.setItem(write.name, write.value);
+          try {
+            await AsyncStorage.setItem(write.name, write.value);
+          } catch (error) {
+            // A write queued while this one was in flight represents newer
+            // state; otherwise retain this exact snapshot for a later retry.
+            pendingExpenseWrite ??= write;
+            throw error;
+          }
         }
       })
       .finally(() => {
@@ -54,6 +61,9 @@ const expenseStateStorage: StateStorage = {
   removeItem: async (name) => {
     pendingExpenseWrite = null;
     await (expenseWritePromise?.catch(() => undefined) ?? Promise.resolve());
+    // A failed in-flight write may have restored its retry snapshot while we
+    // were waiting. Clearing storage must invalidate that snapshot as well.
+    pendingExpenseWrite = null;
     await AsyncStorage.removeItem(name);
   },
 };

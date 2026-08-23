@@ -102,6 +102,73 @@ describe('durable mobile store hydration', () => {
     expect(flushed).toBe(true);
   });
 
+  it('retains a failed expense payload so a later flush retries it', async () => {
+    await flushExpensePersistence();
+    storage.setItem.mockClear();
+    storage.setItem.mockRejectedValueOnce(new Error('disk unavailable'));
+
+    useExpenseFeatureStore.getState().addExpense({
+      title: 'Retry the same payload',
+      amountMinor: 500,
+      currency: 'AUD',
+      date: '2026-08-13',
+      category: 'Food & Dining',
+      spaceId: 'personal-space-1',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'user-1', amountMinor: 500 }],
+      shares: [{ participantId: 'user-1', amountMinor: 500 }],
+    });
+
+    await expect(flushExpensePersistence()).rejects.toThrow('disk unavailable');
+    const failedWrite = storage.setItem.mock.calls[0];
+
+    await expect(flushExpensePersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual(failedWrite);
+  });
+
+  it('does not revive a failed snapshot after storage is cleared', async () => {
+    await flushExpensePersistence();
+    storage.setItem.mockClear();
+    let rejectWrite: ((error: Error) => void) | undefined;
+    let confirmStorageRemoved: (() => void) | undefined;
+    const storageRemoved = new Promise<void>((resolve) => {
+      confirmStorageRemoved = resolve;
+    });
+    storage.setItem.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectWrite = reject;
+        }),
+    );
+    storage.removeItem.mockImplementationOnce(async () => {
+      confirmStorageRemoved?.();
+    });
+
+    useExpenseFeatureStore.getState().addExpense({
+      title: 'Must stay cleared',
+      amountMinor: 500,
+      currency: 'AUD',
+      date: '2026-08-13',
+      category: 'Food & Dining',
+      spaceId: 'personal-space-1',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'user-1', amountMinor: 500 }],
+      shares: [{ participantId: 'user-1', amountMinor: 500 }],
+    });
+
+    const failedFlush = flushExpensePersistence();
+    await Promise.resolve();
+    useExpenseFeatureStore.persist.clearStorage();
+    rejectWrite?.(new Error('disk unavailable'));
+
+    await expect(failedFlush).rejects.toThrow('disk unavailable');
+    await storageRemoved;
+    storage.setItem.mockClear();
+    await expect(flushExpensePersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
   it('retains a shared-expense deletion as a durable versioned tombstone', () => {
     useExpenseFeatureStore.setState({
       expenses: [
