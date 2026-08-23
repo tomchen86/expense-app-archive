@@ -3,7 +3,7 @@ import {
   flushExpensePersistence,
   useExpenseStore as useExpenseFeatureStore,
 } from '../features/expenseStore';
-import { useUserStore } from '../features/userStore';
+import { flushUserPersistence, useUserStore } from '../features/userStore';
 import { useCategoryStore } from '../features/categoryStore';
 import { useGroupStore } from '../features/groupStore';
 import { useParticipantStore } from '../features/participantStore';
@@ -37,6 +37,27 @@ describe('durable mobile store hydration', () => {
     );
     expect(useCategoryStore.persist.getOptions().name).toBe(
       'expense-mobile-categories-v2',
+    );
+  });
+
+  it('persists the anonymous local identity before it owns ledger data', async () => {
+    const { internalUserId, personalParticipantId, personalSpaceId } =
+      useUserStore.getState();
+    storage.setItem.mockClear();
+
+    await useUserStore.getState().ensureLocalIdentityPersisted();
+
+    expect(storage.setItem).toHaveBeenCalledWith(
+      'expense-mobile-user-v2',
+      expect.stringContaining(internalUserId!),
+    );
+    expect(storage.setItem).toHaveBeenCalledWith(
+      'expense-mobile-user-v2',
+      expect.stringContaining(personalSpaceId),
+    );
+    expect(storage.setItem).toHaveBeenCalledWith(
+      'expense-mobile-user-v2',
+      expect.stringContaining(personalParticipantId),
     );
   });
 
@@ -102,6 +123,122 @@ describe('durable mobile store hydration', () => {
     resolveWrite?.();
     await flush;
     expect(flushed).toBe(true);
+  });
+
+  it('keeps flushing when a newer expense snapshot arrives as the worker settles', async () => {
+    await flushExpensePersistence();
+    storage.setItem.mockClear();
+    let resolveFirstWrite: (() => void) | undefined;
+    const firstWrite = new Promise<void>((resolve) => {
+      resolveFirstWrite = resolve;
+    });
+    storage.setItem.mockImplementationOnce(() => firstWrite);
+
+    useExpenseFeatureStore.getState().addExpense({
+      title: 'First snapshot',
+      amountMinor: 500,
+      currency: 'AUD',
+      date: '2026-08-13',
+      category: 'Food & Dining',
+      spaceId: 'personal-space-1',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'user-1', amountMinor: 500 }],
+      shares: [{ participantId: 'user-1', amountMinor: 500 }],
+    });
+    const flushed = flushExpensePersistence();
+    await Promise.resolve();
+    firstWrite.then(() => {
+      useExpenseFeatureStore.getState().addExpense({
+        title: 'Settlement snapshot',
+        amountMinor: 700,
+        currency: 'AUD',
+        date: '2026-08-13',
+        category: 'Food & Dining',
+        spaceId: 'personal-space-1',
+        spaceKind: 'personal',
+        payments: [{ participantId: 'user-1', amountMinor: 700 }],
+        shares: [{ participantId: 'user-1', amountMinor: 700 }],
+      });
+    });
+
+    resolveFirstWrite?.();
+    await flushed;
+
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual([
+      'expense-mobile-expenses-v2',
+      expect.stringContaining('Settlement snapshot'),
+    ]);
+  });
+
+  it('keeps flushing when a newer user snapshot arrives as the worker settles', async () => {
+    await flushUserPersistence();
+    storage.setItem.mockClear();
+    let resolveFirstWrite: (() => void) | undefined;
+    const firstWrite = new Promise<void>((resolve) => {
+      resolveFirstWrite = resolve;
+    });
+    storage.setItem.mockImplementationOnce(() => firstWrite);
+
+    const flushed = useUserStore.getState().ensureLocalIdentityPersisted();
+    await Promise.resolve();
+    firstWrite.then(() => {
+      useUserStore.getState().updateSettings({ currency: 'EUR' });
+    });
+
+    resolveFirstWrite?.();
+    await flushed;
+
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual([
+      'expense-mobile-user-v2',
+      expect.stringContaining('EUR'),
+    ]);
+  });
+
+  it('retains a failed user payload so a later flush retries it', async () => {
+    await flushUserPersistence();
+    storage.setItem.mockClear();
+    storage.setItem.mockRejectedValueOnce(new Error('identity unavailable'));
+
+    await expect(
+      useUserStore.getState().ensureLocalIdentityPersisted(),
+    ).rejects.toThrow('identity unavailable');
+    const failedWrite = storage.setItem.mock.calls[0];
+
+    await expect(flushUserPersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual(failedWrite);
+  });
+
+  it('does not revive a failed user snapshot after storage is cleared', async () => {
+    await flushUserPersistence();
+    storage.setItem.mockClear();
+    let rejectWrite: ((error: Error) => void) | undefined;
+    let confirmStorageRemoved: (() => void) | undefined;
+    const storageRemoved = new Promise<void>((resolve) => {
+      confirmStorageRemoved = resolve;
+    });
+    storage.setItem.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectWrite = reject;
+        }),
+    );
+    storage.removeItem.mockImplementationOnce(async () => {
+      confirmStorageRemoved?.();
+    });
+
+    const failedFlush = useUserStore.getState().ensureLocalIdentityPersisted();
+    await Promise.resolve();
+    useUserStore.persist.clearStorage();
+    rejectWrite?.(new Error('identity unavailable'));
+
+    await expect(failedFlush).rejects.toThrow('identity unavailable');
+    await storageRemoved;
+    storage.setItem.mockClear();
+    await expect(flushUserPersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).not.toHaveBeenCalled();
   });
 
   it('retains a failed expense payload so a later flush retries it', async () => {

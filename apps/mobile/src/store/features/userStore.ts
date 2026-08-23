@@ -1,8 +1,61 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import {
+  createJSONStorage,
+  persist,
+  type StateStorage,
+} from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Settings, UserSettings } from '../../types';
 import { createUuid } from '../../utils/ids';
+
+let pendingUserWrite: { name: string; value: string } | null = null;
+let userWritePromise: Promise<void> | null = null;
+
+const scheduleUserWrite = (): Promise<void> => {
+  if (!userWritePromise) {
+    const worker = Promise.resolve().then(async () => {
+      while (pendingUserWrite) {
+        const write = pendingUserWrite;
+        pendingUserWrite = null;
+        try {
+          await AsyncStorage.setItem(write.name, write.value);
+        } catch (error) {
+          pendingUserWrite ??= write;
+          throw error;
+        }
+      }
+    });
+    userWritePromise = worker.then(
+      () => {
+        userWritePromise = null;
+        return pendingUserWrite ? scheduleUserWrite() : undefined;
+      },
+      (error: unknown) => {
+        userWritePromise = null;
+        throw error;
+      },
+    );
+  }
+  return userWritePromise;
+};
+
+const userStateStorage: StateStorage = {
+  getItem: (name) => AsyncStorage.getItem(name),
+  setItem: (name, value) => {
+    pendingUserWrite = { name, value };
+    return scheduleUserWrite();
+  },
+  removeItem: async (name) => {
+    pendingUserWrite = null;
+    await (userWritePromise?.catch(() => undefined) ?? Promise.resolve());
+    pendingUserWrite = null;
+    await AsyncStorage.removeItem(name);
+  },
+};
+
+export const flushUserPersistence = (): Promise<void> =>
+  userWritePromise ??
+  (pendingUserWrite ? scheduleUserWrite() : Promise.resolve());
 
 export interface UserState {
   // New structure
@@ -19,6 +72,7 @@ export interface UserState {
   updateUser: (userData: Partial<User>) => void;
   updateSettings: (settingsData: Partial<Settings>) => void;
   createUser: (displayName: string) => string; // Returns user ID
+  ensureLocalIdentityPersisted: () => Promise<void>;
 
   // Legacy actions (temporary)
   updateUserSettings: (settings: UserSettings) => void;
@@ -83,6 +137,17 @@ export const useUserStore = create<UserState>()(
           return userId;
         },
 
+        ensureLocalIdentityPersisted: () => {
+          const { internalUserId, personalSpaceId, personalParticipantId } =
+            get();
+          set({
+            internalUserId,
+            personalSpaceId,
+            personalParticipantId,
+          });
+          return flushUserPersistence();
+        },
+
         // Legacy actions (temporary)
         updateUserSettings: (settings) => {
           set({ userSettings: settings });
@@ -110,7 +175,7 @@ export const useUserStore = create<UserState>()(
     {
       name: 'expense-mobile-user-v2',
       version: 3,
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => userStateStorage),
       partialize: (state) => ({
         user: state.user,
         settings: state.settings,

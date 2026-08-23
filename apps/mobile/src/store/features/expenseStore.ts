@@ -30,24 +30,30 @@ let expenseWritePromise: Promise<void> | null = null;
 
 const scheduleExpenseWrite = (): Promise<void> => {
   if (!expenseWritePromise) {
-    expenseWritePromise = Promise.resolve()
-      .then(async () => {
-        while (pendingExpenseWrite) {
-          const write = pendingExpenseWrite;
-          pendingExpenseWrite = null;
-          try {
-            await AsyncStorage.setItem(write.name, write.value);
-          } catch (error) {
-            // A write queued while this one was in flight represents newer
-            // state; otherwise retain this exact snapshot for a later retry.
-            pendingExpenseWrite ??= write;
-            throw error;
-          }
+    const worker = Promise.resolve().then(async () => {
+      while (pendingExpenseWrite) {
+        const write = pendingExpenseWrite;
+        pendingExpenseWrite = null;
+        try {
+          await AsyncStorage.setItem(write.name, write.value);
+        } catch (error) {
+          // A write queued while this one was in flight represents newer
+          // state; otherwise retain this exact snapshot for a later retry.
+          pendingExpenseWrite ??= write;
+          throw error;
         }
-      })
-      .finally(() => {
+      }
+    });
+    expenseWritePromise = worker.then(
+      () => {
         expenseWritePromise = null;
-      });
+        return pendingExpenseWrite ? scheduleExpenseWrite() : undefined;
+      },
+      (error: unknown) => {
+        expenseWritePromise = null;
+        throw error;
+      },
+    );
   }
   return expenseWritePromise;
 };

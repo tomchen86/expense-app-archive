@@ -22,7 +22,10 @@ import {
 } from '../../store/features/expenseStore';
 import { useGroupStore } from '../../store/features/groupStore';
 import { useParticipantStore } from '../../store/features/participantStore';
-import { useUserStore } from '../../store/features/userStore';
+import {
+  flushUserPersistence,
+  useUserStore,
+} from '../../store/features/userStore';
 import type { Expense, ExpenseGroup, Participant } from '../../types';
 
 const defaultSettings = {
@@ -91,7 +94,8 @@ describe('useExpenseForm', () => {
     jest.clearAllMocks();
     storage.setItem.mockResolvedValue(undefined);
     resetAllStores();
-    await flushExpensePersistence();
+    await Promise.all([flushExpensePersistence(), flushUserPersistence()]);
+    storage.setItem.mockClear();
     (Alert.alert as jest.Mock).mockClear();
   });
 
@@ -844,7 +848,9 @@ describe('useExpenseForm', () => {
       ref.current!.handleUpdateFormState('amount', '5.00');
     });
 
-    storage.setItem.mockRejectedValueOnce(new Error('disk unavailable'));
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk unavailable'));
     await act(async () => {
       await ref.current!.handleSubmit();
     });
@@ -871,6 +877,76 @@ describe('useExpenseForm', () => {
     );
     expect(router.back).toHaveBeenCalledTimes(1);
     expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it('persists the anonymous identity before creating its first expense', async () => {
+    let resolveIdentityWrite: (() => void) | undefined;
+    storage.setItem.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveIdentityWrite = resolve;
+        }),
+    );
+
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(<HookHarness ref={ref} editingExpense={null} />);
+    });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Ordered coffee');
+      ref.current!.handleUpdateFormState('amount', '5.00');
+    });
+
+    let submission!: Promise<void>;
+    act(() => {
+      submission = ref.current!.handleSubmit();
+    });
+    await Promise.resolve();
+
+    expect(storage.setItem).toHaveBeenCalledWith(
+      'expense-mobile-user-v2',
+      expect.any(String),
+    );
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([]);
+
+    await act(async () => {
+      resolveIdentityWrite?.();
+      await submission;
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses).toHaveLength(1);
+    expect(storage.setItem).toHaveBeenCalledWith(
+      'expense-mobile-expenses-v2',
+      expect.stringContaining('Ordered coffee'),
+    );
+  });
+
+  it('does not create an expense when anonymous identity persistence fails', async () => {
+    storage.setItem.mockRejectedValueOnce(new Error('identity unavailable'));
+
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(<HookHarness ref={ref} editingExpense={null} />);
+    });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Unsafe coffee');
+      ref.current!.handleUpdateFormState('amount', '5.00');
+    });
+
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([]);
+    expect(storage.setItem).not.toHaveBeenCalledWith(
+      'expense-mobile-expenses-v2',
+      expect.any(String),
+    );
+    expect(router.back).not.toHaveBeenCalled();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Storage Error',
+      'The expense could not be saved to this device. Please try again.',
+    );
   });
 
   it('persists the latest form snapshot when save is pressed during an in-flight write', async () => {
@@ -994,7 +1070,9 @@ describe('useExpenseForm', () => {
       ref.current!.handleUpdateFormState('title', 'Unpersisted title');
     });
 
-    storage.setItem.mockRejectedValueOnce(new Error('disk unavailable'));
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk unavailable'));
     await act(async () => {
       await ref.current!.handleSubmit();
     });

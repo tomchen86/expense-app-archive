@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useExpenseStore } from '../store/expenseStore';
 import { flushExpensePersistence } from '../store/features/expenseStore';
+import { useUserStore as useUserFeatureStore } from '../store/features/userStore';
 import {
   Expense,
   Participant,
@@ -493,6 +494,11 @@ export const useExpenseForm = ({
     queuedSubmission.current = null;
     let nextSubmission = preparedSubmission;
     try {
+      await useUserFeatureStore.getState().ensureLocalIdentityPersisted();
+      if (submissionContextGeneration.current !== contextGeneration) {
+        return;
+      }
+
       while (submissionContextGeneration.current === contextGeneration) {
         const pending = pendingSubmission.current;
         if (pending) {
