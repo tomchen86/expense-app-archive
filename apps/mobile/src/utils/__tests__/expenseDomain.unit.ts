@@ -116,4 +116,24 @@ describe('canonical expense projections', () => {
     expect(getExpenseShares(oneCentExpense)).toEqual(oneCentExpense.shares);
     expect(validateCanonicalExpense(oneCentExpense)).toBe(true);
   });
+
+  it('projects an explicit zero-cent share as participation', () => {
+    const oneCentExpense: Expense = {
+      ...canonicalExpense,
+      amountMinor: 1,
+      payments: [{ participantId: 'alice', amountMinor: 1 }],
+      shares: [
+        { participantId: 'alice', amountMinor: 1 },
+        { participantId: 'bob', amountMinor: 0 },
+      ],
+    };
+
+    expect(getPersonalExpenseProjection(oneCentExpense, 'bob')).toEqual({
+      expense: oneCentExpense,
+      currency: 'AUD',
+      myPaidMinor: 0,
+      mySpentMinor: 0,
+      myBalanceMinor: 0,
+    });
+  });
 });

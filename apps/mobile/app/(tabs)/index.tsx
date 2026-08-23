@@ -19,13 +19,14 @@ import {
 import ExpenseListItem from '../../src/components/ExpenseListItem';
 import FloatingActionButton from '../../src/components/FloatingActionButton';
 import {
-  getExpenseAmountMinor,
   getExpenseCurrency,
-  getExpenseShares,
   getExpenseSpaceId,
-  getPersonalExpenseProjection,
-  isExpenseDeleted,
 } from '../../src/utils/expenseDomain';
+import {
+  resolvePersonalParticipantIds,
+  selectPersonalLedgerExpenses,
+  sumPersonalShareMinor,
+} from '../../src/utils/personalExpenseSelection';
 import { formatMinorUnits } from '../../src/utils/money';
 import { ScreenHeading } from '../../src/components/ui/screen-heading';
 import { mobileTheme } from '../../src/theme/tokens';
@@ -45,29 +46,22 @@ const HomeScreen = () => {
 
   const currentParticipantIds = useMemo(
     () =>
-      Array.from(
-        new Set([
-          personalParticipantId,
-          ...participants
-            .filter((participant) => participant.userId === internalUserId)
-            .map((participant) => participant.id),
-        ]),
-      ),
+      resolvePersonalParticipantIds({
+        internalUserId,
+        participants,
+        personalParticipantId,
+      }),
     [internalUserId, participants, personalParticipantId],
   );
 
-  const relevantExpenses = useMemo(() => {
-    return expenses.filter(
-      (expense) =>
-        !isExpenseDeleted(expense) &&
-        ((expense.spaceKind === 'personal' &&
-          getExpenseSpaceId(expense) === personalSpaceId) ||
-          currentParticipantIds.some(
-            (participantId) =>
-              getPersonalExpenseProjection(expense, participantId) !== null,
-          )),
-    );
-  }, [expenses, personalSpaceId, currentParticipantIds]);
+  const relevantExpenses = useMemo(
+    () =>
+      selectPersonalLedgerExpenses(expenses, {
+        participantIds: currentParticipantIds,
+        personalSpaceId,
+      }),
+    [expenses, personalSpaceId, currentParticipantIds],
+  );
 
   const totalUserShares = useMemo(() => {
     const totals = new Map<string, number>();
@@ -76,14 +70,11 @@ const HomeScreen = () => {
       totals.set(
         currency,
         (totals.get(currency) ?? 0) +
-          (expense.spaceKind === 'personal' &&
-          getExpenseSpaceId(expense) === personalSpaceId
-            ? getExpenseAmountMinor(expense)
-            : getExpenseShares(expense)
-                .filter((share) =>
-                  currentParticipantIds.includes(share.participantId),
-                )
-                .reduce((sum, share) => sum + share.amountMinor, 0)),
+          sumPersonalShareMinor(
+            expense,
+            currentParticipantIds,
+            personalSpaceId,
+          ),
       );
     });
     return [...totals.entries()];
@@ -111,15 +102,11 @@ const HomeScreen = () => {
     const groupForDisplay = getExpenseSpaceId(item)
       ? groupMap.get(getExpenseSpaceId(item)!)
       : null;
-    const userShareMinor =
-      item.spaceKind === 'personal' &&
-      getExpenseSpaceId(item) === personalSpaceId
-        ? getExpenseAmountMinor(item)
-        : getExpenseShares(item)
-            .filter((share) =>
-              currentParticipantIds.includes(share.participantId),
-            )
-            .reduce((sum, share) => sum + share.amountMinor, 0);
+    const userShareMinor = sumPersonalShareMinor(
+      item,
+      currentParticipantIds,
+      personalSpaceId,
+    );
 
     return (
       <ExpenseListItem

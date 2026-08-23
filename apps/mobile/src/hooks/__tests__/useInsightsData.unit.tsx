@@ -174,4 +174,46 @@ describe('useInsightsData', () => {
     expect(ref.current!.chartData).toHaveLength(1);
     expect(ref.current!.chartData[0].absoluteValue).toBe(30);
   });
+
+  it('uses the bare legacy user identity for personal shared-expense insights', () => {
+    const legacySharedExpense: Expense = {
+      id: 'legacy-shared-expense',
+      title: 'Legacy shared lunch',
+      amountMinor: 500,
+      currency: 'AUD',
+      date: '2025-01-10',
+      category: 'Food & Dining',
+      spaceId: 'archived-shared-space',
+      spaceKind: 'shared',
+      payments: [{ participantId: 'other-user', amountMinor: 500 }],
+      shares: [{ participantId: 'legacy-user', amountMinor: 500 }],
+    };
+    useExpenseStore.setState((state) => ({
+      ...state,
+      expenses: [legacySharedExpense],
+      internalUserId: 'legacy-user',
+      participants: [],
+      personalParticipantId: 'canonical-personal-participant',
+    }));
+
+    const ref = createRef<HookHandle>();
+    act(() => {
+      TestRenderer.create(
+        <InsightsHarness
+          ref={ref}
+          contextType='personal'
+          contextId='legacy-user'
+          initialDate={new Date('2025-01-01')}
+        />,
+      );
+    });
+
+    expect(ref.current!.chartData).toEqual([
+      expect.objectContaining({
+        absoluteValue: 5,
+        category: 'Food & Dining',
+        currency: 'AUD',
+      }),
+    ]);
+  });
 });

@@ -99,18 +99,16 @@ export const getPersonalExpenseProjection = (
   if (isExpenseDeleted(expense)) {
     return null;
   }
-  const myPaidMinor = sumAllocationsForParticipant(
-    getExpensePayments(expense),
-    participantId,
-  );
-  const mySpentMinor = sumAllocationsForParticipant(
-    getExpenseShares(expense),
-    participantId,
-  );
-
-  if (myPaidMinor === 0 && mySpentMinor === 0) {
+  const payments = getExpensePayments(expense);
+  const shares = getExpenseShares(expense);
+  const hasAllocation =
+    payments.some((payment) => payment.participantId === participantId) ||
+    shares.some((share) => share.participantId === participantId);
+  if (!hasAllocation) {
     return null;
   }
+  const myPaidMinor = sumAllocationsForParticipant(payments, participantId);
+  const mySpentMinor = sumAllocationsForParticipant(shares, participantId);
 
   return {
     expense,

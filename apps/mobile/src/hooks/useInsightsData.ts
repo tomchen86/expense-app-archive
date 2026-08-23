@@ -11,11 +11,11 @@ import {
   ChartDataPoint,
 } from '../utils/calculations/insightCalculations';
 import { ExpenseGroup as _ExpenseGroup } from '../types';
-import { calculateUserShareMinor } from '../utils/expenseCalculations';
 import {
-  getExpenseAmountMinor,
-  getExpenseSpaceId,
-} from '../utils/expenseDomain';
+  resolvePersonalParticipantIds,
+  selectPersonalLedgerExpenses,
+  sumPersonalShareMinor,
+} from '../utils/personalExpenseSelection';
 
 interface UseInsightsDataProps {
   contextType: 'personal' | 'group';
@@ -127,24 +127,32 @@ export const useInsightsData = ({
     return isNextPeriodDisabled(selectedYear, selectedMonth, aggregation);
   }, [selectedYear, selectedMonth, aggregation]);
 
+  const personalParticipantIds = useMemo(
+    () =>
+      resolvePersonalParticipantIds({
+        internalUserId,
+        participants,
+        personalParticipantId,
+      }),
+    [internalUserId, participants, personalParticipantId],
+  );
+
   // Get filtered expenses
   const filteredExpenses = useMemo(() => {
-    const personalParticipantIds = Array.from(
-      new Set([
-        personalParticipantId,
-        ...participants
-          .filter((participant) => participant.userId === internalUserId)
-          .map((participant) => participant.id),
-      ]),
-    );
-    const relevantExpenses = getRelevantExpenses(
-      allExpenses,
-      contextType,
-      contextId,
-      personalParticipantId,
-      personalSpaceId,
-      personalParticipantIds,
-    );
+    const relevantExpenses =
+      contextType === 'personal'
+        ? selectPersonalLedgerExpenses(allExpenses, {
+            participantIds: personalParticipantIds,
+            personalSpaceId,
+          })
+        : getRelevantExpenses(
+            allExpenses,
+            contextType,
+            contextId,
+            personalParticipantId,
+            personalSpaceId,
+            personalParticipantIds,
+          );
 
     return filterExpensesByDate(
       relevantExpenses,
@@ -156,10 +164,8 @@ export const useInsightsData = ({
     allExpenses,
     contextType,
     contextId,
-    internalUserId,
-    personalParticipantId,
     personalSpaceId,
-    participants,
+    personalParticipantIds,
     aggregation,
     selectedYear,
     selectedMonth,
@@ -172,38 +178,19 @@ export const useInsightsData = ({
       appCategories,
       '#808080',
       contextType === 'personal'
-        ? (expense) => {
-            if (
-              expense.spaceKind === 'personal' &&
-              getExpenseSpaceId(expense) === personalSpaceId
-            ) {
-              return getExpenseAmountMinor(expense);
-            }
-            const participantIds = Array.from(
-              new Set([
-                personalParticipantId,
-                ...participants
-                  .filter(
-                    (participant) => participant.userId === internalUserId,
-                  )
-                  .map((participant) => participant.id),
-              ]),
-            );
-            return participantIds.reduce(
-              (sum, participantId) =>
-                sum + calculateUserShareMinor(expense, participantId),
-              0,
-            );
-          }
+        ? (expense) =>
+            sumPersonalShareMinor(
+              expense,
+              personalParticipantIds,
+              personalSpaceId,
+            )
         : undefined,
     );
   }, [
     filteredExpenses,
     appCategories,
     contextType,
-    internalUserId,
-    participants,
-    personalParticipantId,
+    personalParticipantIds,
     personalSpaceId,
   ]);
 
