@@ -29,42 +29,44 @@ export const useParticipantStore = create<ParticipantState>()(
       participants: [],
 
       addParticipant: (name, idOverride, identity) => {
-        const id = idOverride || createUuid();
-        set((state) => {
-          const existingById = state.participants.find((p) => p.id === id);
-          const existingByName = state.participants.find(
-            (p) =>
-              p.name === name &&
-              p.id !== id &&
-              p.active !== false &&
-              p.spaceId === identity?.spaceId,
-          );
+        const participants = get().participants;
+        const existingById = idOverride
+          ? participants.find((participant) => participant.id === idOverride)
+          : undefined;
 
-          if (existingById && idOverride) {
-            if (existingById.name !== name) {
-              return {
-                ...state,
-                participants: state.participants.map((p) =>
-                  p.id === id ? { ...p, name, ...identity } : p,
-                ),
-              };
-            }
-            return state;
-          }
-          if (existingByName) {
-            console.warn(
-              `Participant with name "${name}" already exists with a different ID.`,
-            );
-            return state;
-          }
-          if (!existingById && !existingByName) {
-            return {
-              ...state,
-              participants: [...state.participants, { id, name, ...identity }],
-            };
-          }
-          return state;
-        });
+        if (existingById) {
+          set((state) => ({
+            participants: state.participants.map((participant) =>
+              participant.id === existingById.id
+                ? {
+                    ...participant,
+                    name,
+                    ...identity,
+                    ...(participant.active === false ? { active: true } : {}),
+                  }
+                : participant,
+            ),
+          }));
+          return existingById.id;
+        }
+
+        const existingByName = participants.find(
+          (participant) =>
+            participant.name === name &&
+            participant.active !== false &&
+            participant.spaceId === identity?.spaceId,
+        );
+        if (existingByName) {
+          console.warn(
+            `Participant with name "${name}" already exists with a different ID.`,
+          );
+          return existingByName.id;
+        }
+
+        const id = idOverride ?? createUuid();
+        set((state) => ({
+          participants: [...state.participants, { id, name, ...identity }],
+        }));
         return id;
       },
 
