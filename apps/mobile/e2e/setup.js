@@ -109,7 +109,7 @@ global.testHelpers = {
 
   // Helper to create a group
   createGroup: async (groupName) => {
-    await testHelpers.waitAndTap(by.text('History'));
+    await testHelpers.waitAndTap(by.text('Groups'));
     await testHelpers.waitAndTap(by.id('add-group-button'));
     await testHelpers.waitAndType(by.id('group-name-input'), groupName);
     await testHelpers.waitAndTap(by.text('Create'));

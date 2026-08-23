@@ -11,8 +11,8 @@ describe('User Onboarding Journey', () => {
 
   describe('First Time User Experience', () => {
     it('should complete first-time user setup', async () => {
-      // Step 1: App should start on Home screen for new users
-      await testHelpers.expectVisible(by.text('Home'));
+      // Step 1: App should start on the Expenses screen for new users
+      await testHelpers.expectVisible(by.text('Expenses'));
       await testHelpers.expectVisible(by.text('No expenses yet'));
 
       // Step 2: User tries to create first expense
@@ -32,8 +32,8 @@ describe('User Onboarding Journey', () => {
       // Step 5: Save first expense
       await testHelpers.waitAndTap(by.id('save-expense-button'));
 
-      // Step 6: Should return to Home with expense visible
-      await testHelpers.expectVisible(by.text('Home'));
+      // Step 6: Should return to Expenses with expense visible
+      await testHelpers.expectVisible(by.text('Expenses'));
       await testHelpers.verifyExpenseInList('First Coffee', '4.50');
 
       // Step 7: Verify total is displayed
@@ -42,7 +42,7 @@ describe('User Onboarding Journey', () => {
 
     it('should guide user through username setup for groups', async () => {
       // Step 1: User tries to create a group without username
-      await testHelpers.waitAndTap(by.text('History'));
+      await testHelpers.waitAndTap(by.text('Groups'));
       await testHelpers.expectVisible(by.text('Groups'));
 
       // Step 2: Try to add group
@@ -68,8 +68,8 @@ describe('User Onboarding Journey', () => {
       // Step 7: Should show success message
       await testHelpers.expectVisible(by.text('Settings saved successfully'));
 
-      // Step 8: Navigate back to History
-      await testHelpers.waitAndTap(by.text('History'));
+      // Step 8: Navigate back to Groups
+      await testHelpers.waitAndTap(by.text('Groups'));
 
       // Step 9: Should now be able to create group
       await testHelpers.waitAndTap(by.id('add-group-button'));
@@ -100,7 +100,7 @@ describe('User Onboarding Journey', () => {
       await testHelpers.expectVisible(by.text('Transportation'));
 
       // But group features should require username
-      await testHelpers.waitAndTap(by.text('History'));
+      await testHelpers.waitAndTap(by.text('Groups'));
       await testHelpers.waitAndTap(by.id('add-group-button'));
       await testHelpers.expectVisible(by.text('Username Required'));
     });
@@ -112,8 +112,8 @@ describe('User Onboarding Journey', () => {
     });
 
     it('should guide through first group creation', async () => {
-      // Step 1: User navigates to History (Groups)
-      await testHelpers.waitAndTap(by.text('History'));
+      // Step 1: User navigates to Groups
+      await testHelpers.waitAndTap(by.text('Groups'));
       await testHelpers.expectVisible(by.text('No groups yet'));
 
       // Step 2: Create first group
@@ -198,7 +198,7 @@ describe('User Onboarding Journey', () => {
       await testHelpers.expectVisible(by.text('Gym & Fitness'));
 
       // Step 7: Use new category in expense
-      await testHelpers.waitAndTap(by.text('Home'));
+      await testHelpers.waitAndTap(by.text('Expenses'));
       await testHelpers.waitAndTap(by.id('add-expense-fab'));
       await testHelpers.waitAndType(
         by.id('expense-title-input'),
@@ -238,7 +238,7 @@ describe('User Onboarding Journey', () => {
       await testHelpers.expectVisible(by.text('Settings saved successfully'));
 
       // Verify settings persist across navigation
-      await testHelpers.waitAndTap(by.text('Home'));
+      await testHelpers.waitAndTap(by.text('Expenses'));
       await testHelpers.waitAndTap(by.text('Settings'));
       await testHelpers.expectVisible(by.text('Currency: EUR'));
       await testHelpers.expectVisible(by.text('Theme: Dark'));
@@ -255,7 +255,7 @@ describe('User Onboarding Journey', () => {
       await testHelpers.expectVisible(by.text('Settings saved successfully'));
 
       // Create a group to see if display name is used
-      await testHelpers.waitAndTap(by.text('History'));
+      await testHelpers.waitAndTap(by.text('Groups'));
       await testHelpers.waitAndTap(by.id('add-group-button'));
       await testHelpers.waitAndType(by.id('group-name-input'), 'Test Display');
       await testHelpers.waitAndTap(by.text('Create'));

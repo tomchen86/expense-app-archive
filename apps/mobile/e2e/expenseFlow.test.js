@@ -12,8 +12,8 @@ describe('Expense Management Flow', () => {
       // Step 1: Set up username (required for groups)
       await testHelpers.setUsername('TestUser');
 
-      // Step 2: Navigate to Home
-      await testHelpers.waitAndTap(by.text('Home'));
+      // Step 2: Navigate to Expenses
+      await testHelpers.waitAndTap(by.text('Expenses'));
 
       // Step 3: Add first expense
       await testHelpers.waitAndTap(by.id('add-expense-fab'));
@@ -33,7 +33,7 @@ describe('Expense Management Flow', () => {
 
     it('should handle username requirement for group creation', async () => {
       // Try to create group without username
-      await testHelpers.waitAndTap(by.text('History'));
+      await testHelpers.waitAndTap(by.text('Groups'));
       await testHelpers.waitAndTap(by.id('add-group-button'));
 
       // Should show username required popup
@@ -53,7 +53,7 @@ describe('Expense Management Flow', () => {
       await testHelpers.expectVisible(by.text('Settings saved successfully'));
 
       // Now try creating group again
-      await testHelpers.waitAndTap(by.text('History'));
+      await testHelpers.waitAndTap(by.text('Groups'));
       await testHelpers.waitAndTap(by.id('add-group-button'));
 
       // Should now be able to create group
@@ -205,23 +205,20 @@ describe('Expense Management Flow', () => {
       await testHelpers.expectVisible(by.text('$250.00')); // Total of all expenses
     });
 
-    it('should calculate participant balances', async () => {
-      // Create group
-      await testHelpers.createGroup('Split Test');
-      await testHelpers.waitAndTap(by.text('Split Test'));
+    it('should show participant balances without assuming a group size', async () => {
+      // Create a general shared-expense group
+      await testHelpers.createGroup('Team Dinner');
+      await testHelpers.waitAndTap(by.text('Team Dinner'));
 
       // Add group expense
       await testHelpers.createExpense('Shared Meal', '60.00');
 
       // View group details/balances
-      await testHelpers.waitAndTap(by.id('group-balances-button'));
+      await testHelpers.waitAndTap(by.label('View balances for Team Dinner'));
 
       // Should show balance calculations
-      await testHelpers.expectVisible(by.text('Balance Summary'));
+      await testHelpers.expectVisible(by.text('Group Member Balances'));
       await testHelpers.expectVisible(by.text('GroupManager')); // Current user
-
-      // Verify balance display (assuming equal split)
-      await testHelpers.expectVisible(by.text('$30.00')); // Half of 60
     });
   });
 
@@ -284,8 +281,8 @@ describe('Expense Management Flow', () => {
       await testHelpers.waitAndType(by.id('category-name-input'), 'Gym');
       await testHelpers.waitAndTap(by.text('Save'));
 
-      // Go to home and create expense
-      await testHelpers.waitAndTap(by.text('Home'));
+      // Go to Expenses and create an expense
+      await testHelpers.waitAndTap(by.text('Expenses'));
       await testHelpers.waitAndTap(by.id('add-expense-fab'));
       await testHelpers.waitAndType(by.id('expense-title-input'), 'Membership');
       await testHelpers.waitAndType(by.id('expense-amount-input'), '50.00');
@@ -434,7 +431,7 @@ describe('Expense Management Flow', () => {
 
     it('should handle empty group name validation', async () => {
       await testHelpers.setUsername('ValidationUser');
-      await testHelpers.waitAndTap(by.text('History'));
+      await testHelpers.waitAndTap(by.text('Groups'));
       await testHelpers.waitAndTap(by.id('add-group-button'));
 
       // Try to create group with empty name

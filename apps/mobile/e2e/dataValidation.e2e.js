@@ -54,7 +54,7 @@ describe('Data Validation and Consistency', () => {
       await testHelpers.expectVisible(by.text('Custom Food'));
 
       // Go to expense creation and verify category is available
-      await testHelpers.waitAndTap(by.text('Home'));
+      await testHelpers.waitAndTap(by.text('Expenses'));
       await testHelpers.waitAndTap(by.id('add-expense-fab'));
       await testHelpers.waitAndTap(by.id('category-picker'));
       await testHelpers.expectVisible(by.text('Custom Food'));
@@ -87,8 +87,8 @@ describe('Data Validation and Consistency', () => {
       await testHelpers.verifyExpenseInList('Group Expense', '75.00');
 
       // Navigate away and back
-      await testHelpers.waitAndTap(by.text('Home'));
-      await testHelpers.waitAndTap(by.text('History'));
+      await testHelpers.waitAndTap(by.text('Expenses'));
+      await testHelpers.waitAndTap(by.text('Groups'));
       await testHelpers.waitAndTap(by.text('Navigation Test'));
 
       // Verify group data persisted
@@ -246,20 +246,21 @@ describe('Data Validation and Consistency', () => {
       await testHelpers.expectVisible(by.text(formattedTotal));
     });
 
-    it('should handle group expense splitting correctly', async () => {
-      // Create group with known participants
-      await testHelpers.createGroup('Split Test Group');
-      await testHelpers.waitAndTap(by.text('Split Test Group'));
+    it('should expose balances without assuming a group size', async () => {
+      // Create a general shared-expense group
+      await testHelpers.createGroup('Project Lunch');
+      await testHelpers.waitAndTap(by.text('Project Lunch'));
 
       // Add expense that should be split
       await testHelpers.createExpense('Split Dinner', '60.00');
 
       // View group balances (if available)
-      if (await testHelpers.isVisible(by.id('group-balances-button'))) {
-        await testHelpers.waitAndTap(by.id('group-balances-button'));
+      const balancesButton = by.label('View balances for Project Lunch');
+      if (await testHelpers.isVisible(balancesButton)) {
+        await testHelpers.waitAndTap(balancesButton);
 
-        // Verify split calculation (assuming 2 participants, $30 each)
-        await testHelpers.expectVisible(by.text('$30.00'));
+        await testHelpers.expectVisible(by.text('Group Member Balances'));
+        await testHelpers.expectVisible(by.text('DataUser'));
       }
     });
 
@@ -329,7 +330,7 @@ describe('Data Validation and Consistency', () => {
       }
 
       // Verify expense still exists and has valid category
-      await testHelpers.waitAndTap(by.text('Home'));
+      await testHelpers.waitAndTap(by.text('Expenses'));
       await testHelpers.expectVisible(by.text('Category Test'));
     });
 
@@ -381,15 +382,15 @@ describe('Data Validation and Consistency', () => {
       // Start with empty state
       await device.reloadReactNative();
 
-      // Home should show empty state
+      // Expenses should show the empty state
       await testHelpers.expectVisible(by.text('No expenses yet'));
 
-      // History should show empty state
-      await testHelpers.waitAndTap(by.text('History'));
+      // Groups should show the empty state
+      await testHelpers.waitAndTap(by.text('Groups'));
       await testHelpers.expectVisible(by.text('No groups yet'));
 
       // Insights should show empty state
-      await testHelpers.waitAndTap(by.text('Home'));
+      await testHelpers.waitAndTap(by.text('Expenses'));
       await testHelpers.waitAndTap(by.id('total-share-button'));
       await testHelpers.expectVisible(
         by.text('No expense data for the selected period.'),

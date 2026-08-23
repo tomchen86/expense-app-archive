@@ -44,7 +44,7 @@ const testHelpers = {
       await this.waitAndReplace(by.id('username-input'), username);
       await this.waitAndTap(by.text('Save Settings'));
 
-      // Wait for success message or return to home
+      // Wait for success message or return to Expenses
       const successVisible = await this.isVisible(
         by.text('Settings saved successfully'),
       );
@@ -53,15 +53,15 @@ const testHelpers = {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
-      // Return to home
-      await this.waitAndTap(by.text('Home'));
+      // Return to Expenses
+      await this.waitAndTap(by.text('Expenses'));
     } catch (error) {
       console.log('Username might already be set or navigation different');
-      // Try to navigate to home anyway
+      // Try to navigate to Expenses anyway
       try {
-        await this.waitAndTap(by.text('Home'));
-      } catch (homeError) {
-        // Already on home or different screen structure
+        await this.waitAndTap(by.text('Expenses'));
+      } catch (expensesError) {
+        // Already on Expenses or different screen structure
       }
     }
   },
@@ -79,12 +79,12 @@ const testHelpers = {
 
     await this.waitAndTap(by.id('save-expense-button'));
 
-    // Wait for navigation back to home
-    await this.expectVisible(by.text('Home'));
+    // Wait for navigation back to Expenses
+    await this.expectVisible(by.text('Expenses'));
   },
 
   async createGroup(groupName) {
-    await this.waitAndTap(by.text('History'));
+    await this.waitAndTap(by.text('Groups'));
     await this.waitAndTap(by.id('add-group-button'));
     await this.waitAndType(by.id('group-name-input'), groupName);
     await this.waitAndTap(by.text('Create'));
@@ -99,12 +99,12 @@ const testHelpers = {
   },
 
   // Navigation helpers
-  async navigateToHome() {
-    await this.waitAndTap(by.text('Home'));
+  async navigateToExpenses() {
+    await this.waitAndTap(by.text('Expenses'));
   },
 
-  async navigateToHistory() {
-    await this.waitAndTap(by.text('History'));
+  async navigateToGroups() {
+    await this.waitAndTap(by.text('Groups'));
   },
 
   async navigateToSettings() {
@@ -146,8 +146,8 @@ const testHelpers = {
 
   async verifyExpenseCount(expectedCount) {
     // This would need to be implemented based on how the UI shows expense count
-    // For now, we'll just verify the home screen shows expenses
-    await this.navigateToHome();
+    // For now, we'll just verify the Expenses screen shows expenses
+    await this.navigateToExpenses();
     if (expectedCount > 0) {
       await this.expectVisible(by.id('expense-list'));
     } else {
@@ -156,7 +156,7 @@ const testHelpers = {
   },
 
   async verifyGroupExists(groupName) {
-    await this.navigateToHistory();
+    await this.navigateToGroups();
     await this.expectVisible(by.text(groupName));
   },
 
@@ -165,7 +165,7 @@ const testHelpers = {
     await this.waitAndTap(by.text('Manage Categories'));
     await this.expectVisible(by.text(categoryName));
     // Navigate back
-    await this.navigateToHome();
+    await this.navigateToExpenses();
   },
 
   // Category management helpers
@@ -225,20 +225,19 @@ const testHelpers = {
 
   // Group helpers
   async addExpenseToGroup(groupName, title, amount) {
-    await this.navigateToHistory();
+    await this.navigateToGroups();
     await this.waitAndTap(by.text(groupName));
     await this.createExpense(title, amount);
   },
 
   async verifyGroupBalance(groupName, expectedBalance) {
-    await this.navigateToHistory();
+    await this.navigateToGroups();
     await this.waitAndTap(by.text(groupName));
 
-    const balanceButtonExists = await this.isVisible(
-      by.id('group-balances-button'),
-    );
+    const balancesButton = by.label(`View balances for ${groupName}`);
+    const balanceButtonExists = await this.isVisible(balancesButton);
     if (balanceButtonExists) {
-      await this.waitAndTap(by.id('group-balances-button'));
+      await this.waitAndTap(balancesButton);
       await this.expectVisible(by.text(expectedBalance));
     }
   },
@@ -262,7 +261,7 @@ const testHelpers = {
   // Utility helpers
   async waitForAppToLoad() {
     // Wait for app to fully load by checking for key UI elements
-    await this.expectVisible(by.text('Home'));
+    await this.expectVisible(by.text('Expenses'));
   },
 
   async resetAppState() {
@@ -342,7 +341,7 @@ const testHelpers = {
       await this.waitAndTap(by.text('Save Settings'));
     }
 
-    await this.navigateToHome();
+    await this.navigateToExpenses();
   },
 
   async createExpenseWithAllFields(
@@ -370,7 +369,7 @@ const testHelpers = {
     }
 
     await this.waitAndTap(by.id('save-expense-button'));
-    await this.expectVisible(by.text('Home'));
+    await this.expectVisible(by.text('Expenses'));
   },
 };
 
