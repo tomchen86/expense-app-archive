@@ -1,28 +1,27 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, Button } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Expense } from '../src/types';
 import { useExpenseForm } from '../src/hooks/useExpenseForm';
 import { useExpenseModals } from '../src/hooks/useExpenseModals';
+import { useExpenseStore } from '../src/store/expenseStore';
+import {
+  resolveEditingExpense,
+  resolveSingleRouteParam,
+} from '../src/navigation/expense-edit-route';
+import type { RouteParam } from '../src/navigation/expense-edit-route';
 import { BasicInfoSection } from '../src/components/ExpenseForm/BasicInfoSection';
 import { GroupSection } from '../src/components/ExpenseForm/GroupSection';
 import { ExpenseModals } from '../src/components/ExpenseForm/ExpenseModals';
 
 const AddExpenseScreen = () => {
-  const params = useLocalSearchParams();
-  const initialSpaceId = Array.isArray(params.groupId)
-    ? params.groupId[0]
-    : params.groupId;
-  let editingExpense: Expense | undefined;
-
-  try {
-    editingExpense = params.expense
-      ? (JSON.parse(params.expense as string) as Expense)
-      : undefined;
-  } catch (error) {
-    console.warn('Failed to parse expense parameter:', error);
-    editingExpense = undefined;
-  }
+  const params = useLocalSearchParams<{
+    expenseId?: RouteParam;
+    groupId?: RouteParam;
+  }>();
+  const initialSpaceId = resolveSingleRouteParam(params.groupId);
+  const editingExpense = useExpenseStore((state) =>
+    resolveEditingExpense(state.expenses, params.expenseId),
+  );
 
   const {
     formState,

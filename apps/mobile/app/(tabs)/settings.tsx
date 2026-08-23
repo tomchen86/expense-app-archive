@@ -6,9 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useExpenseStore } from '../../src/store/expenseStore';
+import { ScreenHeading } from '../../src/components/ui/screen-heading';
+import { mobileTheme } from '../../src/theme/tokens';
 
 const SettingsScreen = () => {
   const { userSettings, updateUserSettings } = useExpenseStore();
@@ -25,62 +29,110 @@ const SettingsScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Your Name:</Text>
-      <TextInput
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-        placeholder='Enter your name'
-      />
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-        <Text style={styles.saveButtonText}>Save Settings</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.saveButton, styles.manageCategoriesButton]}
-        onPress={() => router.push('/manage-categories')}
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps='handled'
+        testID='settings-scroll-view'
       >
-        <Text style={styles.saveButtonText}>Manage Categories</Text>
-      </TouchableOpacity>
-    </View>
+        <ScreenHeading
+          title='Settings'
+          subtitle='Personalise your expense space.'
+        />
+
+        <View style={styles.card}>
+          <Text style={styles.label}>Your Name</Text>
+          <TextInput
+            accessibilityLabel='Your name'
+            autoCapitalize='words'
+            onSubmitEditing={handleSave}
+            placeholder='Enter your name'
+            placeholderTextColor={mobileTheme.colors.textMuted}
+            returnKeyType='done'
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+          />
+
+          <TouchableOpacity
+            accessibilityRole='button'
+            style={styles.saveButton}
+            onPress={handleSave}
+          >
+            <Text style={styles.saveButtonText}>Save Settings</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            accessibilityRole='button'
+            style={[styles.saveButton, styles.manageCategoriesButton]}
+            onPress={() => router.push('/manage-categories')}
+          >
+            <Text style={styles.manageCategoriesButtonText}>
+              Manage Categories
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: mobileTheme.colors.background,
+  },
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: mobileTheme.spacing.xl,
+    paddingTop: mobileTheme.spacing.md,
+    paddingBottom: mobileTheme.spacing.xxxl,
+    backgroundColor: mobileTheme.colors.background,
+  },
+  card: {
+    backgroundColor: mobileTheme.colors.surface,
+    borderColor: mobileTheme.colors.border,
+    borderRadius: mobileTheme.radii.card,
+    borderWidth: 1,
+    padding: mobileTheme.spacing.xl,
+    ...mobileTheme.shadows.card,
   },
   label: {
+    color: mobileTheme.colors.text,
     fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
+    fontWeight: '600',
+    marginBottom: mobileTheme.spacing.sm,
   },
   input: {
-    height: 40,
-    borderColor: 'gray',
+    minHeight: 48,
+    color: mobileTheme.colors.text,
+    backgroundColor: mobileTheme.colors.surfaceElevated,
+    borderColor: mobileTheme.colors.border,
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginBottom: 20,
+    borderRadius: mobileTheme.radii.control,
+    paddingHorizontal: mobileTheme.spacing.lg,
+    marginBottom: mobileTheme.spacing.xl,
   },
   saveButton: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 5,
+    backgroundColor: mobileTheme.colors.primary,
+    padding: mobileTheme.spacing.lg,
+    borderRadius: mobileTheme.radii.control,
     alignItems: 'center',
   },
   manageCategoriesButton: {
-    marginTop: 15,
-    backgroundColor: '#5bc0de',
+    marginTop: mobileTheme.spacing.md,
+    backgroundColor: mobileTheme.colors.primaryContainer,
   },
   saveButtonText: {
-    color: 'white',
+    color: mobileTheme.colors.onPrimary,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  manageCategoriesButtonText: {
+    color: mobileTheme.colors.onPrimaryContainer,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

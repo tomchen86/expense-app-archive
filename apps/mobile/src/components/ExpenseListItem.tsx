@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Expense, ExpenseGroup, Participant } from '../types'; // Import necessary types
 import { getExpenseCurrency, getExpensePayments } from '../utils/expenseDomain';
 import { formatMinorUnits } from '../utils/money';
+import { mobileTheme } from '../theme/tokens';
 
 interface ExpenseListItemProps {
   item: Expense;
@@ -83,12 +84,16 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
       {/* Action Buttons Area */}
       <View style={styles.actionButtons}>
         <TouchableOpacity
+          accessibilityLabel={`Edit ${item.title}`}
+          accessibilityRole='button'
           style={styles.editButton}
           onPress={() => onEdit(item)}
         >
           <Text style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          accessibilityLabel={`Delete ${item.title}`}
+          accessibilityRole='button'
           style={styles.deleteButton}
           onPress={handleDeletePress}
         >
@@ -102,11 +107,13 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
 // Styles copied and adapted from HomeScreen.tsx
 const styles = StyleSheet.create({
   expenseItem: {
-    backgroundColor: '#ffffff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    boxShadow: '0 1px 1.41px rgba(0, 0, 0, 0.2)',
+    backgroundColor: mobileTheme.colors.surface,
+    padding: mobileTheme.spacing.lg,
+    borderRadius: mobileTheme.radii.card,
+    borderColor: mobileTheme.colors.border,
+    borderWidth: 1,
+    marginBottom: mobileTheme.spacing.md,
+    ...mobileTheme.shadows.card,
     // Consider adding flexDirection: 'row' if actions should be beside content
     // flexDirection: 'row',
     // alignItems: 'center',
@@ -119,17 +126,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: mobileTheme.spacing.xs,
   },
   expenseTitle: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: mobileTheme.colors.text,
+    marginRight: mobileTheme.spacing.md,
     // flexShrink: 1, // Allow title to shrink if too long
   },
   expenseAmount: {
     fontSize: 16,
-    color: '#28a745', // Green for amount
-    fontWeight: '500',
+    color: mobileTheme.colors.success,
+    fontWeight: '600',
   },
   expenseDetails: {
     // No changes needed here for now
@@ -137,66 +148,71 @@ const styles = StyleSheet.create({
   expenseMetadata: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 4, // Add some space above metadata
+    gap: mobileTheme.spacing.sm,
+    marginTop: mobileTheme.spacing.xs,
   },
   expenseCategory: {
     fontSize: 14,
-    color: '#666',
+    color: mobileTheme.colors.textMuted,
   },
   groupTag: {
-    backgroundColor: '#e3f2fd', // Light blue background
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+    backgroundColor: mobileTheme.colors.primaryContainer,
+    paddingHorizontal: mobileTheme.spacing.sm,
+    paddingVertical: mobileTheme.spacing.xs,
+    borderRadius: mobileTheme.radii.pill,
   },
   groupTagText: {
-    color: '#1976d2', // Blue text
+    color: mobileTheme.colors.onPrimaryContainer,
     fontSize: 12,
+    fontWeight: '600',
   },
   expenseDate: {
     fontSize: 14,
-    color: '#6c757d',
-    marginTop: 4,
+    color: mobileTheme.colors.textMuted,
+    marginTop: mobileTheme.spacing.xs,
   },
   expenseCaption: {
     fontSize: 14,
-    color: '#666',
+    color: mobileTheme.colors.textMuted,
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: mobileTheme.spacing.xs,
   },
   paidByText: {
     fontSize: 13,
-    color: '#555',
-    marginTop: 4,
+    color: mobileTheme.colors.textMuted,
+    marginTop: mobileTheme.spacing.xs,
   },
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end', // Align buttons to the right
-    marginTop: 10, // Space between content and buttons
-    gap: 10, // Space between buttons
+    marginTop: mobileTheme.spacing.md,
+    gap: mobileTheme.spacing.sm,
   },
   editButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#007bff', // Blue for edit
-    borderRadius: 4,
+    minHeight: 44,
+    paddingHorizontal: mobileTheme.spacing.md,
+    paddingVertical: mobileTheme.spacing.sm,
+    backgroundColor: mobileTheme.colors.primaryContainer,
+    borderRadius: mobileTheme.radii.control,
+    justifyContent: 'center',
   },
   editButtonText: {
-    color: '#fff',
+    color: mobileTheme.colors.onPrimaryContainer,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#dc3545', // Red for delete
-    borderRadius: 4,
+    minHeight: 44,
+    paddingHorizontal: mobileTheme.spacing.md,
+    paddingVertical: mobileTheme.spacing.sm,
+    backgroundColor: mobileTheme.colors.danger,
+    borderRadius: mobileTheme.radii.control,
+    justifyContent: 'center',
   },
   deleteButtonText: {
-    color: '#fff',
+    color: mobileTheme.colors.onPrimary,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
 

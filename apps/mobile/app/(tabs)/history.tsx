@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useExpenseStore } from '../../src/store/expenseStore';
 import { ExpenseGroup, Participant as _Participant } from '../../src/types';
@@ -15,6 +16,8 @@ import GroupListItem from '../../src/components/GroupListItem';
 import TextInputModal from '../../src/components/TextInputModal';
 import FloatingActionButton from '../../src/components/FloatingActionButton';
 import { calculateGroupTotalsByCurrency } from '../../src/utils/groupCalculations';
+import { ScreenHeading } from '../../src/components/ui/screen-heading';
+import { mobileTheme } from '../../src/theme/tokens';
 
 const HistoryScreen = () => {
   const groups = useExpenseStore((state) => state.groups);
@@ -127,22 +130,30 @@ const HistoryScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.createGroupButton}
-        onPress={openNewGroupModal}
-      >
-        <Text style={styles.createGroupButtonText}>Create New Group</Text>
-      </TouchableOpacity>
-
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       <FlatList
-        data={groups}
-        renderItem={renderGroupListItem}
-        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.groupsList}
+        data={groups}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <View>
+            <ScreenHeading
+              title='Groups'
+              subtitle='Shared spending without the guesswork.'
+            />
+            <TouchableOpacity
+              accessibilityRole='button'
+              style={styles.createGroupButton}
+              onPress={openNewGroupModal}
+            >
+              <Text style={styles.createGroupButtonText}>Create New Group</Text>
+            </TouchableOpacity>
+          </View>
+        }
         ListEmptyComponent={
           <Text style={styles.emptyListText}>No groups yet. Create one!</Text>
         }
+        renderItem={renderGroupListItem}
       />
 
       <TextInputModal
@@ -165,39 +176,40 @@ const HistoryScreen = () => {
           setGroupToAddParticipantTo(null);
         }}
       />
-      <FloatingActionButton />
-    </View>
+      <FloatingActionButton nativeTabsContentInsetApplied />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: mobileTheme.colors.background,
   },
   createGroupButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    backgroundColor: mobileTheme.colors.primary,
+    paddingVertical: mobileTheme.spacing.lg,
+    paddingHorizontal: mobileTheme.spacing.xl,
+    borderRadius: mobileTheme.radii.control,
     alignItems: 'center',
-    marginBottom: 20,
-    boxShadow: '0 2px 2.62px rgba(0, 0, 0, 0.23)',
+    marginBottom: mobileTheme.spacing.xl,
+    ...mobileTheme.shadows.action,
   },
   createGroupButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: mobileTheme.colors.onPrimary,
+    fontSize: 17,
+    fontWeight: '700',
   },
   groupsList: {
-    paddingBottom: 20,
+    paddingHorizontal: mobileTheme.spacing.xl,
+    paddingTop: mobileTheme.spacing.md,
+    paddingBottom: 96,
   },
   emptyListText: {
     textAlign: 'center',
-    marginTop: 50,
+    marginTop: mobileTheme.spacing.xxxl,
     fontSize: 16,
-    color: '#6c757d',
+    color: mobileTheme.colors.textMuted,
   },
 });
 

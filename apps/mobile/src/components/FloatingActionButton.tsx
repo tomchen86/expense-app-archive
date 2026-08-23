@@ -1,18 +1,28 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native';
+import { Pressable, Text, StyleSheet, ViewStyle } from 'react-native';
 import { router } from 'expo-router';
+
+import { mobileTheme } from '../theme/tokens';
+import { AdaptiveActionSurface } from './ui/adaptive-action-surface';
+import { useFloatingActionOffset } from './ui/use-floating-action-offset';
 
 interface FloatingActionButtonProps {
   onPress?: () => void; // Custom press action
   style?: ViewStyle;
   groupId?: string; // Optional groupId to pass to AddExpense screen
+  nativeTabsContentInsetApplied?: boolean;
 }
 
 const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   onPress,
   style,
   groupId,
+  nativeTabsContentInsetApplied = false,
 }) => {
+  const bottomOffset = useFloatingActionOffset({
+    nativeTabsContentInsetApplied,
+  });
+
   const handlePress = () => {
     if (onPress) {
       onPress();
@@ -29,35 +39,47 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   };
 
   return (
-    <TouchableOpacity
-      style={[styles.fab, style]}
-      onPress={handlePress}
-      testID='add-expense-fab'
+    <AdaptiveActionSurface
+      interactive
+      tone='primary'
+      style={[styles.surface, { bottom: bottomOffset }, style]}
+      testID='add-expense-surface'
     >
-      <Text style={styles.fabText}>+</Text>
-    </TouchableOpacity>
+      <Pressable
+        accessibilityLabel='Add expense'
+        accessibilityRole='button'
+        android_ripple={{ color: 'rgba(10, 102, 217, 0.16)' }}
+        hitSlop={mobileTheme.spacing.sm}
+        onPress={handlePress}
+        style={styles.fab}
+        testID='add-expense-fab'
+      >
+        <Text accessibilityElementsHidden style={styles.fabText}>
+          +
+        </Text>
+      </Pressable>
+    </AdaptiveActionSurface>
   );
 };
 
 const styles = StyleSheet.create({
-  fab: {
+  surface: {
     position: 'absolute',
-    bottom: 25,
-    // right: 25, // Removed to allow centering
-    alignSelf: 'center', // Center horizontally
+    alignSelf: 'center',
     width: 60,
     height: 60,
-    borderRadius: 30,
-    backgroundColor: '#007bff', // Example color, adjust as needed
+    borderRadius: mobileTheme.radii.pill,
+  },
+  fab: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
-    opacity: 0.85, // Slightly transparent
   },
   fabText: {
-    fontSize: 30,
-    color: 'white',
-    lineHeight: 30, // Adjust for vertical centering of '+'
+    fontSize: 32,
+    color: mobileTheme.colors.onPrimaryContainer,
+    lineHeight: 34,
+    fontWeight: '400',
   },
 });
 

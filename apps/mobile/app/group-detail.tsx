@@ -31,6 +31,7 @@ import {
   isExpenseDeleted,
 } from '../src/utils/expenseDomain';
 import { formatMinorUnits } from '../src/utils/money';
+import { buildEditExpenseRoute } from '../src/navigation/expense-edit-route';
 
 const GroupDetailScreen = () => {
   const params = useLocalSearchParams();
@@ -89,10 +90,7 @@ const GroupDetailScreen = () => {
   }, [group]);
 
   const handleEdit = (expense: Expense) => {
-    router.push({
-      pathname: '/add-expense',
-      params: { expense: JSON.stringify(expense) },
-    });
+    router.push(buildEditExpenseRoute(expense.id));
   };
 
   const handleDelete = (expenseId: string) => {

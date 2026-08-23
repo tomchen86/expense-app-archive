@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useExpenseStore } from '../../src/store/expenseStore';
 import {
@@ -26,6 +27,9 @@ import {
   isExpenseDeleted,
 } from '../../src/utils/expenseDomain';
 import { formatMinorUnits } from '../../src/utils/money';
+import { ScreenHeading } from '../../src/components/ui/screen-heading';
+import { mobileTheme } from '../../src/theme/tokens';
+import { buildEditExpenseRoute } from '../../src/navigation/expense-edit-route';
 
 const HomeScreen = () => {
   const expenses = useExpenseStore((state) => state.expenses);
@@ -96,10 +100,7 @@ const HomeScreen = () => {
   }, [groups, internalUserId]);
 
   const handleEdit = (expense: Expense) => {
-    router.push({
-      pathname: '/add-expense',
-      params: { expense: JSON.stringify(expense) },
-    });
+    router.push(buildEditExpenseRoute(expense.id));
   };
 
   const handleDelete = (expenseId: string) => {
@@ -133,80 +134,112 @@ const HomeScreen = () => {
     );
   };
 
-  return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        onPress={() => {
-          if (internalUserId) {
-            router.push({
-              pathname: '/insights',
-              params: {
-                contextType: 'personal',
-                contextId: internalUserId,
-              },
-            });
-          }
-        }}
-        disabled={!internalUserId}
-      >
-        <View style={styles.totalExpensesContainer}>
-          {totalUserShares.length === 0 ? (
-            <Text style={styles.totalExpensesText}>Your Total Share: —</Text>
-          ) : (
-            totalUserShares.map(([currency, amountMinor]) => (
-              <Text key={currency} style={styles.totalExpensesText}>
-                Your Total Share: {formatMinorUnits(amountMinor, currency)}
-              </Text>
-            ))
-          )}
-        </View>
-      </TouchableOpacity>
+  const totalShareAccessibilityLabel =
+    totalUserShares.length === 0
+      ? 'View expense insights. Your total share is unavailable.'
+      : `View expense insights. Your total share is ${totalUserShares
+          .map(([currency, amountMinor]) =>
+            formatMinorUnits(amountMinor, currency),
+          )
+          .join(', ')}.`;
 
-      {relevantExpenses.length === 0 ? (
-        <Text style={styles.noExpensesText}>
-          No expenses to display. Add a personal expense or get involved in a
-          group expense.
-        </Text>
-      ) : (
-        <FlatList
-          data={relevantExpenses}
-          renderItem={renderExpenseListItem}
-          keyExtractor={(item) => item.id}
-          style={styles.list}
-        />
-      )}
-      <FloatingActionButton />
-    </View>
+  return (
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
+      <FlatList
+        contentContainerStyle={styles.listContent}
+        data={relevantExpenses}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <View>
+            <ScreenHeading
+              title='Expenses'
+              subtitle='Your money, clearly shared.'
+            />
+            <TouchableOpacity
+              accessibilityHint='Opens charts and category breakdowns'
+              accessibilityLabel={totalShareAccessibilityLabel}
+              accessibilityRole='button'
+              accessibilityState={{ disabled: !internalUserId }}
+              disabled={!internalUserId}
+              onPress={() => {
+                if (internalUserId) {
+                  router.push({
+                    pathname: '/insights',
+                    params: {
+                      contextType: 'personal',
+                      contextId: internalUserId,
+                    },
+                  });
+                }
+              }}
+            >
+              <View style={styles.totalExpensesContainer}>
+                {totalUserShares.length === 0 ? (
+                  <Text style={styles.totalExpensesText}>
+                    Your Total Share: —
+                  </Text>
+                ) : (
+                  totalUserShares.map(([currency, amountMinor]) => (
+                    <Text key={currency} style={styles.totalExpensesText}>
+                      Your Total Share:{' '}
+                      {formatMinorUnits(amountMinor, currency)}
+                    </Text>
+                  ))
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+        }
+        ListEmptyComponent={
+          <Text style={styles.noExpensesText}>
+            No expenses to display. Add a personal expense or get involved in a
+            group expense.
+          </Text>
+        }
+        renderItem={renderExpenseListItem}
+        style={styles.list}
+      />
+      <FloatingActionButton nativeTabsContentInsetApplied />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: mobileTheme.colors.background,
   },
   totalExpensesContainer: {
-    backgroundColor: '#ffffff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
+    backgroundColor: mobileTheme.colors.surface,
+    padding: mobileTheme.spacing.lg,
+    borderRadius: mobileTheme.radii.card,
+    borderColor: mobileTheme.colors.border,
+    borderWidth: 1,
+    marginBottom: mobileTheme.spacing.xl,
     alignItems: 'center',
-    boxShadow: '0 1px 1.41px rgba(0, 0, 0, 0.2)',
+    ...mobileTheme.shadows.card,
   },
   totalExpensesText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700',
+    color: mobileTheme.colors.text,
   },
   list: {
+    flex: 1,
     width: '100%',
+  },
+  listContent: {
+    paddingHorizontal: mobileTheme.spacing.xl,
+    paddingTop: mobileTheme.spacing.md,
+    paddingBottom: 96,
   },
   noExpensesText: {
     textAlign: 'center',
-    marginTop: 50,
+    marginTop: mobileTheme.spacing.xxxl,
+    paddingHorizontal: mobileTheme.spacing.lg,
     fontSize: 16,
-    color: '#6c757d',
+    lineHeight: 24,
+    color: mobileTheme.colors.textMuted,
   },
 });
 

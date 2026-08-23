@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ExpenseGroup, Participant as _Participant } from '../types';
 import type { CurrencyTotal } from '../utils/groupCalculations';
 import { formatMinorUnits } from '../utils/money';
+import { mobileTheme } from '../theme/tokens';
 
 interface GroupListItemProps {
   group: ExpenseGroup;
@@ -22,14 +23,21 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
   onPress, // Destructure onPress
 }) => {
   return (
-    <TouchableOpacity
-      onPress={() => onPress(group.id)}
-      style={styles.groupCard}
-    >
+    <View style={styles.groupCard}>
       {/* Group Header */}
       <View style={styles.groupHeader}>
-        <Text style={styles.groupName}>{group.name}</Text>
         <TouchableOpacity
+          accessibilityLabel={`Open ${group.name}`}
+          accessibilityRole='button'
+          onPress={() => onPress(group.id)}
+          style={styles.openGroupButton}
+        >
+          <Text style={styles.groupName}>{group.name}</Text>
+          <Text style={styles.openGroupText}>View details</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityLabel={`Delete ${group.name}`}
+          accessibilityRole='button'
           onPress={() => onDeleteGroup(group.id)}
           style={styles.deleteButton}
         >
@@ -55,6 +63,8 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
           <View key={participant.id} style={styles.participantItem}>
             <Text style={styles.participantName}>{participant.name}</Text>
             <TouchableOpacity
+              accessibilityLabel={`Remove ${participant.name} from ${group.name}`}
+              accessibilityRole='button'
               onPress={() => onRemoveParticipant(group.id, participant.id)}
               style={styles.removeParticipantButton}
             >
@@ -64,82 +74,112 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
         ))}
         {/* Add Participant Button */}
         <TouchableOpacity
+          accessibilityLabel={`Add participant to ${group.name}`}
+          accessibilityRole='button'
           style={styles.addParticipantButton}
           onPress={() => onAddParticipant(group)}
         >
           <Text style={styles.addParticipantText}>+ Add Participant</Text>
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
 // Styles copied and adapted from HistoryScreen.tsx
 const styles = StyleSheet.create({
   groupCard: {
-    backgroundColor: '#ffffff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-    boxShadow: '0 1px 1.41px rgba(0, 0, 0, 0.2)',
+    backgroundColor: mobileTheme.colors.surface,
+    padding: mobileTheme.spacing.lg,
+    borderRadius: mobileTheme.radii.card,
+    borderColor: mobileTheme.colors.border,
+    borderWidth: 1,
+    marginBottom: mobileTheme.spacing.lg,
+    ...mobileTheme.shadows.card,
   },
   groupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: mobileTheme.spacing.md,
+  },
+  openGroupButton: {
+    flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    marginRight: mobileTheme.spacing.md,
   },
   groupName: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: mobileTheme.colors.text,
+  },
+  openGroupText: {
+    color: mobileTheme.colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: mobileTheme.spacing.xs,
   },
   deleteButton: {
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
+    minHeight: 44,
+    minWidth: 68,
+    backgroundColor: mobileTheme.colors.danger,
+    paddingHorizontal: mobileTheme.spacing.md,
+    paddingVertical: mobileTheme.spacing.sm,
+    borderRadius: mobileTheme.radii.control,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteButtonText: {
-    color: '#ffffff',
+    color: mobileTheme.colors.onPrimary,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   groupTotal: {
     fontSize: 16,
-    color: '#28a745',
-    marginBottom: 10,
+    color: mobileTheme.colors.success,
+    fontWeight: '600',
+    marginBottom: mobileTheme.spacing.md,
   },
   participantsLabel: {
     fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 10,
+    fontWeight: '600',
+    color: mobileTheme.colors.text,
+    marginBottom: mobileTheme.spacing.md,
   },
   participantsList: {
-    marginLeft: 10,
+    marginLeft: mobileTheme.spacing.md,
   },
   participantItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: mobileTheme.spacing.xs,
   },
   participantName: {
     fontSize: 16,
+    color: mobileTheme.colors.text,
   },
   removeParticipantButton: {
-    padding: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 44,
   },
   removeParticipantText: {
-    color: '#dc3545',
+    color: mobileTheme.colors.danger,
     fontSize: 20,
     fontWeight: 'bold',
   },
   addParticipantButton: {
-    marginTop: 10,
+    minHeight: 44,
+    justifyContent: 'center',
+    marginTop: mobileTheme.spacing.md,
   },
   addParticipantText: {
-    color: '#007bff',
+    color: mobileTheme.colors.primary,
     fontSize: 16,
+    fontWeight: '600',
   },
 });
 
