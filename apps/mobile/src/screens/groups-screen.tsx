@@ -18,11 +18,18 @@ import FloatingActionButton from '../components/FloatingActionButton';
 import { calculateGroupTotalsByCurrency } from '../utils/groupCalculations';
 import { mobileTheme } from '../theme/tokens';
 import { isExpenseGroupArchived } from '../utils/groupDomain';
+import { useExpenseDeletion } from '../components/feedback/expense-deletion-context';
 
 const GroupsScreen = () => {
   const groups = useExpenseStore((state) => state.groups);
   const expenses = useExpenseStore((state) => state.expenses);
   const userSettings = useExpenseStore((state) => state.userSettings);
+  const { pendingExpenseDeletionIds } = useExpenseDeletion();
+
+  const visibleExpenses = useMemo(() => {
+    const pendingIds = new Set(pendingExpenseDeletionIds);
+    return expenses.filter((expense) => !pendingIds.has(expense.id));
+  }, [expenses, pendingExpenseDeletionIds]);
 
   const addGroup = useExpenseStore((state) => state.addGroup);
   const addParticipant = useExpenseStore((state) => state.addParticipant);
@@ -126,7 +133,7 @@ const GroupsScreen = () => {
   };
 
   const renderGroupListItem = ({ item: group }: { item: ExpenseGroup }) => {
-    const totals = calculateGroupTotalsByCurrency(expenses, group.id);
+    const totals = calculateGroupTotalsByCurrency(visibleExpenses, group.id);
 
     return (
       <GroupListItem

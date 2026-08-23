@@ -10,6 +10,11 @@ export const buildEditExpenseRoute = (expenseId: string) => ({
   params: { expenseId },
 });
 
+export const buildExpenseDetailRoute = (expenseId: string) => ({
+  pathname: '/expense-detail' as const,
+  params: { expenseId },
+});
+
 export const resolveEditingExpense = (
   expenses: Expense[],
   expenseIdParam: RouteParam,

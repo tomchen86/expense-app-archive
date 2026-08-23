@@ -1,11 +1,19 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
 
 import SettingsScreen from '../../screens/settings-screen';
 import type { Expense, ExpenseGroup, Participant } from '../../types';
 import ExpenseListItem from '../ExpenseListItem';
 import GroupListItem from '../GroupListItem';
+
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    __esModule: true,
+    default: ({ children, ...props }: any) =>
+      React.createElement('Swipeable', props, children),
+  };
+});
 
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -77,7 +85,7 @@ const expense: Expense = {
 };
 
 describe('adaptive UI accessibility contracts', () => {
-  it('gives expense edit/delete actions explicit labels and 44pt targets', () => {
+  it('makes the expense card the labelled navigation target', () => {
     const screen = render(
       <ExpenseListItem
         allParticipants={participants}
@@ -86,28 +94,21 @@ describe('adaptive UI accessibility contracts', () => {
         group={group}
         item={expense}
         onDelete={jest.fn()}
-        onEdit={jest.fn()}
+        onPress={jest.fn()}
       />,
     );
 
-    const edit = screen.getByRole('button', {
-      name: `Edit ${expense.title}`,
-    });
-    const remove = screen.getByRole('button', {
-      name: `Delete ${expense.title}`,
-    });
-
     expect(screen.getByLabelText('Expense amount AUD 40.00')).toBeTruthy();
-
-    expect(StyleSheet.flatten(edit.props.style)).toEqual(
-      expect.objectContaining({ minHeight: 44 }),
-    );
-    expect(StyleSheet.flatten(remove.props.style)).toEqual(
-      expect.objectContaining({ minHeight: 44 }),
-    );
+    expect(
+      screen.getByRole('button', {
+        name: `Open ${expense.title} expense`,
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText('Edit')).toBeNull();
+    expect(screen.queryByText('Delete')).toBeNull();
   });
 
-  it('keeps archived shared history read-only', () => {
+  it('labels archived shared history without restoring inline controls', () => {
     const archivedGroup: ExpenseGroup = {
       ...group,
       archivedAt: '2026-08-24T00:00:00.000Z',
@@ -120,7 +121,7 @@ describe('adaptive UI accessibility contracts', () => {
         group={archivedGroup}
         item={expense}
         onDelete={jest.fn()}
-        onEdit={jest.fn()}
+        onPress={jest.fn()}
       />,
     );
 

@@ -16,6 +16,7 @@ import {
   selectPersonalLedgerExpenses,
   sumPersonalShareMinor,
 } from '../utils/personalExpenseSelection';
+import { useExpenseDeletion } from '../components/feedback/expense-deletion-context';
 
 interface UseInsightsDataProps {
   contextType: 'personal' | 'group';
@@ -64,6 +65,12 @@ export const useInsightsData = ({
   const participants = useExpenseStore((state) => state.participants);
   const groups = useExpenseStore((state) => state.groups);
   const appCategories = useExpenseStore((state) => state.categories);
+  const { pendingExpenseDeletionIds } = useExpenseDeletion();
+
+  const visibleExpenses = useMemo(() => {
+    const pendingIds = new Set(pendingExpenseDeletionIds);
+    return allExpenses.filter((expense) => !pendingIds.has(expense.id));
+  }, [allExpenses, pendingExpenseDeletionIds]);
 
   // State
   const [aggregation, setAggregation] = useState<'month' | 'year'>('month');
@@ -141,12 +148,12 @@ export const useInsightsData = ({
   const filteredExpenses = useMemo(() => {
     const relevantExpenses =
       contextType === 'personal'
-        ? selectPersonalLedgerExpenses(allExpenses, {
+        ? selectPersonalLedgerExpenses(visibleExpenses, {
             participantIds: personalParticipantIds,
             personalSpaceId,
           })
         : getRelevantExpenses(
-            allExpenses,
+            visibleExpenses,
             contextType,
             contextId,
             personalParticipantId,
@@ -161,7 +168,7 @@ export const useInsightsData = ({
       selectedMonth,
     );
   }, [
-    allExpenses,
+    visibleExpenses,
     contextType,
     contextId,
     personalSpaceId,

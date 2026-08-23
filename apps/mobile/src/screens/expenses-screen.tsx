@@ -26,19 +26,26 @@ import {
 } from '../utils/personalExpenseSelection';
 import { formatMinorUnits } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
-import { buildEditExpenseRoute } from '../navigation/expense-edit-route';
+import { buildExpenseDetailRoute } from '../navigation/expense-edit-route';
+import { useExpenseDeletion } from '../components/feedback/expense-deletion-context';
 
 const ExpensesScreen = () => {
   const expenses = useExpenseStore((state) => state.expenses);
   const participants = useExpenseStore((state) => state.participants);
   const _userSettings = useExpenseStore((state) => state.userSettings);
   const groups = useExpenseStore((state) => state.groups);
-  const deleteExpense = useExpenseStore((state) => state.deleteExpense);
   const internalUserId = useExpenseStore((state) => state.internalUserId);
   const personalParticipantId = useExpenseStore(
     (state) => state.personalParticipantId,
   );
   const personalSpaceId = useExpenseStore((state) => state.personalSpaceId);
+  const { pendingExpenseDeletionIds, requestExpenseDeletion } =
+    useExpenseDeletion();
+
+  const visibleExpenses = useMemo(() => {
+    const pendingIds = new Set(pendingExpenseDeletionIds);
+    return expenses.filter((expense) => !pendingIds.has(expense.id));
+  }, [expenses, pendingExpenseDeletionIds]);
 
   const currentParticipantIds = useMemo(
     () =>
@@ -52,11 +59,11 @@ const ExpensesScreen = () => {
 
   const relevantExpenses = useMemo(
     () =>
-      selectPersonalLedgerExpenses(expenses, {
+      selectPersonalLedgerExpenses(visibleExpenses, {
         participantIds: currentParticipantIds,
         personalSpaceId,
       }),
-    [expenses, personalSpaceId, currentParticipantIds],
+    [visibleExpenses, personalSpaceId, currentParticipantIds],
   );
 
   const totalUserShares = useMemo(() => {
@@ -86,12 +93,12 @@ const ExpensesScreen = () => {
     return map;
   }, [groups, internalUserId]);
 
-  const handleEdit = (expense: Expense) => {
-    router.push(buildEditExpenseRoute(expense.id));
+  const handlePress = (expense: Expense) => {
+    router.push(buildExpenseDetailRoute(expense.id));
   };
 
-  const handleDelete = (expenseId: string) => {
-    deleteExpense(expenseId);
+  const handleDelete = (expense: Expense) => {
+    requestExpenseDeletion(expense.id, expense.title);
   };
 
   const renderExpenseListItem = ({ item }: { item: Expense }) => {
@@ -111,7 +118,7 @@ const ExpensesScreen = () => {
         allParticipants={participants}
         displayAmountMinor={userShareMinor}
         currency={getExpenseCurrency(item)}
-        onEdit={handleEdit}
+        onPress={handlePress}
         onDelete={handleDelete}
       />
     );

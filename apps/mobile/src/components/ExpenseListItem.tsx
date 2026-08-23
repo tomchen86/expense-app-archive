@@ -1,5 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Expense, ExpenseGroup, Participant } from '../types'; // Import necessary types
 import {
   getExpenseCurrency,
@@ -8,6 +11,7 @@ import {
 } from '../utils/expenseDomain';
 import { formatMinorUnits, minorUnitsToDecimalString } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
+import { formatLocalDateForDisplay } from '../utils/dateFormat';
 
 interface ExpenseListItemProps {
   item: Expense;
@@ -15,8 +19,8 @@ interface ExpenseListItemProps {
   allParticipants: Participant[]; // Add allParticipants prop
   displayAmountMinor: number;
   currency?: string;
-  onEdit: (expense: Expense) => void;
-  onDelete: (expenseId: string) => void;
+  onPress: (expense: Expense) => void;
+  onDelete: (expense: Expense) => void;
 }
 
 const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
@@ -25,100 +29,110 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
   allParticipants, // Destructure the new prop
   displayAmountMinor,
   currency,
-  onEdit,
+  onPress,
   onDelete,
 }) => {
   // Safeguard: Ensure allParticipants is defined before calling .find()
-  const payerId = getExpensePayments(item)[0]?.participantId;
-  const payer =
-    payerId && allParticipants
-      ? allParticipants.find((p) => p.id === payerId)
-      : null;
+  const payerIds = [
+    ...new Set(
+      getExpensePayments(item)
+        .filter((payment) => payment.amountMinor > 0)
+        .map((payment) => payment.participantId),
+    ),
+  ];
+  const payerSummary =
+    payerIds.length === 1
+      ? (allParticipants.find((participant) => participant.id === payerIds[0])
+          ?.name ?? 'Former member')
+      : payerIds.length > 1
+        ? `${payerIds.length} people`
+        : null;
   const isHistoricalSharedExpense =
     getExpenseSpaceKind(item) === 'shared' &&
     (!group || Boolean(group.archivedAt));
 
-  const handleDeletePress = () => {
-    Alert.alert(
-      'Delete Expense',
-      'Are you sure you want to delete this expense?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          onPress: () => onDelete(item.id),
-          style: 'destructive',
-        },
-      ],
-    );
-  };
+  const renderDeleteAction = (
+    _progress: unknown,
+    _translation: unknown,
+    swipeable: SwipeableMethods,
+  ) => (
+    <TouchableOpacity
+      accessibilityLabel={`Delete ${item.title} expense`}
+      accessibilityRole='button'
+      onPress={() => {
+        swipeable.close();
+        onDelete(item);
+      }}
+      style={styles.deleteAction}
+    >
+      <Text style={styles.deleteActionText}>Delete</Text>
+    </TouchableOpacity>
+  );
 
   return (
-    <View style={styles.expenseItem}>
-      {/* Main Content Area */}
-      <View style={styles.expenseContent}>
-        <View style={styles.expenseMain}>
-          <Text style={styles.expenseTitle}>{item.title}</Text>
-          {/* Use displayAmount for rendering */}
-          <Text
-            accessibilityLabel={`Expense amount ${currency ?? getExpenseCurrency(item)} ${minorUnitsToDecimalString(
-              displayAmountMinor,
-              currency ?? getExpenseCurrency(item),
-            )}`}
-            style={styles.expenseAmount}
-          >
-            {formatMinorUnits(
-              displayAmountMinor,
-              currency ?? getExpenseCurrency(item),
+    <ReanimatedSwipeable
+      overshootRight={false}
+      renderRightActions={renderDeleteAction}
+      rightThreshold={40}
+      testID={`expense-swipeable-${item.id}`}
+    >
+      <TouchableOpacity
+        accessibilityActions={[{ name: 'delete', label: 'Delete expense' }]}
+        accessibilityHint='Opens expense details. Swipe left for Delete.'
+        accessibilityLabel={`Open ${item.title} expense`}
+        accessibilityRole='button'
+        activeOpacity={0.82}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'delete') {
+            onDelete(item);
+          }
+        }}
+        onPress={() => onPress(item)}
+        style={styles.expenseItem}
+      >
+        <View style={styles.expenseContent}>
+          <View style={styles.expenseMain}>
+            <Text style={styles.expenseTitle}>{item.title}</Text>
+            <Text
+              accessibilityLabel={`Expense amount ${currency ?? getExpenseCurrency(item)} ${minorUnitsToDecimalString(
+                displayAmountMinor,
+                currency ?? getExpenseCurrency(item),
+              )}`}
+              style={styles.expenseAmount}
+            >
+              {formatMinorUnits(
+                displayAmountMinor,
+                currency ?? getExpenseCurrency(item),
+              )}
+            </Text>
+          </View>
+          <View style={styles.expenseDetails}>
+            <View style={styles.expenseMetadata}>
+              <Text style={styles.expenseCategory}>{item.category}</Text>
+              {group && (
+                <View style={styles.groupTag}>
+                  <Text style={styles.groupTagText}>{group.name}</Text>
+                </View>
+              )}
+            </View>
+            {payerSummary && (
+              <Text style={styles.paidByText}>Paid by: {payerSummary}</Text>
             )}
-          </Text>
-        </View>
-        <View style={styles.expenseDetails}>
-          <View style={styles.expenseMetadata}>
-            <Text style={styles.expenseCategory}>{item.category}</Text>
-            {/* Display group tag if group exists */}
-            {group && (
-              <View style={styles.groupTag}>
-                <Text style={styles.groupTagText}>{group.name}</Text>
-              </View>
+            <Text style={styles.expenseDate}>
+              {formatLocalDateForDisplay(item.date)}
+            </Text>
+            {item.caption && (
+              <Text style={styles.expenseCaption}>{item.caption}</Text>
             )}
           </View>
-          {payer && (
-            <Text style={styles.paidByText}>Paid by: {payer.name}</Text>
-          )}
-          <Text style={styles.expenseDate}>{item.date}</Text>
-          {/* Display caption if it exists */}
-          {item.caption && (
-            <Text style={styles.expenseCaption}>{item.caption}</Text>
-          )}
         </View>
-      </View>
-
-      {isHistoricalSharedExpense ? (
-        <Text accessibilityRole='text' style={styles.readOnlyLabel}>
-          {group ? 'Archived shared history' : 'Historical shared expense'}
-        </Text>
-      ) : (
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            accessibilityLabel={`Edit ${item.title}`}
-            accessibilityRole='button'
-            style={styles.editButton}
-            onPress={() => onEdit(item)}
-          >
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityLabel={`Delete ${item.title}`}
-            accessibilityRole='button'
-            style={styles.deleteButton}
-            onPress={handleDeletePress}
-          >
-            <Text style={styles.deleteButtonText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+        {isHistoricalSharedExpense ? (
+          <Text accessibilityRole='text' style={styles.readOnlyLabel}>
+            {group ? 'Archived shared history' : 'Historical shared expense'}
+          </Text>
+        ) : null}
+      </TouchableOpacity>
+    </ReanimatedSwipeable>
   );
 };
 
@@ -200,12 +214,6 @@ const styles = StyleSheet.create({
     color: mobileTheme.colors.textMuted,
     marginTop: mobileTheme.spacing.xs,
   },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end', // Align buttons to the right
-    marginTop: mobileTheme.spacing.md,
-    gap: mobileTheme.spacing.sm,
-  },
   readOnlyLabel: {
     alignSelf: 'flex-start',
     marginTop: mobileTheme.spacing.md,
@@ -213,31 +221,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  editButton: {
-    minHeight: 44,
-    paddingHorizontal: mobileTheme.spacing.md,
-    paddingVertical: mobileTheme.spacing.sm,
-    backgroundColor: mobileTheme.colors.primaryContainer,
-    borderRadius: mobileTheme.radii.control,
-    justifyContent: 'center',
-  },
-  editButtonText: {
-    color: mobileTheme.colors.onPrimaryContainer,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    minHeight: 44,
-    paddingHorizontal: mobileTheme.spacing.md,
-    paddingVertical: mobileTheme.spacing.sm,
+  deleteAction: {
+    minWidth: 88,
+    marginBottom: mobileTheme.spacing.md,
     backgroundColor: mobileTheme.colors.danger,
-    borderRadius: mobileTheme.radii.control,
+    borderRadius: mobileTheme.radii.card,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  deleteButtonText: {
+  deleteActionText: {
     color: mobileTheme.colors.onPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
 

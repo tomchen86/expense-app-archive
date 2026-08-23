@@ -9,19 +9,26 @@ describe('Expense management flow', () => {
     await testHelpers.createExpense('Lunch', '12.75');
     await testHelpers.verifyExpense('Lunch', '12.75');
 
-    await testHelpers.waitAndTap(by.label('Edit Lunch'));
+    await testHelpers.waitAndTap(by.label('Open Lunch expense'));
+    await testHelpers.waitAndTap(by.label('Edit expense'));
     await testHelpers.waitAndReplace(by.id('expense-title-input'), 'Dinner');
     await testHelpers.waitAndReplace(by.id('expense-amount-input'), '25.00');
     await testHelpers.submitExpenseForm();
+    await testHelpers.waitAndTap(by.label('Back'));
 
     await testHelpers.verifyExpense('Dinner', '25.00');
     await testHelpers.expectGone(by.text('Lunch'));
 
-    await testHelpers.waitAndTap(by.label('Delete Dinner'));
-    await testHelpers.expectVisible(
-      by.text('Are you sure you want to delete this expense?'),
-    );
-    await testHelpers.dismissAlert('Delete');
+    await element(by.label('Open Dinner expense')).swipe('left', 'fast', 0.5);
+    await testHelpers.waitAndTap(by.label('Delete Dinner expense'));
+    await testHelpers.expectVisible(by.id('expense-deleted-notice'));
+    await testHelpers.waitAndTap(by.label('Undo deletion of Dinner'));
+
+    await testHelpers.verifyExpense('Dinner', '25.00');
+
+    await element(by.label('Open Dinner expense')).swipe('left', 'fast', 0.5);
+    await testHelpers.waitAndTap(by.label('Delete Dinner expense'));
+    await testHelpers.expectGone(by.id('expense-deleted-notice'), 8000);
 
     await testHelpers.expectGone(by.text('Dinner'));
     await testHelpers.expectVisible(

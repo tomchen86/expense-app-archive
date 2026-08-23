@@ -1,5 +1,6 @@
 import type { Expense } from '../../types';
 import {
+  buildExpenseDetailRoute,
   buildEditExpenseRoute,
   resolveEditingExpense,
   resolveSingleRouteParam,
@@ -19,6 +20,13 @@ const expense: Expense = {
 };
 
 describe('expense edit route', () => {
+  it('opens a stable expense detail route from list cards', () => {
+    expect(buildExpenseDetailRoute(expense.id)).toEqual({
+      pathname: '/expense-detail',
+      params: { expenseId: expense.id },
+    });
+  });
+
   it('passes only the stable expense identifier through navigation', () => {
     expect(buildEditExpenseRoute(expense.id)).toEqual({
       pathname: '/add-expense',

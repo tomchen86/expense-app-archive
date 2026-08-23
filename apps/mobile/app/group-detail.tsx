@@ -31,9 +31,10 @@ import {
   isExpenseDeleted,
 } from '../src/utils/expenseDomain';
 import { formatMinorUnits } from '../src/utils/money';
-import { buildEditExpenseRoute } from '../src/navigation/expense-edit-route';
+import { buildExpenseDetailRoute } from '../src/navigation/expense-edit-route';
 import { isExpenseGroupArchived } from '../src/utils/groupDomain';
 import { mobileTheme } from '../src/theme/tokens';
+import { useExpenseDeletion } from '../src/components/feedback/expense-deletion-context';
 
 const GroupDetailScreen = () => {
   const params = useLocalSearchParams();
@@ -41,10 +42,11 @@ const GroupDetailScreen = () => {
 
   const expenses = useExpenseStore((state) => state.expenses);
   const groups = useExpenseStore((state) => state.groups);
-  const deleteExpense = useExpenseStore((state) => state.deleteExpense);
   const restoreGroup = useExpenseStore((state) => state.restoreGroup);
   const internalUserId = useExpenseStore((state) => state.internalUserId);
   const allParticipants = useExpenseStore((state) => state.participants);
+  const { pendingExpenseDeletionIds, requestExpenseDeletion } =
+    useExpenseDeletion();
 
   const [isBalancesOverlayVisible, setIsBalancesOverlayVisible] =
     useState(false);
@@ -54,11 +56,14 @@ const GroupDetailScreen = () => {
   }, [groups, groupId]);
 
   const groupExpenses = useMemo(() => {
+    const pendingIds = new Set(pendingExpenseDeletionIds);
     return expenses.filter(
       (expense) =>
-        !isExpenseDeleted(expense) && getExpenseSpaceId(expense) === groupId,
+        !isExpenseDeleted(expense) &&
+        !pendingIds.has(expense.id) &&
+        getExpenseSpaceId(expense) === groupId,
     );
-  }, [expenses, groupId]);
+  }, [expenses, groupId, pendingExpenseDeletionIds]);
 
   const groupTotals = useMemo(() => {
     return calculateGroupTotalsByCurrency(groupExpenses, groupId as string);
@@ -93,12 +98,12 @@ const GroupDetailScreen = () => {
     return map;
   }, [group]);
 
-  const handleEdit = (expense: Expense) => {
-    router.push(buildEditExpenseRoute(expense.id));
+  const handlePress = (expense: Expense) => {
+    router.push(buildExpenseDetailRoute(expense.id));
   };
 
-  const handleDelete = (expenseId: string) => {
-    deleteExpense(expenseId);
+  const handleDelete = (expense: Expense) => {
+    requestExpenseDeletion(expense.id, expense.title);
   };
 
   const renderExpenseListItem = ({ item }: { item: Expense }) => {
@@ -109,7 +114,7 @@ const GroupDetailScreen = () => {
         allParticipants={allParticipants}
         displayAmountMinor={getExpenseAmountMinor(item)}
         currency={getExpenseCurrency(item)}
-        onEdit={handleEdit}
+        onPress={handlePress}
         onDelete={handleDelete}
       />
     );

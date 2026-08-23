@@ -25,6 +25,11 @@ jest.mock('../../store/hydration', () => ({
   useMobileStoresHydrated: () => true,
 }));
 
+jest.mock('../../components/feedback/expense-deletion-provider', () => ({
+  ExpenseDeletionProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+}));
+
 jest.mock('expo-router', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Screen = (props: Record<string, unknown>) =>
