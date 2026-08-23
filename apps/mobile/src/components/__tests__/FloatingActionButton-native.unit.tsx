@@ -60,8 +60,34 @@ describe('FloatingActionButton native surface', () => {
 
     expect(router.push).toHaveBeenCalledWith({
       pathname: '/add-expense',
-      params: { groupId: 'group-123' },
+      params: {
+        draftSessionId: expect.any(String),
+        groupId: 'group-123',
+      },
     });
+  });
+
+  it('creates a fresh draft session for each expense task', () => {
+    const screen = render(<FloatingActionButton />);
+    const button = screen.getByRole('button', { name: 'Add expense' });
+
+    fireEvent.press(button);
+    fireEvent.press(button);
+
+    const [firstRoute, secondRoute] = (router.push as jest.Mock).mock.calls.map(
+      ([route]) => route,
+    );
+    expect(firstRoute).toEqual({
+      pathname: '/add-expense',
+      params: { draftSessionId: expect.any(String) },
+    });
+    expect(secondRoute).toEqual({
+      pathname: '/add-expense',
+      params: { draftSessionId: expect.any(String) },
+    });
+    expect(firstRoute.params.draftSessionId).not.toBe(
+      secondRoute.params.draftSessionId,
+    );
   });
 
   it('passes the NativeTabs inset context to the platform offset adapter', () => {
@@ -70,5 +96,22 @@ describe('FloatingActionButton native surface', () => {
     expect(mockUseFloatingActionOffset).toHaveBeenCalledWith({
       nativeTabsContentInsetApplied: true,
     });
+  });
+
+  it('adapts its semantics and action for the Groups tab', () => {
+    const onPress = jest.fn();
+    const screen = render(
+      <FloatingActionButton
+        accessibilityLabel='Add group'
+        onPress={onPress}
+        surfaceTestID='add-group-surface'
+        testID='add-group-fab'
+      />,
+    );
+
+    expect(screen.getByTestId('add-group-surface')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Add group' }));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(router.push).not.toHaveBeenCalled();
   });
 });

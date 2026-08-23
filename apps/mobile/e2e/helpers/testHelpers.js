@@ -57,12 +57,11 @@ const testHelpers = {
     await this.waitAndTap(by.text(buttonLabel));
   },
 
-  async submitExpenseForm() {
-    await element(by.id('expense-form-scroll-view')).scrollTo('bottom');
-    await waitFor(element(by.id('save-expense-button')))
+  async submitExpenseForm(actionLabel = 'Add') {
+    await waitFor(element(by.label(actionLabel)))
       .toBeVisible()
       .withTimeout(10000);
-    await element(by.id('save-expense-button')).tap();
+    await element(by.label(actionLabel)).tap();
   },
 
   async setUsername(username) {
@@ -97,7 +96,7 @@ const testHelpers = {
 
   async createGroup(groupName) {
     await this.tapTab('Groups');
-    await this.waitAndTap(by.id('add-group-button'));
+    await this.waitAndTap(by.id('add-group-fab'));
     await this.waitAndType(by.id('group-name-input'), groupName);
     await this.waitAndTap(by.id('create-group-submit'));
     await this.expectVisible(by.text(groupName));

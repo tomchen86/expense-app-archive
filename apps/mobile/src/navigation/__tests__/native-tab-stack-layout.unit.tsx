@@ -33,18 +33,29 @@ describe('native tab stack layouts', () => {
     'configures the %s tab root with a collapsible native title',
     (title, Layout) => {
       const screen = render(<Layout />);
-      const route = screen.getByTestId('stack-screen');
+      const route = screen
+        .getAllByTestId('stack-screen')
+        .find((candidate) => candidate.props.name === 'index');
 
       expect(screen.getByTestId('native-stack')).toBeTruthy();
-      expect(route.props.name).toBe('index');
-      expect(route.props.options).toEqual(
+      expect(route).toBeDefined();
+      expect(route?.props.options).toEqual(
         expect.objectContaining({
           headerLargeTitleEnabled: true,
           title,
         }),
       );
-      expect(route.props.options.header).toBeUndefined();
-      expect(route.props.options.headerShown).not.toBe(false);
+      expect(route?.props.options.header).toBeUndefined();
+      expect(route?.props.options.headerShown).not.toBe(false);
     },
   );
+
+  it('keeps Archived Groups inside the Settings stack', () => {
+    const screen = render(<SettingsStackLayout />);
+    const route = screen
+      .getAllByTestId('stack-screen')
+      .find((candidate) => candidate.props.name === 'archived-groups');
+
+    expect(route?.props.options).toEqual({ title: 'Archived Groups' });
+  });
 });

@@ -1,29 +1,28 @@
-import React, { useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Text, StyleSheet, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useExpenseStore } from '../store/expenseStore';
-import { ExpenseGroup, Participant as _Participant } from '../types';
+import { ExpenseGroup } from '../types';
 
 import GroupListItem from '../components/GroupListItem';
 import TextInputModal from '../components/TextInputModal';
 import FloatingActionButton from '../components/FloatingActionButton';
-import { calculateGroupTotalsByCurrency } from '../utils/groupCalculations';
+import { calculateCurrentUserGroupSummaryByCurrency } from '../utils/groupCalculations';
 import { mobileTheme } from '../theme/tokens';
 import { isExpenseGroupArchived } from '../utils/groupDomain';
 import { useExpenseDeletion } from '../components/feedback/expense-deletion-context';
+import TransientNotice from '../components/feedback/transient-notice';
+
+export const GROUP_ARCHIVE_NOTICE_DURATION_MS = 4_500;
 
 const GroupsScreen = () => {
   const groups = useExpenseStore((state) => state.groups);
   const expenses = useExpenseStore((state) => state.expenses);
   const userSettings = useExpenseStore((state) => state.userSettings);
+  const internalUserId = useExpenseStore((state) => state.internalUserId);
+  const user = useExpenseStore((state) => state.user);
+  const canonicalUserId = user?.id ?? null;
   const { pendingExpenseDeletionIds } = useExpenseDeletion();
 
   const visibleExpenses = useMemo(() => {
@@ -32,64 +31,68 @@ const GroupsScreen = () => {
   }, [expenses, pendingExpenseDeletionIds]);
 
   const addGroup = useExpenseStore((state) => state.addGroup);
-  const addParticipant = useExpenseStore((state) => state.addParticipant);
-  const addParticipantToGroup = useExpenseStore(
-    (state) => state.addParticipantToGroup,
-  );
-  const removeParticipantFromGroup = useExpenseStore(
-    (state) => state.removeParticipantFromGroup,
-  );
   const archiveGroup = useExpenseStore((state) => state.archiveGroup);
   const restoreGroup = useExpenseStore((state) => state.restoreGroup);
 
   const [isNewGroupModalVisible, setIsNewGroupModalVisible] = useState(false);
-  const [showArchivedGroups, setShowArchivedGroups] = useState(false);
-  const [isAddParticipantModalVisible, setIsAddParticipantModalVisible] =
-    useState(false);
-  const [groupToAddParticipantTo, setGroupToAddParticipantTo] =
-    useState<ExpenseGroup | null>(null);
+  const [isArchiveNoticeVisible, setIsArchiveNoticeVisible] = useState(false);
+  const [pendingLifecycleGroupIds, setPendingLifecycleGroupIds] = useState<
+    Set<string>
+  >(new Set());
+  const pendingLifecycleGroupIdsRef = useRef(new Set<string>());
+  const archiveNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeGroups = useMemo(
     () => groups.filter((group) => !isExpenseGroupArchived(group)),
     [groups],
   );
-  const archivedGroups = useMemo(
-    () => groups.filter(isExpenseGroupArchived),
-    [groups],
+  useEffect(
+    () => () => {
+      if (archiveNoticeTimer.current) {
+        clearTimeout(archiveNoticeTimer.current);
+      }
+    },
+    [],
   );
-  const visibleGroups = showArchivedGroups ? archivedGroups : activeGroups;
 
-  const handleArchiveGroup = (groupId: string) => {
-    Alert.alert(
-      'Archive Group',
-      'This hides the group from daily use while retaining its expenses, participants, payments, and shares.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Archive',
-          onPress: () => archiveGroup(groupId),
-        },
-      ],
-    );
-  };
-
-  const handleRemoveParticipant = (groupId: string, participantId: string) => {
-    Alert.alert(
-      'Remove Participant',
-      'Are you sure you want to remove this participant from the group?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => removeParticipantFromGroup(groupId, participantId),
-        },
-      ],
-    );
+  const handleArchiveGroup = async (groupId: string) => {
+    if (pendingLifecycleGroupIdsRef.current.has(groupId)) {
+      return false;
+    }
+    pendingLifecycleGroupIdsRef.current.add(groupId);
+    setPendingLifecycleGroupIds(new Set(pendingLifecycleGroupIdsRef.current));
+    try {
+      const didArchive = await archiveGroup(groupId);
+      if (!didArchive) {
+        Alert.alert(
+          'Unable to Archive Group',
+          'The group changed before it could be archived. Please try again.',
+        );
+        return false;
+      }
+      setIsArchiveNoticeVisible(true);
+      if (archiveNoticeTimer.current) {
+        clearTimeout(archiveNoticeTimer.current);
+      }
+      archiveNoticeTimer.current = setTimeout(() => {
+        setIsArchiveNoticeVisible(false);
+        archiveNoticeTimer.current = null;
+      }, GROUP_ARCHIVE_NOTICE_DURATION_MS);
+      return true;
+    } catch {
+      Alert.alert(
+        'Unable to Archive Group',
+        'The group could not be saved as archived. Please try again.',
+      );
+      return false;
+    } finally {
+      pendingLifecycleGroupIdsRef.current.delete(groupId);
+      setPendingLifecycleGroupIds(new Set(pendingLifecycleGroupIdsRef.current));
+    }
   };
 
   const openNewGroupModal = () => {
-    if (!userSettings?.name?.trim()) {
+    if (!(user?.displayName?.trim() || userSettings?.name?.trim())) {
       Alert.alert(
         'Username Required',
         'Please set your username in Settings before creating a group.',
@@ -106,23 +109,17 @@ const GroupsScreen = () => {
     setIsNewGroupModalVisible(true);
   };
 
-  const handleNewGroupSubmit = (groupName: string) => {
-    addGroup(groupName);
-  };
-
-  const openAddParticipantModal = (group: ExpenseGroup) => {
-    setGroupToAddParticipantTo(group);
-    setIsAddParticipantModalVisible(true);
-  };
-
-  const handleAddParticipantSubmit = (participantName: string) => {
-    if (groupToAddParticipantTo) {
-      const participantId = addParticipant(participantName, undefined, {
-        spaceId: groupToAddParticipantTo.id,
-      });
-      addParticipantToGroup(groupToAddParticipantTo.id, participantId);
+  const handleNewGroupSubmit = async (groupName: string) => {
+    try {
+      await addGroup(groupName);
+      return true;
+    } catch {
+      Alert.alert(
+        'Unable to Create Group',
+        'Your group could not be saved. Please try again.',
+      );
+      return false;
     }
-    setGroupToAddParticipantTo(null);
   };
 
   const handleGroupPress = (groupId: string) => {
@@ -133,15 +130,19 @@ const GroupsScreen = () => {
   };
 
   const renderGroupListItem = ({ item: group }: { item: ExpenseGroup }) => {
-    const totals = calculateGroupTotalsByCurrency(visibleExpenses, group.id);
+    const summary = calculateCurrentUserGroupSummaryByCurrency(
+      group,
+      visibleExpenses,
+      internalUserId,
+      canonicalUserId,
+    );
 
     return (
       <GroupListItem
         group={group}
-        totals={totals}
+        isLifecyclePending={pendingLifecycleGroupIds.has(group.id)}
+        summary={summary}
         onArchiveGroup={handleArchiveGroup}
-        onRemoveParticipant={handleRemoveParticipant}
-        onAddParticipant={openAddParticipantModal}
         onPress={handleGroupPress}
         onRestoreGroup={restoreGroup}
       />
@@ -153,48 +154,11 @@ const GroupsScreen = () => {
       <FlatList
         contentInsetAdjustmentBehavior='automatic'
         contentContainerStyle={styles.groupsList}
-        data={visibleGroups}
+        data={activeGroups}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <View>
-            {(archivedGroups.length > 0 || showArchivedGroups) && (
-              <TouchableOpacity
-                accessibilityLabel={
-                  showArchivedGroups
-                    ? 'View active groups'
-                    : 'View archived groups'
-                }
-                accessibilityRole='button'
-                style={styles.archiveToggleButton}
-                onPress={() => setShowArchivedGroups((visible) => !visible)}
-              >
-                <Text style={styles.archiveToggleButtonText}>
-                  {showArchivedGroups
-                    ? 'View Active Groups'
-                    : `View Archived Groups (${archivedGroups.length})`}
-                </Text>
-              </TouchableOpacity>
-            )}
-            {!showArchivedGroups && (
-              <TouchableOpacity
-                accessibilityRole='button'
-                accessibilityLabel='Create new group'
-                style={styles.createGroupButton}
-                onPress={openNewGroupModal}
-                testID='add-group-button'
-              >
-                <Text style={styles.createGroupButtonText}>
-                  Create New Group
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        }
         ListEmptyComponent={
           <Text style={styles.emptyListText}>
-            {showArchivedGroups
-              ? 'No archived groups.'
-              : 'No groups yet. Create one!'}
+            No groups yet. Tap + to create a group.
           </Text>
         }
         renderItem={renderGroupListItem}
@@ -211,22 +175,18 @@ const GroupsScreen = () => {
         onClose={() => setIsNewGroupModalVisible(false)}
       />
 
-      <TextInputModal
-        visible={isAddParticipantModalVisible}
-        title={`Add Participant to ${groupToAddParticipantTo?.name || ''}`}
-        placeholder='Enter participant name'
-        submitButtonText='Add'
-        inputTestID='participant-name-input'
-        submitButtonTestID='add-participant-submit'
-        onSubmit={handleAddParticipantSubmit}
-        onClose={() => {
-          setIsAddParticipantModalVisible(false);
-          setGroupToAddParticipantTo(null);
-        }}
+      <TransientNotice
+        message='Group archived · Find it in Settings'
+        testID='group-archived-notice'
+        visible={isArchiveNoticeVisible}
       />
-      {!showArchivedGroups && (
-        <FloatingActionButton nativeTabsContentInsetApplied />
-      )}
+      <FloatingActionButton
+        accessibilityLabel='Add group'
+        nativeTabsContentInsetApplied
+        onPress={openNewGroupModal}
+        surfaceTestID='add-group-surface'
+        testID='add-group-fab'
+      />
     </SafeAreaView>
   );
 };
@@ -235,35 +195,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: mobileTheme.colors.background,
-  },
-  createGroupButton: {
-    backgroundColor: mobileTheme.colors.primary,
-    paddingVertical: mobileTheme.spacing.lg,
-    paddingHorizontal: mobileTheme.spacing.xl,
-    borderRadius: mobileTheme.radii.control,
-    alignItems: 'center',
-    marginBottom: mobileTheme.spacing.xl,
-    ...mobileTheme.shadows.action,
-  },
-  createGroupButtonText: {
-    color: mobileTheme.colors.onPrimary,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  archiveToggleButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: mobileTheme.spacing.md,
-    borderRadius: mobileTheme.radii.control,
-    backgroundColor: mobileTheme.colors.surfaceVariant,
-    borderColor: mobileTheme.colors.border,
-    borderWidth: 1,
-  },
-  archiveToggleButtonText: {
-    color: mobileTheme.colors.primary,
-    fontSize: 15,
-    fontWeight: '700',
   },
   groupsList: {
     paddingHorizontal: mobileTheme.spacing.xl,

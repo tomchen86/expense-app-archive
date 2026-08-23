@@ -44,13 +44,26 @@ describe('native tab route contract', () => {
     for (const expected of expectedTabs) {
       const tab = tabs?.children.find((route) => route.route === expected.name);
       expect(tab?.contextKey).toBe(`./(tabs)/${expected.name}/_layout.tsx`);
-      expect(tab?.children).toEqual([
-        expect.objectContaining({
-          contextKey: `./(tabs)/${expected.name}/index.tsx`,
-          route: 'index',
-        }),
-      ]);
+      expect(tab?.children).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            contextKey: `./(tabs)/${expected.name}/index.tsx`,
+            route: 'index',
+          }),
+        ]),
+      );
     }
+    const settingsTab = tabs?.children.find(
+      (route) => route.route === 'settings',
+    );
+    expect(settingsTab?.children).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          contextKey: './(tabs)/settings/archived-groups.tsx',
+          route: 'archived-groups',
+        }),
+      ]),
+    );
 
     const linkingConfig = getReactNavigationConfig(routeTree, true);
     const tabScreens = linkingConfig.screens['(tabs)'];
@@ -64,9 +77,19 @@ describe('native tab route contract', () => {
       expect(tabScreen).toEqual(
         expect.objectContaining({
           path: expected.path,
-          screens: { index: '' },
+          screens: expect.objectContaining({ index: '' }),
         }),
       );
     }
+    const settingsScreen = tabScreens.screens.settings;
+    expect(typeof settingsScreen).toBe('object');
+    if (typeof settingsScreen !== 'object') {
+      throw new Error('Expected Settings to contain nested screens');
+    }
+    expect(settingsScreen.screens).toEqual(
+      expect.objectContaining({
+        'archived-groups': 'archived-groups',
+      }),
+    );
   });
 });

@@ -1,13 +1,33 @@
 import type { Expense } from '../types';
+import { createUuid } from '../utils/ids';
 
 export type RouteParam = string | string[] | undefined;
 
 export const resolveSingleRouteParam = (value: RouteParam) =>
   Array.isArray(value) ? value[0] : value;
 
+interface CreateExpenseRouteOptions {
+  draftSessionId?: string;
+  groupId?: string;
+}
+
+export const buildCreateExpenseRoute = ({
+  draftSessionId = createUuid(),
+  groupId,
+}: CreateExpenseRouteOptions = {}) => ({
+  pathname: '/add-expense' as const,
+  params: {
+    draftSessionId,
+    ...(groupId ? { groupId } : {}),
+  },
+});
+
 export const buildEditExpenseRoute = (expenseId: string) => ({
   pathname: '/add-expense' as const,
-  params: { expenseId },
+  params: {
+    draftSessionId: `edit:${expenseId}:${createUuid()}`,
+    expenseId,
+  },
 });
 
 export const buildExpenseDetailRoute = (expenseId: string) => ({

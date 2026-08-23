@@ -49,6 +49,7 @@ jest.mock('react-native', () => {
 
 jest.mock('../../store/expenseStore', () => ({
   useExpenseStore: () => ({
+    groups: [],
     updateUserSettings: jest.fn(),
     userSettings: { name: 'Alex' },
   }),
@@ -134,35 +135,29 @@ describe('adaptive UI accessibility contracts', () => {
     expect(screen.getByText('Archived shared history')).toBeTruthy();
   });
 
-  it('separates group navigation from labelled participant actions', () => {
+  it('keeps group navigation separate from hidden swipe actions', () => {
     const screen = render(
       <GroupListItem
         group={group}
-        onAddParticipant={jest.fn()}
         onArchiveGroup={jest.fn()}
         onPress={jest.fn()}
-        onRemoveParticipant={jest.fn()}
         onRestoreGroup={jest.fn()}
-        totals={[{ amountMinor: 12_000, currency: 'AUD' }]}
+        summary={[
+          {
+            currency: 'AUD',
+            myNetBalanceMinor: 6_000,
+            myShareMinor: 6_000,
+          },
+        ]}
       />,
     );
 
     expect(
       screen.getByRole('button', { name: `Open ${group.name}` }),
     ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: `Archive ${group.name}` }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('button', {
-        name: `Remove ${participants[1].name} from ${group.name}`,
-      }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('button', {
-        name: `Add participant to ${group.name}`,
-      }),
-    ).toBeTruthy();
+    expect(screen.queryByText('Archive')).toBeNull();
+    expect(screen.queryByLabelText(/Remove /)).toBeNull();
+    expect(screen.queryByLabelText(/Add participant/)).toBeNull();
   });
 
   it('offers restore without membership mutations for an archived group', () => {
@@ -173,12 +168,10 @@ describe('adaptive UI accessibility contracts', () => {
     const screen = render(
       <GroupListItem
         group={archivedGroup}
-        onAddParticipant={jest.fn()}
         onArchiveGroup={jest.fn()}
         onPress={jest.fn()}
-        onRemoveParticipant={jest.fn()}
         onRestoreGroup={jest.fn()}
-        totals={[{ amountMinor: 12_000, currency: 'AUD' }]}
+        summary={null}
       />,
     );
 

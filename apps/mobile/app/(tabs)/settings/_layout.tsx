@@ -11,6 +11,10 @@ export default function SettingsStackLayout() {
           title: 'Settings',
         }}
       />
+      <Stack.Screen
+        name='archived-groups'
+        options={{ title: 'Archived Groups' }}
+      />
     </Stack>
   );
 }

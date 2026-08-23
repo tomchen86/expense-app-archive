@@ -1,5 +1,6 @@
 import type { Expense } from '../../types';
 import {
+  buildCreateExpenseRoute,
   buildExpenseDetailRoute,
   buildEditExpenseRoute,
   resolveEditingExpense,
@@ -27,11 +28,42 @@ describe('expense edit route', () => {
     });
   });
 
-  it('passes only the stable expense identifier through navigation', () => {
-    expect(buildEditExpenseRoute(expense.id)).toEqual({
+  it('gives every edit modal invocation an isolated draft session', () => {
+    const firstRoute = buildEditExpenseRoute(expense.id);
+    const secondRoute = buildEditExpenseRoute(expense.id);
+
+    expect(firstRoute).toEqual({
       pathname: '/add-expense',
-      params: { expenseId: expense.id },
+      params: {
+        draftSessionId: expect.stringMatching(`^edit:${expense.id}:`),
+        expenseId: expense.id,
+      },
     });
+    expect(secondRoute.params.draftSessionId).toEqual(
+      expect.stringMatching(`^edit:${expense.id}:`),
+    );
+    expect(secondRoute.params.draftSessionId).not.toBe(
+      firstRoute.params.draftSessionId,
+    );
+  });
+
+  it('scopes every create route to an explicit draft session', () => {
+    expect(
+      buildCreateExpenseRoute({
+        draftSessionId: 'draft-session-1',
+        groupId: 'group-1',
+      }),
+    ).toEqual({
+      pathname: '/add-expense',
+      params: {
+        draftSessionId: 'draft-session-1',
+        groupId: 'group-1',
+      },
+    });
+
+    expect(buildCreateExpenseRoute().params.draftSessionId).toEqual(
+      expect.any(String),
+    );
   });
 
   it('normalizes Expo Router scalar and array parameters', () => {

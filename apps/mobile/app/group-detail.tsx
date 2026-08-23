@@ -1,21 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Pressable as _Pressable,
+  Alert,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 
 import { useExpenseStore } from '../src/store/expenseStore';
-import {
-  Expense,
-  ExpenseGroup,
-  Participant as _Participant,
-} from '../src/types';
+import { Expense } from '../src/types';
 import ExpenseListItem from '../src/components/ExpenseListItem';
 import GroupBalancesOverlay from '../src/components/GroupBalancesOverlay';
 import FloatingActionButton from '../src/components/FloatingActionButton';
@@ -31,25 +26,47 @@ import {
   isExpenseDeleted,
 } from '../src/utils/expenseDomain';
 import { formatMinorUnits } from '../src/utils/money';
-import { buildExpenseDetailRoute } from '../src/navigation/expense-edit-route';
+import {
+  buildExpenseDetailRoute,
+  resolveSingleRouteParam,
+  type RouteParam,
+} from '../src/navigation/expense-edit-route';
 import { isExpenseGroupArchived } from '../src/utils/groupDomain';
 import { mobileTheme } from '../src/theme/tokens';
 import { useExpenseDeletion } from '../src/components/feedback/expense-deletion-context';
+import GroupMembersModal from '../src/components/groups/GroupMembersModal';
+import GroupOverflowMenu from '../src/components/navigation/group-overflow-menu';
+import TextInputModal from '../src/components/TextInputModal';
 
 const GroupDetailScreen = () => {
-  const params = useLocalSearchParams();
-  const { groupId } = params;
+  const params = useLocalSearchParams<{ groupId?: RouteParam }>();
+  const groupId = resolveSingleRouteParam(params.groupId);
 
   const expenses = useExpenseStore((state) => state.expenses);
   const groups = useExpenseStore((state) => state.groups);
   const restoreGroup = useExpenseStore((state) => state.restoreGroup);
   const internalUserId = useExpenseStore((state) => state.internalUserId);
+  const canonicalUserId = useExpenseStore((state) => state.user?.id ?? null);
   const allParticipants = useExpenseStore((state) => state.participants);
+  const addParticipantToGroupByName = useExpenseStore(
+    (state) => state.addParticipantToGroupByName,
+  );
+  const removeParticipantFromGroup = useExpenseStore(
+    (state) => state.removeParticipantFromGroup,
+  );
   const { pendingExpenseDeletionIds, requestExpenseDeletion } =
     useExpenseDeletion();
 
   const [isBalancesOverlayVisible, setIsBalancesOverlayVisible] =
     useState(false);
+  const [isMembersVisible, setIsMembersVisible] = useState(false);
+  const [isAddMemberVisible, setIsAddMemberVisible] = useState(false);
+  const [removingParticipantId, setRemovingParticipantId] = useState<
+    string | null
+  >(null);
+  const removingParticipantIdRef = useRef<string | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const isRestoringRef = useRef(false);
 
   const group = useMemo(() => {
     return groups.find((g) => g.id === groupId);
@@ -66,12 +83,13 @@ const GroupDetailScreen = () => {
   }, [expenses, groupId, pendingExpenseDeletionIds]);
 
   const groupTotals = useMemo(() => {
-    return calculateGroupTotalsByCurrency(groupExpenses, groupId as string);
+    return calculateGroupTotalsByCurrency(groupExpenses, groupId ?? '');
   }, [groupExpenses, groupId]);
 
   const currentGroupParticipantId = useMemo(
-    () => resolveGroupParticipantIdForUser(group, internalUserId),
-    [group, internalUserId],
+    () =>
+      resolveGroupParticipantIdForUser(group, internalUserId, canonicalUserId),
+    [canonicalUserId, group, internalUserId],
   );
 
   const currentUserTotalContributions = useMemo(() => {
@@ -81,7 +99,7 @@ const GroupDetailScreen = () => {
     return calculateUserTotalContributionMinorInGroup(
       currentGroupParticipantId,
       groupExpenses,
-      groupId as string,
+      groupId ?? '',
     );
   }, [currentGroupParticipantId, groupExpenses, groupId]);
 
@@ -90,20 +108,127 @@ const GroupDetailScreen = () => {
   }, [group]);
   const isArchived = group ? isExpenseGroupArchived(group) : false;
 
-  const _groupMap = useMemo(() => {
-    const map = new Map<string, ExpenseGroup>();
-    if (group) {
-      map.set(group.id, group);
-    }
-    return map;
-  }, [group]);
-
   const handlePress = (expense: Expense) => {
     router.push(buildExpenseDetailRoute(expense.id));
   };
 
   const handleDelete = (expense: Expense) => {
     requestExpenseDeletion(expense.id, expense.title);
+  };
+
+  const openAddMember = () => {
+    setIsMembersVisible(false);
+    setIsAddMemberVisible(true);
+  };
+
+  const closeAddMember = () => {
+    setIsAddMemberVisible(false);
+    if (!isArchived) {
+      setIsMembersVisible(true);
+    }
+  };
+
+  const handleAddMember = async (participantName: string) => {
+    if (!group) {
+      Alert.alert(
+        'Unable to Add Member',
+        'The group or your membership changed. Reopen Members and try again.',
+      );
+      return false;
+    }
+
+    try {
+      const participantId = await addParticipantToGroupByName(
+        group.id,
+        participantName,
+      );
+      if (!participantId) {
+        Alert.alert(
+          'Unable to Add Member',
+          'The group or your membership changed. Reopen Members and try again.',
+        );
+        return false;
+      }
+      return true;
+    } catch {
+      Alert.alert(
+        'Unable to Add Member',
+        'The member could not be saved. Please try again.',
+      );
+      return false;
+    }
+  };
+
+  const handleRemoveMember = (participantId: string) => {
+    const participant = group?.participants.find(
+      (candidate) => candidate.id === participantId,
+    );
+    if (!group || !participant) {
+      return;
+    }
+
+    Alert.alert(
+      'Remove Member',
+      `Remove ${participant.name} from ${group.name}? Their historical payments and shares will be retained.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            if (removingParticipantIdRef.current) {
+              return;
+            }
+            removingParticipantIdRef.current = participantId;
+            setRemovingParticipantId(participantId);
+            void removeParticipantFromGroup(group.id, participantId)
+              .then((didRemove) => {
+                if (!didRemove) {
+                  Alert.alert(
+                    'Unable to Remove Member',
+                    'The group or your membership changed. Please try again.',
+                  );
+                }
+              })
+              .catch(() => {
+                Alert.alert(
+                  'Unable to Remove Member',
+                  'The member could not be removed safely. Please try again.',
+                );
+              })
+              .finally(() => {
+                removingParticipantIdRef.current = null;
+                setRemovingParticipantId(null);
+              });
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRestoreGroup = async () => {
+    if (!group || isRestoringRef.current) {
+      return;
+    }
+    isRestoringRef.current = true;
+    setIsRestoring(true);
+    try {
+      const didRestore = await restoreGroup(group.id);
+      if (!didRestore) {
+        Alert.alert(
+          'Unable to Restore Group',
+          'The group changed before it could be restored. Please try again.',
+        );
+      }
+    } catch {
+      Alert.alert(
+        'Unable to Restore Group',
+        'The group could not be restored. Please try again.',
+      );
+    } finally {
+      isRestoringRef.current = false;
+      setIsRestoring(false);
+    }
   };
 
   const renderExpenseListItem = ({ item }: { item: Expense }) => {
@@ -132,6 +257,9 @@ const GroupDetailScreen = () => {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: group.name }} />
+      <Stack.Toolbar placement='right'>
+        <GroupOverflowMenu onOpenMembers={() => setIsMembersVisible(true)} />
+      </Stack.Toolbar>
 
       {isArchived && (
         <View style={styles.archivedBanner}>
@@ -141,7 +269,12 @@ const GroupDetailScreen = () => {
           <TouchableOpacity
             accessibilityLabel='Restore group'
             accessibilityRole='button'
-            onPress={() => restoreGroup(group.id)}
+            accessibilityState={{
+              busy: isRestoring,
+              disabled: isRestoring,
+            }}
+            disabled={isRestoring}
+            onPress={() => void handleRestoreGroup()}
             style={styles.restoreButton}
           >
             <Text style={styles.restoreButtonText}>Restore Group</Text>
@@ -149,34 +282,37 @@ const GroupDetailScreen = () => {
         </View>
       )}
 
-      <TouchableOpacity
-        accessibilityLabel={`View insights for ${group.name}`}
-        accessibilityRole='button'
-        onPress={() =>
-          router.push({
-            pathname: '/insights',
-            params: {
-              contextType: 'group',
-              contextId: groupId as string,
-            },
-          })
-        }
-      >
-        <View style={styles.totalContainer}>
+      {groupTotals.length > 0 ? (
+        <TouchableOpacity
+          accessibilityLabel={`View insights for ${group.name}`}
+          accessibilityRole='button'
+          onPress={() =>
+            router.push({
+              pathname: '/insights',
+              params: {
+                contextType: 'group',
+                contextId: group.id,
+              },
+            })
+          }
+          style={styles.totalContainer}
+          testID='group-total-summary'
+        >
           {groupTotals.map((total) => (
             <Text key={total.currency} style={styles.totalText}>
               Group Total: {formatMinorUnits(total.amountMinor, total.currency)}
             </Text>
           ))}
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      ) : null}
 
-      {currentGroupParticipantId && (
+      {currentUserTotalContributions.length > 0 ? (
         <TouchableOpacity
           accessibilityLabel={`View balances for ${group.name}`}
           accessibilityRole='button'
           onPress={() => setIsBalancesOverlayVisible(true)}
           style={styles.totalContainer}
+          testID='user-contribution-summary'
         >
           {currentUserTotalContributions.map((total) => (
             <Text key={total.currency} style={styles.totalText}>
@@ -185,7 +321,7 @@ const GroupDetailScreen = () => {
             </Text>
           ))}
         </TouchableOpacity>
-      )}
+      ) : null}
 
       <FlatList
         data={groupExpenses}
@@ -209,7 +345,26 @@ const GroupDetailScreen = () => {
           allParticipants={allParticipants}
         />
       )}
-      {!isArchived && <FloatingActionButton groupId={groupId as string} />}
+      <GroupMembersModal
+        currentParticipantId={currentGroupParticipantId}
+        group={group}
+        onAddMember={openAddMember}
+        onClose={() => setIsMembersVisible(false)}
+        onRemoveMember={handleRemoveMember}
+        removingParticipantId={removingParticipantId}
+        visible={isMembersVisible}
+      />
+      <TextInputModal
+        inputTestID='participant-name-input'
+        onClose={closeAddMember}
+        onSubmit={handleAddMember}
+        placeholder='Enter member name'
+        submitButtonTestID='add-participant-submit'
+        submitButtonText='Add'
+        title={`Add Member to ${group.name}`}
+        visible={isAddMemberVisible}
+      />
+      {!isArchived && <FloatingActionButton groupId={group.id} />}
     </View>
   );
 };

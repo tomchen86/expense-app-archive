@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,22 +9,51 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useExpenseStore } from '../store/expenseStore';
 import { mobileTheme } from '../theme/tokens';
+import { isExpenseGroupArchived } from '../utils/groupDomain';
 
 const SettingsScreen = () => {
-  const { userSettings, updateUserSettings } = useExpenseStore();
+  const { groups, userSettings, updateUserSettings } = useExpenseStore();
   const [name, setName] = useState(userSettings?.name ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
+  const archivedGroupCount = useMemo(
+    () => groups.filter(isExpenseGroupArchived).length,
+    [groups],
+  );
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSavingRef.current) {
+      return;
+    }
     if (!name.trim()) {
       Alert.alert('Error', 'Please enter your name');
       return;
     }
 
-    updateUserSettings({ name: name.trim() });
-    Alert.alert('Success', 'Settings saved successfully');
+    isSavingRef.current = true;
+    setIsSaving(true);
+    try {
+      const didSave = await updateUserSettings({ name: name.trim() });
+      if (!didSave) {
+        Alert.alert(
+          'Unable to Save Settings',
+          'Your profile changed before it could be saved. Please try again.',
+        );
+        return;
+      }
+      Alert.alert('Success', 'Settings saved successfully');
+    } catch {
+      Alert.alert(
+        'Unable to Save Settings',
+        'Your settings could not be saved. Please try again.',
+      );
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -41,7 +70,8 @@ const SettingsScreen = () => {
           <TextInput
             accessibilityLabel='Your name'
             autoCapitalize='words'
-            onSubmitEditing={handleSave}
+            editable={!isSaving}
+            onSubmitEditing={() => void handleSave()}
             placeholder='Enter your name'
             placeholderTextColor={mobileTheme.colors.textMuted}
             returnKeyType='done'
@@ -54,8 +84,10 @@ const SettingsScreen = () => {
           <TouchableOpacity
             accessibilityRole='button'
             accessibilityLabel='Save settings'
+            accessibilityState={{ busy: isSaving, disabled: isSaving }}
+            disabled={isSaving}
             style={styles.saveButton}
-            onPress={handleSave}
+            onPress={() => void handleSave()}
             testID='save-settings-button'
           >
             <Text style={styles.saveButtonText}>Save Settings</Text>
@@ -69,6 +101,23 @@ const SettingsScreen = () => {
             <Text style={styles.manageCategoriesButtonText}>
               Manage Categories
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            accessibilityHint='Opens groups hidden from the active Groups tab'
+            accessibilityLabel={`Archived groups, ${archivedGroupCount}`}
+            accessibilityRole='button'
+            onPress={() => router.push('/settings/archived-groups' as Href)}
+            style={styles.settingsRow}
+            testID='archived-groups-row'
+          >
+            <Text style={styles.settingsRowLabel}>Archived Groups</Text>
+            <View style={styles.settingsRowAccessory}>
+              <Text style={styles.settingsRowCount}>{archivedGroupCount}</Text>
+              <Text accessibilityElementsHidden style={styles.chevron}>
+                ›
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -131,6 +180,34 @@ const styles = StyleSheet.create({
     color: mobileTheme.colors.onPrimaryContainer,
     fontSize: 16,
     fontWeight: '600',
+  },
+  settingsRow: {
+    minHeight: 52,
+    marginTop: mobileTheme.spacing.md,
+    paddingHorizontal: mobileTheme.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: mobileTheme.radii.control,
+    backgroundColor: mobileTheme.colors.surfaceVariant,
+  },
+  settingsRowLabel: {
+    color: mobileTheme.colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  settingsRowAccessory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingsRowCount: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 15,
+  },
+  chevron: {
+    marginLeft: mobileTheme.spacing.sm,
+    color: mobileTheme.colors.textMuted,
+    fontSize: 24,
   },
 });
 

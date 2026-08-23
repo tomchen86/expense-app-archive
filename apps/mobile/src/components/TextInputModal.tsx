@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -16,7 +16,7 @@ interface TextInputModalProps {
   placeholder: string;
   submitButtonText?: string;
   cancelButtonText?: string;
-  onSubmit: (inputText: string) => void; // Callback with the entered text
+  onSubmit: (inputText: string) => boolean | void | Promise<boolean | void>; // Return false to keep the modal open
   onClose: () => void;
   initialValue?: string; // Optional initial value for the input
   inputTestID?: string;
@@ -36,6 +36,8 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
   submitButtonTestID,
 }) => {
   const [inputValue, setInputValue] = useState(initialValue);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   // Reset input value when modal becomes visible or initialValue changes
   useEffect(() => {
@@ -44,13 +46,37 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
     }
   }, [visible, initialValue]);
 
-  const handleSubmit = () => {
-    if (inputValue.trim()) {
-      onSubmit(inputValue.trim());
-      onClose(); // Close after successful submit
-    } else {
+  const handleClose = () => {
+    if (!isSubmittingRef.current) {
+      onClose();
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmittingRef.current) {
+      return;
+    }
+
+    const trimmedInput = inputValue.trim();
+    if (!trimmedInput) {
       // Optional: Add validation feedback (e.g., Alert or inline message)
       alert('Input cannot be empty.');
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    let shouldClose: boolean;
+    try {
+      shouldClose = (await onSubmit(trimmedInput)) !== false;
+    } catch {
+      shouldClose = false;
+    }
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
+
+    if (shouldClose) {
+      onClose();
     }
   };
 
@@ -59,7 +85,7 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
       visible={visible}
       transparent
       animationType='slide'
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -68,9 +94,11 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
         <View style={styles.modalContainer}>
           {/* Clickable overlay to close */}
           <TouchableOpacity
+            disabled={isSubmitting}
             style={StyleSheet.absoluteFill}
-            onPress={onClose}
+            onPress={handleClose}
             activeOpacity={1}
+            testID='text-input-modal-overlay'
           />
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{title}</Text>
@@ -80,17 +108,30 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
               placeholder={placeholder}
               value={inputValue}
               onChangeText={setInputValue}
+              editable={!isSubmitting}
               autoFocus={true} // Focus input when modal opens
               testID={inputTestID}
             />
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <TouchableOpacity
+                accessibilityRole='button'
+                accessibilityState={{ disabled: isSubmitting }}
+                disabled={isSubmitting}
+                style={styles.cancelButton}
+                onPress={handleClose}
+                testID='text-input-modal-cancel'
+              >
                 <Text style={styles.buttonText}>{cancelButtonText}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 accessibilityRole='button'
+                accessibilityState={{
+                  busy: isSubmitting,
+                  disabled: isSubmitting,
+                }}
+                disabled={isSubmitting}
                 style={styles.submitButton}
-                onPress={handleSubmit}
+                onPress={() => void handleSubmit()}
                 testID={submitButtonTestID}
               >
                 <Text style={styles.buttonText}>{submitButtonText}</Text>

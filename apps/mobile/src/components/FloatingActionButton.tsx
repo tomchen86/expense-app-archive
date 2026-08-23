@@ -3,21 +3,28 @@ import { Pressable, Text, StyleSheet, ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 
 import { mobileTheme } from '../theme/tokens';
+import { buildCreateExpenseRoute } from '../navigation/expense-edit-route';
 import { AdaptiveActionSurface } from './ui/adaptive-action-surface';
 import { useFloatingActionOffset } from './ui/use-floating-action-offset';
 
 interface FloatingActionButtonProps {
+  accessibilityLabel?: string;
   onPress?: () => void; // Custom press action
   style?: ViewStyle;
   groupId?: string; // Optional groupId to pass to AddExpense screen
   nativeTabsContentInsetApplied?: boolean;
+  surfaceTestID?: string;
+  testID?: string;
 }
 
 const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
+  accessibilityLabel = 'Add expense',
   onPress,
   style,
   groupId,
   nativeTabsContentInsetApplied = false,
+  surfaceTestID = 'add-expense-surface',
+  testID = 'add-expense-fab',
 }) => {
   const bottomOffset = useFloatingActionOffset({
     nativeTabsContentInsetApplied,
@@ -27,14 +34,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
     if (onPress) {
       onPress();
     } else {
-      if (groupId) {
-        router.push({
-          pathname: '/add-expense',
-          params: { groupId },
-        });
-      } else {
-        router.push('/add-expense');
-      }
+      router.push(buildCreateExpenseRoute({ groupId }));
     }
   };
 
@@ -43,16 +43,16 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
       interactive
       tone='primary'
       style={[styles.surface, { bottom: bottomOffset }, style]}
-      testID='add-expense-surface'
+      testID={surfaceTestID}
     >
       <Pressable
-        accessibilityLabel='Add expense'
+        accessibilityLabel={accessibilityLabel}
         accessibilityRole='button'
         android_ripple={{ color: 'rgba(10, 102, 217, 0.16)' }}
         hitSlop={mobileTheme.spacing.sm}
         onPress={handlePress}
         style={styles.fab}
-        testID='add-expense-fab'
+        testID={testID}
       >
         <Text accessibilityElementsHidden style={styles.fabText}>
           +

@@ -13,7 +13,7 @@ describe('First-use group journey', () => {
 
   it('routes an unnamed user to Settings before creating a group', async () => {
     await testHelpers.tapTab('Groups');
-    await testHelpers.waitAndTap(by.id('add-group-button'));
+    await testHelpers.waitAndTap(by.id('add-group-fab'));
 
     await testHelpers.expectVisible(by.text('Username Required'));
     await testHelpers.expectVisible(
@@ -43,21 +43,20 @@ describe('First-use group journey', () => {
     await testHelpers.setUsername('Archive Owner');
     await testHelpers.createGroup('Past Trip');
 
+    await element(by.label('Open Past Trip')).swipe('left', 'fast', 0.75);
     await testHelpers.waitAndTap(by.label('Archive Past Trip'));
-    await testHelpers.expectVisible(
-      by.text(
-        'This hides the group from daily use while retaining its expenses, participants, payments, and shares.',
-      ),
-    );
-    await testHelpers.dismissAlert('Archive');
 
     await testHelpers.expectGone(by.text('Past Trip'));
-    await testHelpers.waitAndTap(by.label('View archived groups'));
+    await testHelpers.expectVisible(
+      by.text('Group archived · Find it in Settings'),
+    );
+    await testHelpers.tapTab('Settings');
+    await testHelpers.waitAndTap(by.label('Archived groups, 1'));
     await testHelpers.expectVisible(by.text('Past Trip'));
 
     await testHelpers.waitAndTap(by.label('Restore Past Trip'));
     await testHelpers.expectGone(by.text('Past Trip'));
-    await testHelpers.waitAndTap(by.label('View active groups'));
+    await testHelpers.tapTab('Groups');
     await testHelpers.expectVisible(by.text('Past Trip'));
   });
 });

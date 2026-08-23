@@ -16,16 +16,25 @@ export const useGlobalSearchParams = jest.fn(() => ({}));
 export const usePathname = jest.fn(() => '/');
 export const useSegments = jest.fn(() => []);
 export const useNavigationContainerRef = jest.fn();
+export const useNavigation = jest.fn(() => ({
+  addListener: jest.fn(() => jest.fn()),
+  dispatch: jest.fn(),
+}));
 
 export const Stack = {
-  Screen: ({ children }: { children?: ReactNode }) => children || null,
+  Screen: jest.fn(({ children }: { children?: ReactNode }) => children || null),
   Toolbar: Object.assign(
     ({ children }: { children?: ReactNode }) => children || null,
     {
       Button: ({ children, ...props }: any) =>
         React.createElement(
           'View',
-          { accessible: true, accessibilityRole: 'button', ...props },
+          {
+            accessible: true,
+            accessibilityRole: 'button',
+            accessibilityState: { disabled: Boolean(props.disabled) },
+            ...props,
+          },
           children,
         ),
       Menu: ({ children, ...props }: any) =>
@@ -65,6 +74,7 @@ export default {
   usePathname,
   useSegments,
   useNavigationContainerRef,
+  useNavigation,
   Stack,
   Tabs,
   Link,
