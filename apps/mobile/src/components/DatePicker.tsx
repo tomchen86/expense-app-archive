@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,13 @@ import {
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import { mobileTheme } from '../theme/tokens';
+import { formatLocalDateForDisplay } from '../utils/dateFormat';
 
 interface DatePickerProps {
   label: string;
   date: Date;
+  disabled?: boolean;
   onChange: (event: DateTimePickerEvent, selectedDate?: Date) => void;
   containerStyle?: ViewStyle;
   labelStyle?: TextStyle;
@@ -26,6 +29,7 @@ interface DatePickerProps {
 const DatePicker: React.FC<DatePickerProps> = ({
   label,
   date,
+  disabled = false,
   onChange,
   containerStyle,
   labelStyle,
@@ -35,23 +39,28 @@ const DatePicker: React.FC<DatePickerProps> = ({
 }) => {
   const [showPicker, setShowPicker] = useState(false);
 
+  useEffect(() => {
+    if (disabled) {
+      setShowPicker(false);
+    }
+  }, [disabled]);
+
   const handleDateChange = (
     event: DateTimePickerEvent,
     selectedDate?: Date,
   ) => {
-    // On Android, the picker closes automatically. On iOS, we need to hide it manually.
     if (Platform.OS === 'android') {
       setShowPicker(false);
     }
-    // Propagate the change up, regardless of whether a date was selected (event type 'dismissed')
-    onChange(event, selectedDate || date); // Pass current date if dismissed
+    onChange(event, selectedDate);
   };
 
-  // On iOS, provide a button to confirm the date selection within the modal
   const renderIOSConfirmationButton = () => (
     <TouchableOpacity
-      style={styles.iosDoneButton}
+      accessibilityLabel='Done choosing date'
+      accessibilityRole='button'
       onPress={() => setShowPicker(false)}
+      style={styles.iosDoneButton}
     >
       <Text style={styles.iosDoneButtonText}>Done</Text>
     </TouchableOpacity>
@@ -59,33 +68,39 @@ const DatePicker: React.FC<DatePickerProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <Text style={[styles.label, labelStyle]}>{label}</Text>
       <TouchableOpacity
-        testID={testID}
+        accessibilityLabel={`${label}, ${formatLocalDateForDisplay(date)}`}
+        accessibilityRole='button'
+        accessibilityState={{ disabled, expanded: showPicker }}
+        disabled={disabled}
         onPress={() => setShowPicker(true)}
         style={styles.touchable}
+        testID={testID}
       >
-        <Text style={[styles.valueText, valueStyle]}>
-          {`${date.getFullYear()}-${(date.getMonth() + 1)
-            .toString()
-            .padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`}
-        </Text>
+        <Text style={[styles.label, labelStyle]}>{label}</Text>
+        <View style={styles.valueContainer}>
+          <Text style={[styles.valueText, valueStyle]}>
+            {formatLocalDateForDisplay(date)}
+          </Text>
+          <Text accessibilityElementsHidden style={styles.chevron}>
+            ›
+          </Text>
+        </View>
       </TouchableOpacity>
 
       {showPicker && (
-        <>
-          {/* iOS requires a confirmation button, often placed above or below */}
-          {Platform.OS === 'ios' && renderIOSConfirmationButton()}
+        <View style={styles.pickerContainer}>
           <DateTimePicker
-            testID='dateTimePicker'
-            value={date}
-            mode={'date'}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'} // 'spinner' looks better on iOS modal
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            maximumDate={new Date()}
+            mode='date'
             onChange={handleDateChange}
-            maximumDate={new Date()} // Prevent selecting future dates
-            {...rest} // Apply remaining props
+            testID='native-date-picker'
+            value={date}
+            {...rest}
           />
-        </>
+          {Platform.OS === 'ios' && renderIOSConfirmationButton()}
+        </View>
       )}
     </View>
   );
@@ -93,39 +108,47 @@ const DatePicker: React.FC<DatePickerProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 15,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 5,
-    color: '#333',
-    fontWeight: '500',
+    backgroundColor: mobileTheme.colors.surface,
   },
   touchable: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    minHeight: 40,
-    justifyContent: 'center',
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: mobileTheme.spacing.lg,
+  },
+  label: {
+    color: mobileTheme.colors.text,
+    fontSize: 16,
+  },
+  valueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: mobileTheme.spacing.lg,
   },
   valueText: {
     fontSize: 16,
-    color: '#000',
+    color: mobileTheme.colors.textMuted,
   },
-  // Styles specific to iOS confirmation button (adjust as needed)
+  chevron: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 24,
+    marginLeft: mobileTheme.spacing.sm,
+  },
+  pickerContainer: {
+    borderTopColor: mobileTheme.colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    padding: mobileTheme.spacing.md,
+  },
   iosDoneButton: {
-    alignSelf: 'flex-end', // Position button to the right
-    padding: 10,
-    backgroundColor: '#007bff',
-    borderRadius: 5,
-    marginVertical: 5, // Add some spacing
+    alignSelf: 'flex-end',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: mobileTheme.spacing.lg,
   },
   iosDoneButtonText: {
-    color: '#fff',
-    fontWeight: '500',
+    color: mobileTheme.colors.primary,
+    fontWeight: '700',
   },
 });
 

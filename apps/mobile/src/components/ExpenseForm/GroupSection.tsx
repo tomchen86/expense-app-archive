@@ -1,90 +1,173 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Participant, ExpenseGroup } from '../../types';
-import SelectInput from '../SelectInput';
-import ParticipantTag from '../ParticipantTag';
-
-interface GroupSectionProps {
-  selectedGroup: ExpenseGroup | null;
-  paidByParticipant: Participant | null;
-  selectedParticipants: Participant[];
-  onGroupPress: () => void;
-  onPaidByPress: () => void;
-  onSplitPress: () => void;
-  onRemoveParticipant: (participantId: string) => void;
-}
+import { View, Text, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import { mobileTheme } from '../../theme/tokens';
+import type { GroupSectionProps } from './expense-form-section.types';
 
 export const GroupSection: React.FC<GroupSectionProps> = ({
+  sharingEnabled,
+  sharingLocked = false,
+  financialControlsDisabled = false,
+  interactionDisabled = false,
   selectedGroup,
   paidByParticipant,
   selectedParticipants,
+  onSharingChange,
   onGroupPress,
   onPaidByPress,
   onSplitPress,
-  onRemoveParticipant,
 }) => {
+  const splitSummary =
+    selectedParticipants.length === 0
+      ? 'Choose people'
+      : selectedParticipants.length === 1
+        ? '1 person'
+        : `${selectedParticipants.length} people`;
+  const sharingControlDisabled =
+    sharingLocked || financialControlsDisabled || interactionDisabled;
+
   return (
-    <>
-      <SelectInput
-        label='Group (optional):'
-        selectedValue={selectedGroup?.name}
-        placeholder='Select Group'
-        onPress={onGroupPress}
-      />
-
-      {selectedGroup && (
-        <>
-          <SelectInput
-            label='Paid By:'
-            selectedValue={paidByParticipant?.name}
-            placeholder='Select Payer'
-            onPress={onPaidByPress}
+    <View>
+      <Text accessibilityRole='header' style={styles.sectionLabel}>
+        SHARING
+      </Text>
+      <View style={styles.section}>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Split with others</Text>
+          <Switch
+            accessibilityLabel='Split with others'
+            accessibilityRole='switch'
+            accessibilityState={{ disabled: sharingControlDisabled }}
+            disabled={sharingControlDisabled}
+            onValueChange={onSharingChange}
+            testID='sharing-toggle'
+            trackColor={{
+              false: mobileTheme.colors.surfaceVariant,
+              true: mobileTheme.colors.primary,
+            }}
+            value={sharingEnabled}
           />
+        </View>
 
-          <Text style={styles.label}>Split Between:</Text>
-          <View style={styles.selectedParticipantsContainer}>
-            {selectedParticipants.map((participant) => (
-              <ParticipantTag
-                key={participant.id}
-                participantName={participant.name}
-                onRemove={() => onRemoveParticipant(participant.id)}
-              />
-            ))}
-            <SelectInput
-              label=''
-              selectedValue='+ Add'
-              onPress={onSplitPress}
-              containerStyle={styles.addParticipantButtonContainer}
-              valueStyle={styles.addParticipantButtonText}
+        {sharingEnabled ? (
+          <>
+            <SelectionRow
+              accessibilityLabel={`Group, ${selectedGroup?.name ?? 'not selected'}`}
+              disabled={
+                sharingLocked ||
+                financialControlsDisabled ||
+                interactionDisabled
+              }
+              label='Group'
+              onPress={onGroupPress}
+              testID='group-picker'
+              value={selectedGroup?.name ?? 'Choose a group'}
             />
-          </View>
-        </>
-      )}
-    </>
+            {selectedGroup ? (
+              <>
+                <SelectionRow
+                  accessibilityLabel={`Paid by, ${paidByParticipant?.name ?? 'not selected'}`}
+                  disabled={financialControlsDisabled || interactionDisabled}
+                  label='Paid by'
+                  onPress={onPaidByPress}
+                  testID='paid-by-picker'
+                  value={paidByParticipant?.name ?? 'Choose payer'}
+                />
+                <SelectionRow
+                  accessibilityLabel={`Split between, ${splitSummary}`}
+                  disabled={financialControlsDisabled || interactionDisabled}
+                  label='Split between'
+                  onPress={onSplitPress}
+                  testID='split-between-picker'
+                  value={splitSummary}
+                />
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </View>
+    </View>
   );
 };
 
+const SelectionRow = ({
+  accessibilityLabel,
+  disabled = false,
+  label,
+  onPress,
+  testID,
+  value,
+}: {
+  accessibilityLabel: string;
+  disabled?: boolean;
+  label: string;
+  onPress: () => void;
+  testID: string;
+  value: string;
+}) => (
+  <TouchableOpacity
+    accessibilityLabel={accessibilityLabel}
+    accessibilityRole='button'
+    accessibilityState={{ disabled }}
+    disabled={disabled}
+    onPress={onPress}
+    style={styles.row}
+    testID={testID}
+  >
+    <Text style={styles.rowLabel}>{label}</Text>
+    <View style={styles.valueContainer}>
+      <Text style={styles.rowValue}>{value}</Text>
+      <Text accessibilityElementsHidden style={styles.chevron}>
+        ›
+      </Text>
+    </View>
+  </TouchableOpacity>
+);
+
 const styles = StyleSheet.create({
-  label: {
-    fontSize: 16,
-    marginBottom: 5,
-    color: '#333',
-    fontWeight: '500',
+  sectionLabel: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.7,
+    marginBottom: mobileTheme.spacing.sm,
+    marginLeft: mobileTheme.spacing.md,
+    marginTop: mobileTheme.spacing.xxl,
   },
-  selectedParticipantsContainer: {
+  section: {
+    overflow: 'hidden',
+    borderColor: mobileTheme.colors.border,
+    borderRadius: mobileTheme.radii.card,
+    borderWidth: 1,
+    backgroundColor: mobileTheme.colors.surface,
+  },
+  row: {
+    minHeight: 54,
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
-    marginBottom: 15,
+    justifyContent: 'space-between',
+    paddingHorizontal: mobileTheme.spacing.lg,
+    borderBottomColor: mobileTheme.colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  addParticipantButtonContainer: {
-    marginBottom: 0,
-    borderWidth: 0,
-    paddingVertical: 0,
-  },
-  addParticipantButtonText: {
-    color: '#007bff',
+  rowLabel: {
+    color: mobileTheme.colors.text,
     fontSize: 16,
-    padding: 8,
+  },
+  valueContainer: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: mobileTheme.spacing.lg,
+  },
+  rowValue: {
+    flexShrink: 1,
+    color: mobileTheme.colors.textMuted,
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  chevron: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 24,
+    marginLeft: mobileTheme.spacing.sm,
   },
 });

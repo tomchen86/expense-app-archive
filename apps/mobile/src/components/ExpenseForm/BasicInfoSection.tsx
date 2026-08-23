@@ -1,29 +1,25 @@
 import React from 'react';
-import { ExpenseCategory } from '../../types';
-import FormInput from '../FormInput';
-import SelectInput from '../SelectInput';
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import DatePicker from '../DatePicker';
-import { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-
-interface BasicInfoSectionProps {
-  title: string;
-  amount: string;
-  category: ExpenseCategory;
-  caption: string;
-  date: Date;
-  onTitleChange: (value: string) => void;
-  onAmountChange: (value: string) => void;
-  onCategoryPress: () => void;
-  onCaptionChange: (value: string) => void;
-  onDateChange: (event: DateTimePickerEvent, selectedDate?: Date) => void;
-}
+import { mobileTheme } from '../../theme/tokens';
+import type { BasicInfoSectionProps } from './expense-form-section.types';
 
 export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
   title,
   amount,
+  currency,
   category,
   caption,
   date,
+  financialEditingDisabled = false,
+  financialEditingReason,
+  interactionDisabled = false,
   onTitleChange,
   onAmountChange,
   onCategoryPress,
@@ -31,47 +27,195 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
   onDateChange,
 }) => {
   return (
-    <>
-      <FormInput
-        label='Title:'
-        value={title}
-        onChangeText={onTitleChange}
-        placeholder='Enter expense title'
-        testID='expense-title-input'
-      />
+    <View>
+      <View style={styles.amountContainer}>
+        <Text style={styles.currency}>{currency}</Text>
+        <TextInput
+          accessibilityHint={financialEditingReason}
+          accessibilityLabel={`Amount in ${currency}`}
+          accessibilityState={{
+            disabled: financialEditingDisabled || interactionDisabled,
+          }}
+          editable={!financialEditingDisabled && !interactionDisabled}
+          keyboardType='decimal-pad'
+          onChangeText={onAmountChange}
+          placeholder='0.00'
+          placeholderTextColor={mobileTheme.colors.textMuted}
+          returnKeyType='done'
+          selectTextOnFocus
+          style={styles.amountInput}
+          testID='expense-amount-input'
+          value={amount}
+        />
+        {financialEditingReason ? (
+          <Text accessibilityLiveRegion='polite' style={styles.financialNotice}>
+            {financialEditingReason}
+          </Text>
+        ) : null}
+      </View>
 
-      <FormInput
-        label='Amount:'
-        value={amount}
-        onChangeText={onAmountChange}
-        placeholder='Enter amount'
-        keyboardType='numeric'
-        testID='expense-amount-input'
-      />
+      <Text accessibilityRole='header' style={styles.sectionLabel}>
+        DETAILS
+      </Text>
+      <View style={styles.section}>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Title</Text>
+          <TextInput
+            accessibilityLabel='Expense title'
+            autoCapitalize='sentences'
+            editable={!interactionDisabled}
+            onChangeText={onTitleChange}
+            placeholder='Dinner'
+            placeholderTextColor={mobileTheme.colors.textMuted}
+            returnKeyType='done'
+            style={styles.rowInput}
+            testID='expense-title-input'
+            value={title}
+          />
+        </View>
+        <TouchableOpacity
+          accessibilityLabel={`Category, ${category}`}
+          accessibilityRole='button'
+          accessibilityState={{ disabled: interactionDisabled }}
+          disabled={interactionDisabled}
+          onPress={onCategoryPress}
+          style={styles.row}
+          testID='category-picker'
+        >
+          <Text style={styles.rowLabel}>Category</Text>
+          <View style={styles.rowValueContainer}>
+            <Text style={styles.rowValue}>{category}</Text>
+            <Text accessibilityElementsHidden style={styles.chevron}>
+              ›
+            </Text>
+          </View>
+        </TouchableOpacity>
+        <DatePicker
+          label='Date'
+          date={date}
+          disabled={interactionDisabled}
+          onChange={onDateChange}
+          testID='date-picker'
+        />
+      </View>
 
-      <SelectInput
-        label='Category:'
-        selectedValue={category}
-        onPress={onCategoryPress}
-        testID='category-picker'
-      />
-
-      <FormInput
-        label='Caption (optional):'
-        value={caption}
-        onChangeText={onCaptionChange}
-        placeholder='Add a note about this expense'
-        multiline
-        numberOfLines={3}
-        testID='expense-caption-input'
-      />
-
-      <DatePicker
-        label='Date:'
-        date={date}
-        onChange={onDateChange}
-        testID='date-picker'
-      />
-    </>
+      <Text accessibilityRole='header' style={styles.sectionLabel}>
+        NOTE
+      </Text>
+      <View style={styles.noteSection}>
+        <TextInput
+          accessibilityLabel='Expense note'
+          editable={!interactionDisabled}
+          multiline
+          onChangeText={onCaptionChange}
+          placeholder='Add a note…'
+          placeholderTextColor={mobileTheme.colors.textMuted}
+          style={styles.noteInput}
+          testID='expense-caption-input'
+          textAlignVertical='top'
+          value={caption}
+        />
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  amountContainer: {
+    alignItems: 'center',
+    marginBottom: mobileTheme.spacing.xxxl,
+    paddingTop: mobileTheme.spacing.lg,
+  },
+  currency: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  amountInput: {
+    minWidth: 180,
+    color: mobileTheme.colors.text,
+    fontSize: 44,
+    fontWeight: '700',
+    marginTop: mobileTheme.spacing.xs,
+    paddingHorizontal: mobileTheme.spacing.md,
+    paddingVertical: mobileTheme.spacing.sm,
+    textAlign: 'center',
+  },
+  financialNotice: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: mobileTheme.spacing.sm,
+    maxWidth: 320,
+    textAlign: 'center',
+  },
+  sectionLabel: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.7,
+    marginBottom: mobileTheme.spacing.sm,
+    marginLeft: mobileTheme.spacing.md,
+    marginTop: mobileTheme.spacing.lg,
+  },
+  section: {
+    overflow: 'hidden',
+    borderColor: mobileTheme.colors.border,
+    borderRadius: mobileTheme.radii.card,
+    borderWidth: 1,
+    backgroundColor: mobileTheme.colors.surface,
+  },
+  row: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: mobileTheme.spacing.lg,
+    borderBottomColor: mobileTheme.colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  rowLabel: {
+    color: mobileTheme.colors.text,
+    fontSize: 16,
+  },
+  rowInput: {
+    flex: 1,
+    color: mobileTheme.colors.text,
+    fontSize: 16,
+    marginLeft: mobileTheme.spacing.lg,
+    paddingVertical: mobileTheme.spacing.md,
+    textAlign: 'right',
+  },
+  rowValueContainer: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: mobileTheme.spacing.lg,
+  },
+  rowValue: {
+    flexShrink: 1,
+    color: mobileTheme.colors.textMuted,
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  chevron: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 24,
+    marginLeft: mobileTheme.spacing.sm,
+  },
+  noteSection: {
+    minHeight: 112,
+    borderColor: mobileTheme.colors.border,
+    borderRadius: mobileTheme.radii.card,
+    borderWidth: 1,
+    backgroundColor: mobileTheme.colors.surface,
+  },
+  noteInput: {
+    minHeight: 110,
+    color: mobileTheme.colors.text,
+    fontSize: 16,
+    lineHeight: 22,
+    padding: mobileTheme.spacing.lg,
+  },
+});

@@ -13,7 +13,7 @@ describe('Expense management flow', () => {
     await testHelpers.waitAndTap(by.label('Edit expense'));
     await testHelpers.waitAndReplace(by.id('expense-title-input'), 'Dinner');
     await testHelpers.waitAndReplace(by.id('expense-amount-input'), '25.00');
-    await testHelpers.submitExpenseForm();
+    await testHelpers.submitExpenseForm('Save');
     await testHelpers.waitAndTap(by.label('Back'));
 
     await testHelpers.verifyExpense('Dinner', '25.00');
@@ -38,22 +38,13 @@ describe('Expense management flow', () => {
     );
   });
 
-  it('shows the implemented validation alerts', async () => {
+  it('keeps Add disabled until required values are valid', async () => {
     await testHelpers.waitAndTap(by.id('add-expense-fab'));
-    await testHelpers.submitExpenseForm();
-
-    await testHelpers.expectVisible(
-      by.text('Please fill all required fields.'),
-    );
-    await testHelpers.dismissAlert();
+    await expect(element(by.label('Add'))).not.toBeEnabled();
 
     await testHelpers.waitAndType(by.id('expense-title-input'), 'Invalid');
     await testHelpers.waitAndType(by.id('expense-amount-input'), '0');
-    await testHelpers.submitExpenseForm();
-
-    await testHelpers.expectVisible(
-      by.text('Amount must be a positive value with valid currency precision.'),
-    );
+    await expect(element(by.label('Add'))).not.toBeEnabled();
   });
 
   it('keeps a selected category and optional caption', async () => {

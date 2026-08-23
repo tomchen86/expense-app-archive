@@ -13,7 +13,10 @@ import TestRenderer, { act } from 'react-test-renderer';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_CATEGORIES } from '../../constants/expenses';
-import { useExpenseForm } from '../useExpenseForm';
+import {
+  resetExpenseFormDraftSessionsForTests,
+  useExpenseForm,
+} from '../useExpenseForm';
 import { useExpenseStore as useComposedExpenseStore } from '../../store/expenseStore';
 import { useCategoryStore } from '../../store/features/categoryStore';
 import {
@@ -76,13 +79,25 @@ const resetAllStores = () => {
 // Router mocking is handled in jest.setup.unit.ts
 
 interface HookHarnessProps {
+  draftSessionId?: string;
   editingExpense?: Expense | null;
   initialSpaceId?: string;
 }
 
 const HookHarness = forwardRef(
-  ({ editingExpense, initialSpaceId }: HookHarnessProps, ref) => {
-    const hookValue = useExpenseForm({ editingExpense, initialSpaceId });
+  (
+    {
+      draftSessionId = 'default-test-draft-session',
+      editingExpense,
+      initialSpaceId,
+    }: HookHarnessProps,
+    ref,
+  ) => {
+    const hookValue = useExpenseForm({
+      draftSessionId,
+      editingExpense,
+      initialSpaceId,
+    });
     useImperativeHandle(ref, () => hookValue, [hookValue]);
     return null;
   },
@@ -92,6 +107,7 @@ HookHarness.displayName = 'HookHarness';
 describe('useExpenseForm', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    resetExpenseFormDraftSessionsForTests();
     storage.setItem.mockResolvedValue(undefined);
     resetAllStores();
     await Promise.all([flushExpensePersistence(), flushUserPersistence()]);
@@ -102,6 +118,213 @@ describe('useExpenseForm', () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
+  it('exposes dirty and validity state for native modal actions', () => {
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(<HookHarness ref={ref} editingExpense={null} />);
+    });
+
+    expect(ref.current!.isDirty).toBe(false);
+    expect(ref.current!.canSubmit).toBe(false);
+
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Coffee');
+      ref.current!.handleUpdateFormState('amount', '5.00');
+    });
+
+    expect(ref.current!.isDirty).toBe(true);
+    expect(ref.current!.canSubmit).toBe(true);
+  });
+
+  it('does not submit a pristine edit', async () => {
+    const existingExpense: Expense = {
+      id: 'pristine-edit-expense',
+      title: 'Unchanged dinner',
+      amountMinor: 1800,
+      currency: 'USD',
+      date: '2026-08-24',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'personal-participant', amountMinor: 1800 }],
+      shares: [{ participantId: 'personal-participant', amountMinor: 1800 }],
+      sync: {
+        mutationId: 'pristine-opening-mutation',
+        serverVersion: 2,
+        localRevision: 0,
+        status: 'synced',
+        updatedAt: '2026-08-24T00:00:00.000Z',
+      },
+    };
+    act(() => {
+      useExpenseFeatureStore.setState({ expenses: [existingExpense] });
+      useComposedExpenseStore.setState({ expenses: [existingExpense] });
+    });
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness ref={ref} editingExpense={existingExpense} />,
+      );
+    });
+
+    expect(ref.current!.isDirty).toBe(false);
+    expect(ref.current!.canSubmit).toBe(false);
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      existingExpense,
+    ]);
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('restores the complete draft only for the same route session', () => {
+    const firstRef = createRef<ReturnType<typeof useExpenseForm>>();
+    let firstRenderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      firstRenderer = TestRenderer.create(
+        <HookHarness
+          ref={firstRef}
+          draftSessionId='same-draft-session'
+          editingExpense={null}
+        />,
+      );
+    });
+    act(() => {
+      firstRef.current!.handleUpdateFormState('title', 'Session coffee');
+      firstRef.current!.handleUpdateFormState('amount', '6.25');
+      firstRef.current!.handleSharingChange(true);
+    });
+    act(() => firstRenderer.unmount());
+
+    const remountedRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={remountedRef}
+          draftSessionId='same-draft-session'
+          editingExpense={null}
+        />,
+      );
+    });
+    expect(remountedRef.current!.formState.title).toBe('Session coffee');
+    expect(remountedRef.current!.formState.amount).toBe('6.25');
+    expect(remountedRef.current!.sharingEnabled).toBe(true);
+    expect(remountedRef.current!.isDirty).toBe(true);
+    expect(remountedRef.current!.canSubmit).toBe(false);
+
+    const freshRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={freshRef}
+          draftSessionId='different-draft-session'
+          editingExpense={null}
+        />,
+      );
+    });
+    expect(freshRef.current!.formState.title).toBe('');
+    expect(freshRef.current!.sharingEnabled).toBe(false);
+    expect(freshRef.current!.isDirty).toBe(false);
+  });
+
+  it('ends a clean edit session so reopening reads the latest snapshot', async () => {
+    const originalExpense: Expense = {
+      id: 'clean-edit-session-expense',
+      title: 'Original title',
+      amountMinor: 500,
+      currency: 'USD',
+      date: '2026-08-24',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'personal-participant', amountMinor: 500 }],
+      shares: [{ participantId: 'personal-participant', amountMinor: 500 }],
+    };
+    const firstRef = createRef<ReturnType<typeof useExpenseForm>>();
+    let firstRenderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      firstRenderer = TestRenderer.create(
+        <HookHarness
+          ref={firstRef}
+          draftSessionId='edit:clean-edit-session-expense'
+          editingExpense={originalExpense}
+        />,
+      );
+    });
+    await act(async () => {
+      expect(await firstRef.current!.discardChanges()).toBe(true);
+    });
+    act(() => firstRenderer.unmount());
+
+    const latestExpense = {
+      ...originalExpense,
+      title: 'Updated elsewhere',
+    };
+    act(() => {
+      useExpenseFeatureStore.setState({ expenses: [latestExpense] });
+      useComposedExpenseStore.setState({ expenses: [latestExpense] });
+    });
+    const latestRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={latestRef}
+          draftSessionId='edit:clean-edit-session-expense'
+          editingExpense={latestExpense}
+        />,
+      );
+    });
+
+    expect(latestRef.current!.formState.title).toBe('Updated elsewhere');
+    expect(latestRef.current!.isDirty).toBe(false);
+  });
+
+  it('isolates simultaneous edit modals for the same expense', () => {
+    const existingExpense: Expense = {
+      id: 'parallel-edit-expense',
+      title: 'Opening title',
+      amountMinor: 500,
+      currency: 'USD',
+      date: '2026-08-24',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'personal-participant', amountMinor: 500 }],
+      shares: [{ participantId: 'personal-participant', amountMinor: 500 }],
+    };
+    const firstRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={firstRef}
+          draftSessionId='edit:parallel-edit-expense:first'
+          editingExpense={existingExpense}
+        />,
+      );
+    });
+    act(() => {
+      firstRef.current!.handleUpdateFormState('title', 'First modal draft');
+    });
+
+    const secondRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={secondRef}
+          draftSessionId='edit:parallel-edit-expense:second'
+          editingExpense={existingExpense}
+        />,
+      );
+    });
+
+    expect(firstRef.current!.formState.title).toBe('First modal draft');
+    expect(firstRef.current!.isDirty).toBe(true);
+    expect(secondRef.current!.formState.title).toBe('Opening title');
+    expect(secondRef.current!.isDirty).toBe(false);
+  });
+
   it('creates a canonical personal expense in the explicit personal space', async () => {
     const ref = createRef<ReturnType<typeof useExpenseForm>>();
     let renderer: TestRenderer.ReactTestRenderer;
@@ -194,6 +417,7 @@ describe('useExpenseForm', () => {
     act(() => {
       ref.current!.handleUpdateFormState('title', 'Shared dinner');
       ref.current!.handleUpdateFormState('amount', '42.00');
+      ref.current!.handleSharingChange(true);
       ref.current!.handleUpdateFormState('selectedGroup', group);
     });
 
@@ -471,6 +695,75 @@ describe('useExpenseForm', () => {
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
+  it('refuses to drop a partially unresolved member when the amount changes', async () => {
+    const visibleParticipant: Participant = { id: 'p1', name: 'Alex' };
+    const formerParticipant: Participant = { id: 'p2', name: 'Former member' };
+    const group: ExpenseGroup = {
+      id: 'group-partially-resolved',
+      name: 'Old trip',
+      participants: [visibleParticipant, formerParticipant],
+      createdAt: '2026-08-01T00:00:00.000Z',
+    };
+    const existingExpense: Expense = {
+      id: 'expense-partially-resolved',
+      title: 'Old hotel',
+      amountMinor: 9000,
+      currency: 'AUD',
+      date: '2026-08-20',
+      category: 'Travel',
+      spaceId: group.id,
+      spaceKind: 'shared',
+      payments: [{ participantId: visibleParticipant.id, amountMinor: 9000 }],
+      shares: [
+        { participantId: visibleParticipant.id, amountMinor: 4500 },
+        { participantId: formerParticipant.id, amountMinor: 4500 },
+      ],
+    };
+    act(() => {
+      useParticipantStore.setState({ participants: [visibleParticipant] });
+      useGroupStore.setState({ groups: [group] });
+      useExpenseFeatureStore.setState({ expenses: [existingExpense] });
+      useComposedExpenseStore.setState({
+        participants: [visibleParticipant],
+        groups: [group],
+        expenses: [existingExpense],
+      });
+    });
+    await flushExpensePersistence();
+
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness ref={ref} editingExpense={existingExpense} />,
+      );
+    });
+    expect(ref.current!.financialEditingDisabled).toBe(true);
+    expect(ref.current!.financialEditingReason).toMatch(
+      /custom shared allocations/i,
+    );
+    expect(ref.current!.canSubmit).toBe(false);
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Old hotel metadata');
+    });
+    expect(ref.current!.canSubmit).toBe(true);
+    act(() => {
+      ref.current!.handleUpdateFormState('amount', '100.00');
+    });
+    expect(ref.current!.canSubmit).toBe(false);
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      existingExpense,
+    ]);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Allocation Update Required',
+      'Custom shared allocations need a dedicated editor before the amount or split can change.',
+    );
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
   it('refuses to guess new custom allocations when the amount changes', async () => {
     const participants: Participant[] = [
       { id: 'p1', name: 'Alex' },
@@ -538,7 +831,7 @@ describe('useExpenseForm', () => {
     expect(router.back).not.toHaveBeenCalled();
   });
 
-  it('changes only the payer when custom shares are otherwise untouched', async () => {
+  it('blocks payer changes while custom shares are locked', async () => {
     const participants: Participant[] = [
       { id: 'p1', name: 'Alex' },
       { id: 'p2', name: 'Blair' },
@@ -587,15 +880,19 @@ describe('useExpenseForm', () => {
     act(() => {
       ref.current!.handleUpdateFormState('paidByParticipant', participants[1]);
     });
+    expect(ref.current!.financialEditingDisabled).toBe(true);
+    expect(ref.current!.canSubmit).toBe(false);
     await act(async () => {
       await ref.current!.handleSubmit();
     });
 
-    expect(useExpenseFeatureStore.getState().expenses[0]).toMatchObject({
-      payments: [{ participantId: 'p2', amountMinor: 10000 }],
-      shares: existingExpense.shares,
-    });
-    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      existingExpense,
+    ]);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Allocation Update Required',
+      'Custom shared allocations need a dedicated editor before the amount or split can change.',
+    );
   });
 
   it('refuses to discard a member from a custom split', async () => {
@@ -821,6 +1118,7 @@ describe('useExpenseForm', () => {
       );
     });
     expect(ref.current!.formState.selectedGroup?.id).toBe(archivedGroup.id);
+    expect(ref.current!.canSubmit).toBe(false);
     act(() => {
       ref.current!.handleUpdateFormState('title', 'Changed title');
     });
@@ -861,6 +1159,7 @@ describe('useExpenseForm', () => {
       'Storage Error',
       'The expense could not be saved to this device. Please try again.',
     );
+    expect(ref.current!.hasPendingMutation).toBe(true);
     expect(router.back).not.toHaveBeenCalled();
 
     (Alert.alert as jest.Mock).mockClear();
@@ -877,6 +1176,632 @@ describe('useExpenseForm', () => {
     );
     expect(router.back).toHaveBeenCalledTimes(1);
     expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it('reuses a failed create identity after the form remounts', async () => {
+    const firstRef = createRef<ReturnType<typeof useExpenseForm>>();
+    let firstRenderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      firstRenderer = TestRenderer.create(
+        <HookHarness ref={firstRef} editingExpense={null} />,
+      );
+    });
+    act(() => {
+      firstRef.current!.handleUpdateFormState('title', 'Remounted coffee');
+      firstRef.current!.handleUpdateFormState('amount', '6.00');
+    });
+
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk unavailable'));
+    await act(async () => {
+      await firstRef.current!.handleSubmit();
+    });
+    const failedExpense = useExpenseFeatureStore.getState().expenses[0];
+    act(() => {
+      firstRenderer.unmount();
+    });
+
+    const retryRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(<HookHarness ref={retryRef} editingExpense={null} />);
+    });
+    act(() => {
+      retryRef.current!.handleUpdateFormState('title', 'Remounted coffee');
+      retryRef.current!.handleUpdateFormState('amount', '6.00');
+    });
+    await act(async () => {
+      await retryRef.current!.handleSubmit();
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses).toHaveLength(1);
+    expect(useExpenseFeatureStore.getState().expenses[0].id).toBe(
+      failedExpense.id,
+    );
+    expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  it('rolls back a failed create before a different draft session can save', async () => {
+    const firstRef = createRef<ReturnType<typeof useExpenseForm>>();
+    let firstRenderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      firstRenderer = TestRenderer.create(
+        <HookHarness
+          ref={firstRef}
+          draftSessionId='failed-create-session'
+          editingExpense={null}
+        />,
+      );
+    });
+    act(() => {
+      firstRef.current!.handleUpdateFormState('title', 'Abandoned coffee');
+      firstRef.current!.handleUpdateFormState('amount', '5.00');
+    });
+
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk unavailable'));
+    await act(async () => {
+      await firstRef.current!.handleSubmit();
+    });
+    const abandonedId = useExpenseFeatureStore.getState().expenses[0].id;
+
+    storage.setItem.mockResolvedValue(undefined);
+    let discarded = false;
+    await act(async () => {
+      discarded = await firstRef.current!.discardChanges();
+    });
+    expect(discarded).toBe(true);
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([]);
+    act(() => firstRenderer.unmount());
+
+    const nextRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={nextRef}
+          draftSessionId='new-create-session'
+          editingExpense={null}
+        />,
+      );
+    });
+    act(() => {
+      nextRef.current!.handleUpdateFormState('title', 'Intentional lunch');
+      nextRef.current!.handleUpdateFormState('amount', '12.00');
+    });
+    await act(async () => {
+      await nextRef.current!.handleSubmit();
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses).toHaveLength(1);
+    expect(useExpenseFeatureStore.getState().expenses[0]).toMatchObject({
+      title: 'Intentional lunch',
+    });
+    expect(useExpenseFeatureStore.getState().expenses[0].id).not.toBe(
+      abandonedId,
+    );
+  });
+
+  it('restores the exact edit snapshot when a failed save is discarded', async () => {
+    const originalExpense: Expense = {
+      id: 'expense-discard-edit',
+      title: 'Original dinner',
+      amountMinor: 2500,
+      currency: 'AUD',
+      date: '2026-08-20',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'personal-participant', amountMinor: 2500 }],
+      shares: [{ participantId: 'personal-participant', amountMinor: 2500 }],
+      sync: {
+        mutationId: 'original-discard-mutation',
+        serverVersion: 4,
+        localRevision: 2,
+        status: 'synced',
+        updatedAt: '2026-08-20T00:00:00.000Z',
+      },
+    };
+    act(() => {
+      useExpenseFeatureStore.setState({ expenses: [originalExpense] });
+      useComposedExpenseStore.setState({ expenses: [originalExpense] });
+    });
+    await flushExpensePersistence();
+
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={ref}
+          draftSessionId='discard-edit-session'
+          editingExpense={originalExpense}
+        />,
+      );
+    });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Unpersisted dinner');
+    });
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk unavailable'));
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+    expect(
+      useExpenseFeatureStore.getState().expenses[0].sync?.localRevision,
+    ).toBe(3);
+
+    storage.setItem.mockResolvedValue(undefined);
+    let discarded = false;
+    await act(async () => {
+      discarded = await ref.current!.discardChanges();
+    });
+    expect(discarded).toBe(true);
+    expect(useExpenseFeatureStore.getState().expenses[0]).toEqual(
+      originalExpense,
+    );
+  });
+
+  it('does not roll back over a newer expense mutation', async () => {
+    const originalExpense: Expense = {
+      id: 'expense-discard-conflict',
+      title: 'Opening title',
+      amountMinor: 2500,
+      currency: 'AUD',
+      date: '2026-08-20',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'personal-participant', amountMinor: 2500 }],
+      shares: [{ participantId: 'personal-participant', amountMinor: 2500 }],
+      sync: {
+        mutationId: 'opening-conflict-mutation',
+        serverVersion: 4,
+        localRevision: 2,
+        status: 'synced',
+        updatedAt: '2026-08-20T00:00:00.000Z',
+      },
+    };
+    act(() => {
+      useExpenseFeatureStore.setState({ expenses: [originalExpense] });
+      useComposedExpenseStore.setState({ expenses: [originalExpense] });
+    });
+    await flushExpensePersistence();
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={ref}
+          draftSessionId='discard-conflict-session'
+          editingExpense={originalExpense}
+        />,
+      );
+    });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Failed local title');
+    });
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk unavailable'));
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+
+    const attemptedExpense = useExpenseFeatureStore.getState().expenses[0];
+    act(() => {
+      useExpenseFeatureStore.getState().updateExpense({
+        ...attemptedExpense,
+        title: 'Concurrent newer title',
+      });
+    });
+    await flushExpensePersistence();
+    const concurrentExpense = useExpenseFeatureStore.getState().expenses[0];
+    expect(concurrentExpense.sync?.localRevision).toBe(4);
+
+    let discarded = true;
+    await act(async () => {
+      discarded = await ref.current!.discardChanges();
+    });
+
+    expect(discarded).toBe(false);
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      concurrentExpense,
+    ]);
+    expect(ref.current!.hasPendingMutation).toBe(true);
+    expect(ref.current!.isRollbackPending).toBe(false);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Discard Conflict',
+      'This expense changed elsewhere. Review the latest version before leaving.',
+    );
+
+    (Alert.alert as jest.Mock).mockClear();
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      concurrentExpense,
+    ]);
+    expect(router.back).not.toHaveBeenCalled();
+    expect(ref.current!.canSubmit).toBe(false);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Save Conflict',
+      'This expense changed elsewhere. Cancel and reopen it to review the latest version.',
+    );
+
+    await act(async () => {
+      discarded = await ref.current!.discardChanges();
+    });
+    expect(discarded).toBe(true);
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      concurrentExpense,
+    ]);
+  });
+
+  it('does not resurrect an expense concurrently deleted while a failed edit is pending', async () => {
+    const originalExpense: Expense = {
+      id: 'expense-discard-missing',
+      title: 'Opening title',
+      amountMinor: 2500,
+      currency: 'AUD',
+      date: '2026-08-20',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'personal-participant', amountMinor: 2500 }],
+      shares: [{ participantId: 'personal-participant', amountMinor: 2500 }],
+      sync: {
+        mutationId: 'opening-missing-mutation',
+        serverVersion: 4,
+        localRevision: 2,
+        status: 'synced',
+        updatedAt: '2026-08-20T00:00:00.000Z',
+      },
+    };
+    act(() => {
+      useExpenseFeatureStore.setState({ expenses: [originalExpense] });
+      useComposedExpenseStore.setState({ expenses: [originalExpense] });
+    });
+    await flushExpensePersistence();
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={ref}
+          draftSessionId='discard-missing-session'
+          editingExpense={originalExpense}
+        />,
+      );
+    });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Failed local title');
+    });
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk unavailable'));
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+    const attemptedExpense = useExpenseFeatureStore.getState().expenses[0];
+    const concurrentTombstone: Expense = {
+      ...attemptedExpense,
+      sync: {
+        mutationId: 'concurrent-delete-mutation',
+        serverVersion: 4,
+        localRevision: 4,
+        status: 'pending',
+        updatedAt: '2026-08-24T00:03:00.000Z',
+        deletedAt: '2026-08-24T00:03:00.000Z',
+      },
+    };
+    act(() => {
+      useExpenseFeatureStore.setState({ expenses: [concurrentTombstone] });
+    });
+    await flushExpensePersistence();
+    expect(concurrentTombstone.sync?.deletedAt).toEqual(expect.any(String));
+
+    let discarded = true;
+    await act(async () => {
+      discarded = await ref.current!.discardChanges();
+    });
+
+    expect(discarded).toBe(false);
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      concurrentTombstone,
+    ]);
+    expect(ref.current!.hasPendingMutation).toBe(true);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Discard Conflict',
+      'This expense changed elsewhere. Review the latest version before leaving.',
+    );
+
+    (Alert.alert as jest.Mock).mockClear();
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Stale resurrection');
+    });
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      concurrentTombstone,
+    ]);
+    expect(router.back).not.toHaveBeenCalled();
+    expect(ref.current!.canSubmit).toBe(false);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Save Conflict',
+      'This expense changed elsewhere. Cancel and reopen it to review the latest version.',
+    );
+
+    await act(async () => {
+      discarded = await ref.current!.discardChanges();
+    });
+    expect(discarded).toBe(true);
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      concurrentTombstone,
+    ]);
+  });
+
+  it('does not claim a pending edit was saved after its expense disappears', async () => {
+    const originalExpense: Expense = {
+      id: 'expense-save-missing',
+      title: 'Opening title',
+      amountMinor: 2500,
+      currency: 'AUD',
+      date: '2026-08-20',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'personal-participant', amountMinor: 2500 }],
+      shares: [{ participantId: 'personal-participant', amountMinor: 2500 }],
+      sync: {
+        mutationId: 'opening-save-missing',
+        serverVersion: 4,
+        localRevision: 2,
+        status: 'synced',
+        updatedAt: '2026-08-20T00:00:00.000Z',
+      },
+    };
+    act(() => {
+      useExpenseFeatureStore.setState({ expenses: [originalExpense] });
+      useComposedExpenseStore.setState({ expenses: [originalExpense] });
+    });
+    await flushExpensePersistence();
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={ref}
+          draftSessionId='save-missing-session'
+          editingExpense={originalExpense}
+        />,
+      );
+    });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Failed local title');
+    });
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk unavailable'));
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+    act(() => {
+      useExpenseFeatureStore.setState({ expenses: [] });
+    });
+    await flushExpensePersistence();
+
+    (Alert.alert as jest.Mock).mockClear();
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([]);
+    expect(router.back).not.toHaveBeenCalled();
+    expect(ref.current!.canSubmit).toBe(false);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Save Conflict',
+      'This expense changed elsewhere. Cancel and reopen it to review the latest version.',
+    );
+    let discarded = false;
+    await act(async () => {
+      discarded = await ref.current!.discardChanges();
+    });
+    expect(discarded).toBe(true);
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([]);
+  });
+
+  it('stays on the form when rollback persistence fails', async () => {
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={ref}
+          draftSessionId='rollback-failure-session'
+          editingExpense={null}
+        />,
+      );
+    });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Rollback coffee');
+      ref.current!.handleUpdateFormState('amount', '4.00');
+    });
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('initial save failed'));
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+
+    storage.setItem.mockRejectedValueOnce(new Error('rollback failed'));
+    let discarded = true;
+    await act(async () => {
+      discarded = await ref.current!.discardChanges();
+    });
+    expect(discarded).toBe(false);
+    expect(ref.current!.isRollbackPending).toBe(true);
+    expect(ref.current!.canSubmit).toBe(false);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Discard Failed',
+      'The draft could not be removed from this device. Please try again.',
+    );
+
+    storage.setItem.mockResolvedValue(undefined);
+    await act(async () => {
+      discarded = await ref.current!.discardChanges();
+    });
+    expect(discarded).toBe(true);
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([]);
+  });
+
+  it('keeps the latest owner draft when an older submit finishes after remount', async () => {
+    let resolveFirstWrite: (() => void) | undefined;
+    storage.setItem.mockResolvedValueOnce(undefined).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFirstWrite = resolve;
+        }),
+    );
+
+    const firstRef = createRef<ReturnType<typeof useExpenseForm>>();
+    let firstRenderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      firstRenderer = TestRenderer.create(
+        <HookHarness
+          ref={firstRef}
+          draftSessionId='owner-race-session'
+          editingExpense={null}
+        />,
+      );
+    });
+    act(() => {
+      firstRef.current!.handleUpdateFormState('title', 'First owner');
+      firstRef.current!.handleUpdateFormState('amount', '5.00');
+    });
+    let firstSubmission!: Promise<void>;
+    act(() => {
+      firstSubmission = firstRef.current!.handleSubmit();
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(firstRef.current!.isSubmitting).toBe(true);
+    const expenseId = useExpenseFeatureStore.getState().expenses[0].id;
+    act(() => firstRenderer.unmount());
+
+    const secondRef = createRef<ReturnType<typeof useExpenseForm>>();
+    let secondRenderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      secondRenderer = TestRenderer.create(
+        <HookHarness
+          ref={secondRef}
+          draftSessionId='owner-race-session'
+          editingExpense={null}
+        />,
+      );
+    });
+    expect(secondRef.current!.formState.title).toBe('First owner');
+
+    await act(async () => {
+      resolveFirstWrite?.();
+      await firstSubmission;
+    });
+    act(() => {
+      secondRef.current!.handleUpdateFormState('title', 'Latest owner');
+    });
+    storage.setItem.mockRejectedValueOnce(new Error('retry failed'));
+    await act(async () => {
+      await secondRef.current!.handleSubmit();
+    });
+    act(() => secondRenderer.unmount());
+
+    const thirdRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={thirdRef}
+          draftSessionId='owner-race-session'
+          editingExpense={null}
+        />,
+      );
+    });
+    expect(thirdRef.current!.formState.title).toBe('Latest owner');
+    storage.setItem.mockResolvedValue(undefined);
+    await act(async () => {
+      await thirdRef.current!.handleSubmit();
+    });
+    expect(useExpenseFeatureStore.getState().expenses).toHaveLength(1);
+    expect(useExpenseFeatureStore.getState().expenses[0]).toMatchObject({
+      id: expenseId,
+      title: 'Latest owner',
+    });
+  });
+
+  it('lets the latest owner hard-discard while an older create write finishes', async () => {
+    let resolveOlderWrite: (() => void) | undefined;
+    storage.setItem.mockResolvedValueOnce(undefined).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveOlderWrite = resolve;
+        }),
+    );
+
+    const firstRef = createRef<ReturnType<typeof useExpenseForm>>();
+    let firstRenderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+      firstRenderer = TestRenderer.create(
+        <HookHarness
+          ref={firstRef}
+          draftSessionId='discard-owner-race'
+          editingExpense={null}
+        />,
+      );
+    });
+    act(() => {
+      firstRef.current!.handleUpdateFormState('title', 'Abandoned coffee');
+      firstRef.current!.handleUpdateFormState('amount', '5.00');
+    });
+    let olderSubmission!: Promise<void>;
+    act(() => {
+      olderSubmission = firstRef.current!.handleSubmit();
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(useExpenseFeatureStore.getState().expenses).toHaveLength(1);
+    act(() => firstRenderer.unmount());
+
+    const latestRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={latestRef}
+          draftSessionId='discard-owner-race'
+          editingExpense={null}
+        />,
+      );
+    });
+    let discardResult = false;
+    let discardPromise!: Promise<boolean>;
+    act(() => {
+      discardPromise = latestRef.current!.discardChanges();
+    });
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([]);
+
+    await act(async () => {
+      resolveOlderWrite?.();
+      [discardResult] = await Promise.all([
+        discardPromise,
+        olderSubmission.then(() => false),
+      ]);
+    });
+    expect(discardResult).toBe(true);
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([]);
+    expect(storage.setItem).toHaveBeenLastCalledWith(
+      'expense-mobile-expenses-v2',
+      expect.stringContaining('"expenses":[]'),
+    );
+    expect(router.back).not.toHaveBeenCalled();
   });
 
   it('persists the anonymous identity before creating its first expense', async () => {
@@ -995,6 +1920,100 @@ describe('useExpenseForm', () => {
     expect(router.back).toHaveBeenCalledTimes(1);
   });
 
+  it('does not apply a queued edit over a newer in-flight mutation', async () => {
+    const originalExpense: Expense = {
+      id: 'queued-edit-conflict',
+      title: 'Opening title',
+      amountMinor: 500,
+      currency: 'USD',
+      date: '2026-08-24',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'personal-participant', amountMinor: 500 }],
+      shares: [{ participantId: 'personal-participant', amountMinor: 500 }],
+      sync: {
+        mutationId: 'queued-opening-mutation',
+        serverVersion: 2,
+        localRevision: 0,
+        status: 'synced',
+        updatedAt: '2026-08-24T00:00:00.000Z',
+      },
+    };
+    act(() => {
+      useExpenseFeatureStore.setState({ expenses: [originalExpense] });
+      useComposedExpenseStore.setState({ expenses: [originalExpense] });
+    });
+    await flushExpensePersistence();
+    storage.setItem.mockClear();
+
+    let resolveAttemptedWrite: (() => void) | undefined;
+    let markAttemptedWriteStarted: (() => void) | undefined;
+    const attemptedWriteStarted = new Promise<void>((resolve) => {
+      markAttemptedWriteStarted = resolve;
+    });
+    storage.setItem
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(() => {
+        markAttemptedWriteStarted?.();
+        return new Promise<void>((resolve) => {
+          resolveAttemptedWrite = resolve;
+        });
+      });
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness
+          ref={ref}
+          draftSessionId='queued-edit-conflict-session'
+          editingExpense={originalExpense}
+        />,
+      );
+    });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'First local edit');
+    });
+    let firstSubmit!: Promise<void>;
+    act(() => {
+      firstSubmit = ref.current!.handleSubmit();
+    });
+    await act(async () => {
+      await attemptedWriteStarted;
+    });
+    const attemptedExpense = useExpenseFeatureStore.getState().expenses[0];
+    expect(attemptedExpense.title).toBe('First local edit');
+
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'Queued stale edit');
+    });
+    let queuedSubmit!: Promise<void>;
+    act(() => {
+      queuedSubmit = ref.current!.handleSubmit();
+    });
+    act(() => {
+      useExpenseFeatureStore.getState().updateExpense({
+        ...attemptedExpense,
+        title: 'External latest title',
+      });
+    });
+    const externalExpense = useExpenseFeatureStore.getState().expenses[0];
+
+    await act(async () => {
+      resolveAttemptedWrite?.();
+      await Promise.all([firstSubmit, queuedSubmit]);
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses).toEqual([
+      externalExpense,
+    ]);
+    expect(router.back).not.toHaveBeenCalled();
+    expect(ref.current!.canSubmit).toBe(false);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Save Conflict',
+      'This expense changed elsewhere. Cancel and reopen it to review the latest version.',
+    );
+  });
+
   it('does not navigate after the form unmounts during persistence', async () => {
     let resolveWrite: (() => void) | undefined;
     storage.setItem.mockImplementationOnce(
@@ -1061,8 +2080,9 @@ describe('useExpenseForm', () => {
     await flushExpensePersistence();
 
     const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    let renderer!: TestRenderer.ReactTestRenderer;
     act(() => {
-      TestRenderer.create(
+      renderer = TestRenderer.create(
         <HookHarness ref={ref} editingExpense={existingExpense} />,
       );
     });
@@ -1090,8 +2110,17 @@ describe('useExpenseForm', () => {
     );
 
     (Alert.alert as jest.Mock).mockClear();
+    act(() => {
+      renderer.unmount();
+    });
+    const retryRef = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(
+        <HookHarness ref={retryRef} editingExpense={failedEdit} />,
+      );
+    });
     await act(async () => {
-      await ref.current!.handleSubmit();
+      await retryRef.current!.handleSubmit();
     });
 
     expect(useExpenseFeatureStore.getState().expenses[0]).toEqual(failedEdit);

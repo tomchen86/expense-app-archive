@@ -56,4 +56,30 @@ describe('RootLayout', () => {
       }),
     );
   });
+
+  it('presents expense creation as a native modal task', () => {
+    const screen = render(<RootLayout />);
+    const addExpenseRoute = screen
+      .getAllByTestId('root-stack-screen')
+      .find((route) => route.props.name === 'add-expense');
+
+    expect(addExpenseRoute).toBeDefined();
+    expect(addExpenseRoute?.props.options).toEqual(
+      expect.objectContaining({
+        headerBackVisible: false,
+        presentation: 'modal',
+        title: 'New Expense',
+      }),
+    );
+  });
+
+  it('keeps Insights as a root native stack destination with the compact title', () => {
+    const screen = render(<RootLayout />);
+    const insights = screen
+      .getAllByTestId('root-stack-screen')
+      .find((route) => route.props.name === 'insights');
+
+    expect(insights).toBeTruthy();
+    expect(insights?.props.options).toEqual({ title: 'Insights' });
+  });
 });

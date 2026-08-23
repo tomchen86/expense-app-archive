@@ -50,36 +50,52 @@ function SelectionModal<T>({
       animationType='slide'
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView
+        accessibilityViewIsModal
+        style={styles.safeArea}
+        testID='selection-modal-content'
+      >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{title}</Text>
+            <Text accessibilityRole='header' style={styles.modalTitle}>
+              {title}
+            </Text>
             <FlatList
               data={data}
               keyExtractor={keyExtractor}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.itemContainer,
-                    isSelected(item) && styles.selectedItem, // Highlight selected item(s)
-                  ]}
-                  onPress={() => handleItemPress(item)}
-                >
-                  {renderItemContent(item)}
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const selected = isSelected(item);
+                return (
+                  <TouchableOpacity
+                    accessibilityRole='button'
+                    accessibilityState={{ selected }}
+                    style={[
+                      styles.itemContainer,
+                      selected && styles.selectedItem,
+                    ]}
+                    onPress={() => handleItemPress(item)}
+                  >
+                    {renderItemContent(item)}
+                  </TouchableOpacity>
+                );
+              }}
               style={styles.list}
             />
             <View style={styles.buttonContainer}>
               {onClearSelection && (
                 <TouchableOpacity
+                  accessibilityRole='button'
                   style={styles.clearButton}
                   onPress={onClearSelection}
                 >
                   <Text style={styles.buttonText}>Clear</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <TouchableOpacity
+                accessibilityRole='button'
+                style={styles.closeButton}
+                onPress={onClose}
+              >
                 <Text style={styles.buttonText}>
                   {multiSelect ? 'Done' : 'Cancel'}
                 </Text>

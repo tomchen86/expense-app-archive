@@ -95,7 +95,10 @@ describe('ExpenseDetailScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Edit expense' }));
     expect(router.push).toHaveBeenCalledWith({
       pathname: '/add-expense',
-      params: { expenseId: mockExpense.id },
+      params: {
+        draftSessionId: expect.stringMatching(`^edit:${mockExpense.id}:`),
+        expenseId: mockExpense.id,
+      },
     });
 
     fireEvent.press(screen.getByRole('button', { name: 'Delete' }));

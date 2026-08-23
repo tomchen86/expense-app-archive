@@ -29,17 +29,18 @@ export default function RootLayout() {
           <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
           <Stack.Screen
             name='add-expense'
-            options={{ title: 'Add/Edit Expense' }}
+            options={{
+              headerBackVisible: false,
+              presentation: 'modal',
+              title: 'New Expense',
+            }}
           />
           <Stack.Screen name='expense-detail' options={{ title: 'Expense' }} />
           <Stack.Screen
             name='group-detail'
             options={{ title: 'Group Details' }}
           />
-          <Stack.Screen
-            name='insights'
-            options={{ title: 'Expense Insights' }}
-          />
+          <Stack.Screen name='insights' options={{ title: 'Insights' }} />
           <Stack.Screen
             name='manage-categories'
             options={{ title: 'Manage Categories' }}
