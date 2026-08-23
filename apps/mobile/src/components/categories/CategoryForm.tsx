@@ -68,12 +68,14 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
           <Text style={styles.modalTitle}>{modalTitle}</Text>
 
           <TextInput
+            accessibilityLabel='Category name'
             style={styles.input}
             placeholder='Category Name'
             value={categoryName}
             onChangeText={setCategoryName}
             autoFocus
             maxLength={50}
+            testID='category-name-input'
           />
 
           <ColorPicker

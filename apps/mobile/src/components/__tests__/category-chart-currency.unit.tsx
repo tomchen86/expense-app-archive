@@ -63,6 +63,9 @@ describe('CategoryChart currency isolation', () => {
     expect(screen.getByText('AUD spending')).toBeTruthy();
     expect(screen.getByText('JPY spending')).toBeTruthy();
     expect(
+      screen.getByLabelText('Food & Dining, AUD 10.00, 100.0 percent'),
+    ).toBeTruthy();
+    expect(
       screen.getAllByTestId('currency-pie').map((pie) => pie.props.currencies),
     ).toEqual([['AUD'], ['JPY']]);
   });

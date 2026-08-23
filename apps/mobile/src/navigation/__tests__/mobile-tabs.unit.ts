@@ -15,18 +15,21 @@ describe('MOBILE_TABS', () => {
       expect.objectContaining({
         name: 'history',
         label: 'Groups',
+        testID: 'tab-groups',
         sf: expect.objectContaining({ selected: 'person.3.fill' }),
         md: 'groups',
       }),
       expect.objectContaining({
         name: 'index',
         label: 'Expenses',
+        testID: 'tab-expenses',
         sf: expect.objectContaining({ selected: 'creditcard.fill' }),
         md: 'payments',
       }),
       expect.objectContaining({
         name: 'settings',
         label: 'Settings',
+        testID: 'tab-settings',
         sf: expect.objectContaining({ selected: 'gearshape.fill' }),
         md: 'settings',
       }),

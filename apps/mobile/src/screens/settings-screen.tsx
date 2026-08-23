@@ -46,14 +46,17 @@ const SettingsScreen = () => {
             placeholderTextColor={mobileTheme.colors.textMuted}
             returnKeyType='done'
             style={styles.input}
+            testID='username-input'
             value={name}
             onChangeText={setName}
           />
 
           <TouchableOpacity
             accessibilityRole='button'
+            accessibilityLabel='Save settings'
             style={styles.saveButton}
             onPress={handleSave}
+            testID='save-settings-button'
           >
             <Text style={styles.saveButtonText}>Save Settings</Text>
           </TouchableOpacity>

@@ -81,6 +81,11 @@ describe('TabLayout', () => {
           within(trigger).getByTestId('native-tab-label').props.children,
       ),
     ).toEqual(['Groups', 'Expenses', 'Settings']);
+    expect(
+      triggers.map(
+        (trigger) => trigger.props.unstable_nativeProps.tabBarItemTestID,
+      ),
+    ).toEqual(['tab-groups', 'tab-expenses', 'tab-settings']);
 
     const icons = triggers.map(
       (trigger) => within(trigger).getByTestId('native-tab-icon').props,

@@ -40,9 +40,12 @@ const ManageCategoriesScreen = () => {
       />
 
       <TouchableOpacity
+        accessibilityLabel='Add new category'
+        accessibilityRole='button'
         style={styles.addButton}
         onPress={categoryManager.openAddModal}
         activeOpacity={0.8}
+        testID='add-category-button'
       >
         <Text style={styles.addButtonText}>+ Add New Category</Text>
       </TouchableOpacity>

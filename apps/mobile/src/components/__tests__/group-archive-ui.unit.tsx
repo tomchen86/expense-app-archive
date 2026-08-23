@@ -110,6 +110,7 @@ describe('group archive UI', () => {
   it('shows active groups by default and archived groups only after opt-in', () => {
     const screen = render(<GroupsScreen />);
 
+    expect(screen.getByTestId('add-group-button')).toBeTruthy();
     expect(screen.getByText(activeGroup.name)).toBeTruthy();
     expect(screen.queryByText(archivedGroup.name)).toBeNull();
 

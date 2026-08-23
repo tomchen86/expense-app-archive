@@ -22,6 +22,10 @@ export default function TabLayout() {
           contentStyle={{ backgroundColor: mobileTheme.colors.background }}
           key={tab.name}
           name={tab.name}
+          unstable_nativeProps={{
+            tabBarItemAccessibilityLabel: tab.label,
+            tabBarItemTestID: tab.testID,
+          }}
         >
           <NativeTabs.Trigger.Label>{tab.label}</NativeTabs.Trigger.Label>
           <NativeTabs.Trigger.Icon md={tab.md} sf={tab.sf} />

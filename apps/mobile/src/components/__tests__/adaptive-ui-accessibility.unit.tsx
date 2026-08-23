@@ -97,6 +97,8 @@ describe('adaptive UI accessibility contracts', () => {
       name: `Delete ${expense.title}`,
     });
 
+    expect(screen.getByLabelText('Expense amount AUD 40.00')).toBeTruthy();
+
     expect(StyleSheet.flatten(edit.props.style)).toEqual(
       expect.objectContaining({ minHeight: 44 }),
     );
@@ -200,5 +202,10 @@ describe('adaptive UI accessibility contracts', () => {
 
     expect(scrollView.props.automaticallyAdjustKeyboardInsets).toBe(true);
     expect(scrollView.props.keyboardShouldPersistTaps).toBe('handled');
+    expect(screen.getByTestId('username-input')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save settings' })).toHaveProp(
+      'testID',
+      'save-settings-button',
+    );
   });
 });

@@ -60,7 +60,13 @@ const AddExpenseScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.container}>
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        keyboardDismissMode='on-drag'
+        keyboardShouldPersistTaps='handled'
+        style={styles.container}
+        testID='expense-form-scroll-view'
+      >
         <BasicInfoSection
           title={formState.title}
           amount={formState.amount}
@@ -86,8 +92,10 @@ const AddExpenseScreen = () => {
 
         <View style={styles.buttonContainer}>
           <Button
+            accessibilityLabel={isEditing ? 'Update expense' : 'Add expense'}
             title={isEditing ? 'Update Expense' : 'Add Expense'}
             onPress={handleSubmit}
+            testID='save-expense-button'
           />
         </View>
       </ScrollView>

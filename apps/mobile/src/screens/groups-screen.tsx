@@ -171,8 +171,10 @@ const GroupsScreen = () => {
             {!showArchivedGroups && (
               <TouchableOpacity
                 accessibilityRole='button'
+                accessibilityLabel='Create new group'
                 style={styles.createGroupButton}
                 onPress={openNewGroupModal}
+                testID='add-group-button'
               >
                 <Text style={styles.createGroupButtonText}>
                   Create New Group
@@ -196,6 +198,8 @@ const GroupsScreen = () => {
         title='Create New Group'
         placeholder='Enter group name'
         submitButtonText='Create'
+        inputTestID='group-name-input'
+        submitButtonTestID='create-group-submit'
         onSubmit={handleNewGroupSubmit}
         onClose={() => setIsNewGroupModalVisible(false)}
       />
@@ -205,6 +209,8 @@ const GroupsScreen = () => {
         title={`Add Participant to ${groupToAddParticipantTo?.name || ''}`}
         placeholder='Enter participant name'
         submitButtonText='Add'
+        inputTestID='participant-name-input'
+        submitButtonTestID='add-participant-submit'
         onSubmit={handleAddParticipantSubmit}
         onClose={() => {
           setIsAddParticipantModalVisible(false);

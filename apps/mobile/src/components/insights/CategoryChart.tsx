@@ -67,7 +67,12 @@ const CategoryChart: React.FC<CategoryChartProps> = ({
                       { backgroundColor: item.color },
                     ]}
                   />
-                  <Text style={styles.legendText}>
+                  <Text
+                    accessibilityLabel={`${item.category}, ${currency} ${item.absoluteValue.toFixed(
+                      getCurrencyFractionDigits(currency) ?? 2,
+                    )}, ${item.percentage.toFixed(1)} percent`}
+                    style={styles.legendText}
+                  >
                     {item.category}:{' '}
                     {formatMinorUnits(
                       Math.round(

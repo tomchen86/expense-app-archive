@@ -6,7 +6,7 @@ import {
   getExpensePayments,
   getExpenseSpaceKind,
 } from '../utils/expenseDomain';
-import { formatMinorUnits } from '../utils/money';
+import { formatMinorUnits, minorUnitsToDecimalString } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
 
 interface ExpenseListItemProps {
@@ -60,7 +60,13 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
         <View style={styles.expenseMain}>
           <Text style={styles.expenseTitle}>{item.title}</Text>
           {/* Use displayAmount for rendering */}
-          <Text style={styles.expenseAmount}>
+          <Text
+            accessibilityLabel={`Expense amount ${currency ?? getExpenseCurrency(item)} ${minorUnitsToDecimalString(
+              displayAmountMinor,
+              currency ?? getExpenseCurrency(item),
+            )}`}
+            style={styles.expenseAmount}
+          >
             {formatMinorUnits(
               displayAmountMinor,
               currency ?? getExpenseCurrency(item),

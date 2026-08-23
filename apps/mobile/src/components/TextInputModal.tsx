@@ -19,6 +19,8 @@ interface TextInputModalProps {
   onSubmit: (inputText: string) => void; // Callback with the entered text
   onClose: () => void;
   initialValue?: string; // Optional initial value for the input
+  inputTestID?: string;
+  submitButtonTestID?: string;
 }
 
 const TextInputModal: React.FC<TextInputModalProps> = ({
@@ -30,6 +32,8 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
   onSubmit,
   onClose,
   initialValue = '',
+  inputTestID,
+  submitButtonTestID,
 }) => {
   const [inputValue, setInputValue] = useState(initialValue);
 
@@ -71,19 +75,23 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{title}</Text>
             <TextInput
+              accessibilityLabel={placeholder}
               style={styles.input}
               placeholder={placeholder}
               value={inputValue}
               onChangeText={setInputValue}
               autoFocus={true} // Focus input when modal opens
+              testID={inputTestID}
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
                 <Text style={styles.buttonText}>{cancelButtonText}</Text>
               </TouchableOpacity>
               <TouchableOpacity
+                accessibilityRole='button'
                 style={styles.submitButton}
                 onPress={handleSubmit}
+                testID={submitButtonTestID}
               >
                 <Text style={styles.buttonText}>{submitButtonText}</Text>
               </TouchableOpacity>

@@ -129,6 +129,7 @@ const ExpensesScreen = () => {
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.container}>
       <FlatList
+        testID='expense-list'
         contentInsetAdjustmentBehavior='automatic'
         contentContainerStyle={styles.listContent}
         data={relevantExpenses}
@@ -141,6 +142,7 @@ const ExpensesScreen = () => {
               accessibilityRole='button'
               accessibilityState={{ disabled: !internalUserId }}
               disabled={!internalUserId}
+              testID='total-share-button'
               onPress={() => {
                 if (internalUserId) {
                   router.push({

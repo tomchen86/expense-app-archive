@@ -59,21 +59,32 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
 
       <View style={styles.periodNavigatorContainer}>
         <TouchableOpacity
+          accessibilityLabel='Previous period'
+          accessibilityRole='button'
           onPress={onPreviousPeriod}
           style={styles.periodArrowButton}
+          testID='previous-period-button'
         >
           <Text style={styles.periodArrowText}>{'<'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={onPeriodPress}>
+        <TouchableOpacity
+          accessibilityLabel={`Choose period. ${displayPeriodText}`}
+          accessibilityRole='button'
+          onPress={onPeriodPress}
+          testID='period-picker-button'
+        >
           <Text style={styles.periodDisplayText}>{displayPeriodText}</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          accessibilityLabel='Next period'
+          accessibilityRole='button'
           onPress={onNextPeriod}
           disabled={isNextDisabled}
           style={[
             styles.periodArrowButton,
             isNextDisabled && styles.disabledArrowButton,
           ]}
+          testID='next-period-button'
         >
           <Text
             style={[

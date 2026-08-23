@@ -39,7 +39,7 @@ module.exports = {
     simulator: {
       type: 'ios.simulator',
       device: {
-        type: 'iPhone 15',
+        type: process.env.DETOX_IOS_DEVICE || 'iPhone 17 Pro',
       },
     },
     attached: {
@@ -51,7 +51,7 @@ module.exports = {
     emulator: {
       type: 'android.emulator',
       device: {
-        avdName: 'Pixel_3a_API_30_x86',
+        avdName: process.env.DETOX_ANDROID_AVD || 'Medium_Phone',
       },
     },
   },
