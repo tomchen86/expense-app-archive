@@ -102,6 +102,10 @@ describe('useInsightsData', () => {
     resetStore();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('computes chart data for personal context and navigates periods', () => {
     useExpenseStore.setState((state) => ({
       ...state,
@@ -127,7 +131,7 @@ describe('useInsightsData', () => {
     );
     expect(chartCategories).toContain('Food & Dining');
     expect(chartCategories).toContain('Transportation');
-    expect(ref.current!.screenTitle).toBe('Personal Expense Insights');
+    expect(ref.current!.screenTitle).toBe('Insights');
     expect(ref.current!.displayPeriodText).toBe('January 2025');
 
     act(() => {
@@ -146,6 +150,24 @@ describe('useInsightsData', () => {
       ref.current!.setAggregation('year');
     });
     expect(ref.current!.aggregation).toBe('year');
+  });
+
+  it('interprets a calendar-only initialDate as local calendar fields', () => {
+    const ref = createRef<HookHandle>();
+
+    act(() => {
+      TestRenderer.create(
+        <InsightsHarness
+          ref={ref}
+          contextType='personal'
+          contextId='user-1'
+          initialDate='2025-01-01'
+        />,
+      );
+    });
+
+    expect(ref.current!.selectedYear).toBe(2025);
+    expect(ref.current!.selectedMonth).toBe(0);
   });
 
   it('filters expenses for group context and respects available participants', () => {
@@ -170,7 +192,7 @@ describe('useInsightsData', () => {
       );
     });
 
-    expect(ref.current!.screenTitle).toBe('Cycling Club Insights');
+    expect(ref.current!.screenTitle).toBe('Insights');
     expect(ref.current!.chartData).toHaveLength(1);
     expect(ref.current!.chartData[0].absoluteValue).toBe(30);
   });
@@ -215,5 +237,180 @@ describe('useInsightsData', () => {
         currency: 'AUD',
       }),
     ]);
+  });
+
+  it('compares the current personal share with the immediately prior period', () => {
+    const current: Expense = {
+      id: 'current-shared',
+      title: 'Current shared expense',
+      amountMinor: 10_000,
+      currency: 'AUD',
+      date: '2025-01-10',
+      category: 'Food & Dining',
+      spaceId: 'shared-space',
+      spaceKind: 'shared',
+      payments: [{ participantId: 'other-user', amountMinor: 10_000 }],
+      shares: [
+        { participantId: 'user-1', amountMinor: 2_000 },
+        { participantId: 'other-user', amountMinor: 8_000 },
+      ],
+    };
+    const prior: Expense = {
+      ...current,
+      id: 'prior-shared',
+      date: '2024-12-10',
+      amountMinor: 8_000,
+      payments: [{ participantId: 'other-user', amountMinor: 8_000 }],
+      shares: [
+        { participantId: 'user-1', amountMinor: 1_000 },
+        { participantId: 'other-user', amountMinor: 7_000 },
+      ],
+    };
+    useExpenseStore.setState((state) => ({
+      ...state,
+      expenses: [current, prior],
+      internalUserId: 'user-1',
+      personalParticipantId: 'user-1',
+    }));
+
+    const ref = createRef<HookHandle>();
+    act(() => {
+      TestRenderer.create(
+        <InsightsHarness
+          ref={ref}
+          contextType='personal'
+          contextId='user-1'
+          initialDate={new Date(2025, 0, 1)}
+        />,
+      );
+    });
+
+    expect(ref.current!.currencyInsights).toEqual([
+      expect.objectContaining({
+        currency: 'AUD',
+        totalMinor: 2_000,
+        priorTotalMinor: 1_000,
+        deltaPercentage: 100,
+      }),
+    ]);
+    expect(ref.current!.previousPeriodText).toBe('December 2024');
+  });
+
+  it('persists the selected visualization preference across hook remounts', () => {
+    const firstRef = createRef<HookHandle>();
+    let renderer: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        <InsightsHarness
+          ref={firstRef}
+          contextType='personal'
+          contextId='user-1'
+        />,
+      );
+    });
+    expect(firstRef.current!.chartPreference).toBe('auto');
+
+    act(() => {
+      firstRef.current!.setChartPreference('donut');
+    });
+    expect(useExpenseStore.getState().settings.insightsChartPreference).toBe(
+      'donut',
+    );
+    act(() => renderer!.unmount());
+
+    const secondRef = createRef<HookHandle>();
+    act(() => {
+      TestRenderer.create(
+        <InsightsHarness
+          ref={secondRef}
+          contextType='personal'
+          contextId='user-1'
+        />,
+      );
+    });
+    expect(secondRef.current!.chartPreference).toBe('donut');
+  });
+
+  it('rejects future years and future months in the explicit period picker', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 7, 24));
+    const ref = createRef<HookHandle>();
+    act(() => {
+      TestRenderer.create(
+        <InsightsHarness
+          ref={ref}
+          contextType='personal'
+          contextId='user-1'
+          initialDate={new Date(2026, 7, 1)}
+        />,
+      );
+    });
+
+    expect(ref.current!.availableYears.at(-1)).toBe(2026);
+    act(() => ref.current!.setSelectedMonth(8));
+    expect(ref.current!.selectedMonth).toBe(7);
+    act(() => ref.current!.setSelectedYear(2027));
+    expect(ref.current!.selectedYear).toBe(2026);
+    jest.useRealTimers();
+  });
+
+  it('clamps the remembered month when year navigation reaches the current year', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 7, 24));
+    const ref = createRef<HookHandle>();
+    act(() => {
+      TestRenderer.create(
+        <InsightsHarness
+          ref={ref}
+          contextType='personal'
+          contextId='user-1'
+          initialDate={new Date(2025, 8, 1)}
+        />,
+      );
+    });
+
+    act(() => ref.current!.setAggregation('year'));
+    act(() => ref.current!.handleNextPeriod());
+
+    expect(ref.current!.selectedYear).toBe(2026);
+    expect(ref.current!.selectedMonth).toBe(7);
+    act(() => ref.current!.setAggregation('month'));
+    expect(ref.current!.displayPeriodText).toBe('August 2026');
+    jest.useRealTimers();
+  });
+
+  it('offers every relevant expense year plus the current selection', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 7, 24));
+    useExpenseStore.setState((state) => ({
+      ...state,
+      expenses: [
+        {
+          ...personalExpenses[0],
+          id: 'old-personal',
+          date: '2010-04-03',
+        },
+        {
+          ...groupExpenses[0],
+          id: 'unrelated-group',
+          date: '2005-02-01',
+          paidBy: 'unrelated-user',
+          splitBetween: ['unrelated-user'],
+          participants: [{ id: 'unrelated-user', name: 'Other' }],
+        },
+      ],
+      internalUserId: 'user-1',
+    }));
+    const ref = createRef<HookHandle>();
+    act(() => {
+      TestRenderer.create(
+        <InsightsHarness ref={ref} contextType='personal' contextId='user-1' />,
+      );
+    });
+
+    expect(ref.current!.availableYears).toEqual([2010, 2026]);
+    act(() => ref.current!.setSelectedYear(2014));
+    expect(ref.current!.availableYears).toEqual([2010, 2014, 2026]);
+    jest.useRealTimers();
   });
 });

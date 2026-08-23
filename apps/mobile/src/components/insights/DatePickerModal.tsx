@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, Button } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { mobileTheme } from '../../theme/tokens';
 
 interface DatePickerModalProps {
   visible: boolean;
@@ -12,6 +13,8 @@ interface DatePickerModalProps {
   onMonthChange: (month: number) => void;
   availableYears: number[];
   monthNames: string[];
+  currentYear: number;
+  currentMonth: number;
 }
 
 const DatePickerModal: React.FC<DatePickerModalProps> = ({
@@ -24,6 +27,8 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
   onMonthChange,
   availableYears,
   monthNames,
+  currentYear,
+  currentMonth,
 }) => {
   return (
     <Modal
@@ -33,21 +38,31 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Select Period</Text>
+        <View accessibilityViewIsModal style={styles.modalContent}>
+          <Text accessibilityRole='header' style={styles.modalTitle}>
+            Select Period
+          </Text>
 
           <View style={styles.dateSelectorsContainer}>
             {aggregation === 'month' && (
               <View style={styles.pickerContainer}>
                 <Text style={styles.dateSelectorLabel}>Month:</Text>
                 <Picker
+                  accessibilityLabel='Month'
                   selectedValue={selectedMonth}
                   style={styles.picker}
                   onValueChange={onMonthChange}
                   itemStyle={styles.pickerItem}
                 >
                   {monthNames.map((monthName, index) => (
-                    <Picker.Item key={index} label={monthName} value={index} />
+                    <Picker.Item
+                      enabled={
+                        selectedYear < currentYear || index <= currentMonth
+                      }
+                      key={index}
+                      label={monthName}
+                      value={index}
+                    />
                   ))}
                 </Picker>
               </View>
@@ -56,6 +71,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
             <View style={styles.pickerContainer}>
               <Text style={styles.dateSelectorLabel}>Year:</Text>
               <Picker
+                accessibilityLabel='Year'
                 selectedValue={selectedYear}
                 style={styles.picker}
                 onValueChange={onYearChange}
@@ -87,13 +103,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
+    backgroundColor: mobileTheme.colors.surface,
+    padding: mobileTheme.spacing.xl,
+    borderRadius: mobileTheme.radii.card,
     width: '80%',
     maxWidth: 400,
   },
   modalTitle: {
+    color: mobileTheme.colors.text,
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -110,12 +127,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 5,
-    color: '#333',
+    color: mobileTheme.colors.text,
   },
   picker: {
     height: 150,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: mobileTheme.colors.border,
     borderRadius: 5,
   },
   pickerItem: {

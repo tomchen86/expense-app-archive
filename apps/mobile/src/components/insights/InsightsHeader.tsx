@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { mobileTheme } from '../../theme/tokens';
+import PeriodAggregationControl from './period-aggregation-control';
 
 interface InsightsHeaderProps {
   aggregation: 'month' | 'year';
@@ -22,40 +24,10 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
 }) => {
   return (
     <View style={styles.controlsContainer}>
-      <View style={styles.aggregationToggleContainer}>
-        <TouchableOpacity
-          style={[
-            styles.aggregationButton,
-            aggregation === 'month' && styles.aggregationButtonActive,
-          ]}
-          onPress={() => onAggregationChange('month')}
-        >
-          <Text
-            style={[
-              styles.aggregationButtonText,
-              aggregation === 'month' && styles.aggregationButtonTextActive,
-            ]}
-          >
-            By Month
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.aggregationButton,
-            aggregation === 'year' && styles.aggregationButtonActive,
-          ]}
-          onPress={() => onAggregationChange('year')}
-        >
-          <Text
-            style={[
-              styles.aggregationButtonText,
-              aggregation === 'year' && styles.aggregationButtonTextActive,
-            ]}
-          >
-            By Year
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <PeriodAggregationControl
+        aggregation={aggregation}
+        onChange={onAggregationChange}
+      />
 
       <View style={styles.periodNavigatorContainer}>
         <TouchableOpacity
@@ -65,12 +37,14 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
           style={styles.periodArrowButton}
           testID='previous-period-button'
         >
-          <Text style={styles.periodArrowText}>{'<'}</Text>
+          <Text style={styles.periodArrowText}>{'‹'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           accessibilityLabel={`Choose period. ${displayPeriodText}`}
+          accessibilityHint='Opens the month and year picker'
           accessibilityRole='button'
           onPress={onPeriodPress}
+          style={styles.periodButton}
           testID='period-picker-button'
         >
           <Text style={styles.periodDisplayText}>{displayPeriodText}</Text>
@@ -78,6 +52,7 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
         <TouchableOpacity
           accessibilityLabel='Next period'
           accessibilityRole='button'
+          accessibilityState={{ disabled: isNextDisabled }}
           onPress={onNextPeriod}
           disabled={isNextDisabled}
           style={[
@@ -92,7 +67,7 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
               isNextDisabled && styles.disabledArrowText,
             ]}
           >
-            {'>'}
+            {'›'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -102,36 +77,12 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
 
 const styles = StyleSheet.create({
   controlsContainer: {
-    marginBottom: 20,
-    padding: 10,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingVertical: 15,
-  },
-  aggregationToggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 15,
+    backgroundColor: mobileTheme.colors.surface,
+    borderColor: mobileTheme.colors.border,
+    borderRadius: mobileTheme.radii.card,
     borderWidth: 1,
-    borderColor: '#007bff',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  aggregationButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  aggregationButtonActive: {
-    backgroundColor: '#007bff',
-  },
-  aggregationButtonText: {
-    color: '#007bff',
-    fontWeight: '600',
-  },
-  aggregationButtonTextActive: {
-    color: '#fff',
+    marginBottom: mobileTheme.spacing.lg,
+    padding: mobileTheme.spacing.md,
   },
   periodNavigatorContainer: {
     flexDirection: 'row',
@@ -139,25 +90,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   periodArrowButton: {
-    padding: 10,
-    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 44,
   },
   periodArrowText: {
-    fontSize: 18,
-    color: '#007bff',
+    fontSize: 28,
+    color: mobileTheme.colors.primary,
     fontWeight: 'bold',
   },
   disabledArrowButton: {
     opacity: 0.3,
   },
   disabledArrowText: {
-    color: '#ccc',
+    color: mobileTheme.colors.textMuted,
+  },
+  periodButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
   periodDisplayText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
-    paddingHorizontal: 20,
+    color: mobileTheme.colors.text,
+    paddingHorizontal: mobileTheme.spacing.lg,
     textAlign: 'center',
     minWidth: 150,
   },

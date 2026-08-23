@@ -16,7 +16,7 @@ const readFiles = (paths: string[]): string =>
   paths.map((path) => readFileSync(path, 'utf8')).join('\n');
 
 describe('Detox selector contract', () => {
-  it('only uses literal test IDs exposed by the production UI', () => {
+  it('only uses test IDs exposed literally or by a production prefix', () => {
     const e2eSource = readFiles(
       collectFiles(join(mobileRoot, 'e2e'), /\.(?:e2e\.)?(?:test\.)?js$/),
     );
@@ -31,14 +31,21 @@ describe('Detox selector contract', () => {
     const exposedIds = new Set(
       [
         ...productionSource.matchAll(
-          /(?:testID|inputTestID|submitButtonTestID)(?:=|:)\s*['"]([^'"]+)['"]/g,
+          /(?:testID|inputTestID|submitButtonTestID)\s*(?:=|:)\s*['"]([^'"]+)['"]/g,
         ),
       ].map((match) => match[1]),
     );
+    const generatedPrefixes = [
+      ...productionSource.matchAll(/testID\s*=\s*\{`([^$`]+)\$\{/g),
+    ].map((match) => match[1]);
 
-    expect([...new Set(usedIds)].filter((id) => !exposedIds.has(id))).toEqual(
-      [],
-    );
+    expect(
+      [...new Set(usedIds)].filter(
+        (id) =>
+          !exposedIds.has(id) &&
+          !generatedPrefixes.some((prefix) => id.startsWith(prefix)),
+      ),
+    ).toEqual([]);
   });
 
   it('resets persisted state instead of treating a React reload as isolation', () => {

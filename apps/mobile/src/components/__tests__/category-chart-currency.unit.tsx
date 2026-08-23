@@ -2,7 +2,11 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import CategoryChart from '../insights/CategoryChart';
-import type { ChartDataPoint } from '../../utils/calculations/insightCalculations';
+import type {
+  ChartDataPoint,
+  CurrencyInsight,
+} from '../../utils/calculations/insightCalculations';
+import { formatMinorUnits } from '../../utils/money';
 
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -26,10 +30,20 @@ jest.mock('react-native-gifted-charts', () => {
   return {
     PieChart: ({ data }: { data: ChartDataPoint[] }) =>
       React.createElement('PieChart', {
-        currencies: Array.from(
-          new Set(data.map((item) => item.currency ?? 'USD')),
-        ),
+        data,
         testID: 'currency-pie',
+      }),
+    BarChart: ({
+      data,
+      horizontal,
+    }: {
+      data: ChartDataPoint[];
+      horizontal?: boolean;
+    }) =>
+      React.createElement('BarChart', {
+        data,
+        horizontal,
+        testID: 'currency-bar',
       }),
   };
 });
@@ -40,7 +54,9 @@ const point = (
   absoluteValue: number,
 ): ChartDataPoint => ({
   absoluteValue,
+  amountMinor: Math.round(absoluteValue * (currency === 'JPY' ? 1 : 100)),
   category,
+  categoryId: `category-${category}`,
   color: currency === 'AUD' ? '#0057B8' : '#A30000',
   currency,
   label: category,
@@ -49,24 +65,40 @@ const point = (
   value: absoluteValue,
 });
 
+const currencyInsight = (
+  currency: string,
+  category: ChartDataPoint,
+): CurrencyInsight => ({
+  chartCategories: [category],
+  chartKind: 'donut',
+  currency,
+  deltaMinor: category.amountMinor,
+  deltaPercentage: null,
+  exactCategories: [category],
+  priorTotalMinor: 0,
+  totalMinor: category.amountMinor,
+});
+
 describe('CategoryChart currency isolation', () => {
   it('renders a separately labelled pie for every currency', () => {
     const screen = render(
       <CategoryChart
-        data={[
-          point('Food & Dining', 'AUD', 10),
-          point('Transportation', 'JPY', 2_000),
+        insights={[
+          currencyInsight('AUD', point('Food & Dining', 'AUD', 10)),
+          currencyInsight('JPY', point('Transportation', 'JPY', 2_000)),
         ]}
       />,
     );
 
-    expect(screen.getByText('AUD spending')).toBeTruthy();
-    expect(screen.getByText('JPY spending')).toBeTruthy();
+    expect(screen.getByText('AUD categories')).toBeTruthy();
+    expect(screen.getByText('JPY categories')).toBeTruthy();
     expect(
-      screen.getByLabelText('Food & Dining, AUD 10.00, 100.0 percent'),
+      screen.getByLabelText(
+        `Food & Dining, ${formatMinorUnits(1_000, 'AUD')}, 100.0 percent`,
+      ),
     ).toBeTruthy();
     expect(
-      screen.getAllByTestId('currency-pie').map((pie) => pie.props.currencies),
-    ).toEqual([['AUD'], ['JPY']]);
+      screen.getAllByTestId('currency-pie', { includeHiddenElements: true }),
+    ).toHaveLength(2);
   });
 });

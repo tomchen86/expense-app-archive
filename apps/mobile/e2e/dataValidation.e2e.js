@@ -16,10 +16,8 @@ describe('Persisted data and calculations', () => {
     await testHelpers.createExpense('Groceries', '33.30');
     await testHelpers.waitAndTap(by.id('total-share-button'));
 
-    await testHelpers.expectVisible(by.text('USD spending'));
-    await testHelpers.expectVisible(
-      by.label('Food & Dining, USD 33.30, 100.0 percent'),
-    );
+    await testHelpers.expectVisible(by.text('USD categories'));
+    await testHelpers.expectVisible(by.id('insight-category-usd-food-dining'));
   });
 
   it('uses a fresh persisted store for an isolated test launch', async () => {

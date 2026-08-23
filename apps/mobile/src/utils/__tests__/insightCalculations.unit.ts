@@ -7,6 +7,8 @@ import {
   getDisplayPeriodText,
   getPreviousPeriod,
   getNextPeriod,
+  buildCurrencyInsights,
+  resolveInsightChartKind,
 } from '../calculations/insightCalculations';
 import {
   mockExpenses,
@@ -526,6 +528,141 @@ describe('insightCalculations', () => {
     it('should return null for future years', () => {
       const result = getNextPeriod(2026, 8, 'year');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('adaptive insight presentation', () => {
+    const categories = Array.from({ length: 7 }, (_, index) => ({
+      id: `category-${index + 1}`,
+      name: `Category ${index + 1}`,
+      color: `#${`${index + 1}`.repeat(6)}`,
+    }));
+
+    const expense = (
+      id: string,
+      categoryIndex: number,
+      amountMinor: number,
+      currency = 'AUD',
+    ): Expense => ({
+      id,
+      title: id,
+      amountMinor,
+      currency,
+      date: '2026-08-01',
+      category: categories[categoryIndex].name,
+      categoryId: categories[categoryIndex].id,
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'user-1', amountMinor }],
+      shares: [{ participantId: 'user-1', amountMinor }],
+    });
+
+    it.each([
+      ['auto', 0, 'empty'],
+      ['auto', 1, 'progress'],
+      ['auto', 2, 'donut'],
+      ['auto', 5, 'donut'],
+      ['auto', 6, 'bar'],
+      ['donut', 1, 'donut'],
+      ['donut', 7, 'donut'],
+      ['bar', 1, 'bar'],
+      ['bar', 7, 'bar'],
+    ] as const)(
+      'resolves %s with %i categories to %s',
+      (preference, count, expected) => {
+        expect(resolveInsightChartKind(preference, count)).toBe(expected);
+      },
+    );
+
+    it('keeps currencies separate and produces a finite prior comparison', () => {
+      const result = buildCurrencyInsights({
+        currentExpenses: [
+          expense('aud-current', 0, 12_00),
+          expense('jpy-current', 1, 2_000, 'JPY'),
+        ],
+        priorExpenses: [expense('aud-prior', 0, 8_00)],
+        categories,
+        preference: 'auto',
+      });
+
+      expect(result.map((item) => item.currency)).toEqual(['AUD', 'JPY']);
+      expect(result[0]).toMatchObject({
+        totalMinor: 12_00,
+        priorTotalMinor: 8_00,
+        deltaMinor: 4_00,
+        deltaPercentage: 50,
+      });
+      expect(result[1]).toMatchObject({
+        totalMinor: 2_000,
+        priorTotalMinor: 0,
+        deltaMinor: 2_000,
+        deltaPercentage: null,
+      });
+      expect(Number.isFinite(result[0].deltaPercentage)).toBe(true);
+    });
+
+    it('uses stable category identity and current category metadata', () => {
+      const renamedExpense = {
+        ...expense('renamed', 0, 4_00),
+        category: 'Old category name',
+      };
+      const currentExpense = expense('current', 0, 6_00);
+
+      const [aud] = buildCurrencyInsights({
+        currentExpenses: [renamedExpense, currentExpense],
+        priorExpenses: [],
+        categories,
+        preference: 'auto',
+      });
+
+      expect(aud.exactCategories).toHaveLength(1);
+      expect(aud.exactCategories[0]).toMatchObject({
+        categoryId: 'category-1',
+        category: 'Category 1',
+        amountMinor: 10_00,
+      });
+    });
+
+    it('limits a manual donut to top five plus Others without changing the exact list', () => {
+      const currentExpenses = [70, 60, 50, 40, 30, 20, 10].map(
+        (amountMinor, index) => expense(`expense-${index}`, index, amountMinor),
+      );
+
+      const [aud] = buildCurrencyInsights({
+        currentExpenses,
+        priorExpenses: [],
+        categories,
+        preference: 'donut',
+      });
+
+      expect(aud.chartKind).toBe('donut');
+      expect(aud.chartCategories.map((item) => item.category)).toEqual([
+        'Category 1',
+        'Category 2',
+        'Category 3',
+        'Category 4',
+        'Category 5',
+        'Others',
+      ]);
+      expect(aud.chartCategories.at(-1)).toMatchObject({ amountMinor: 30 });
+      expect(aud.exactCategories).toHaveLength(7);
+      expect(
+        aud.exactCategories.some((item) => item.category === 'Others'),
+      ).toBe(false);
+    });
+
+    it('keeps every exact category in manual bar mode', () => {
+      const [aud] = buildCurrencyInsights({
+        currentExpenses: [70, 60, 50, 40, 30, 20].map((amountMinor, index) =>
+          expense(`bar-expense-${index}`, index, amountMinor),
+        ),
+        priorExpenses: [],
+        categories,
+        preference: 'bar',
+      });
+
+      expect(aud.chartKind).toBe('bar');
+      expect(aud.chartCategories).toEqual(aud.exactCategories);
     });
   });
 });

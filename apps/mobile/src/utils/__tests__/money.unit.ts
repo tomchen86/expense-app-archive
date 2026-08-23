@@ -2,6 +2,7 @@ import {
   allocateEqualShares,
   formatLocalCalendarDate,
   parseDecimalToMinorUnits,
+  parseLocalCalendarDate,
 } from '../money';
 
 describe('canonical money and calendar values', () => {
@@ -38,5 +39,16 @@ describe('canonical money and calendar values', () => {
   it('formats the local calendar fields without converting through UTC', () => {
     const localDate = new Date(2026, 7, 13, 0, 0, 0);
     expect(formatLocalCalendarDate(localDate)).toBe('2026-08-13');
+  });
+
+  it('parses a calendar-only route value into local fields in any Jest timezone', () => {
+    const parsed = parseLocalCalendarDate('2025-01-01');
+
+    expect(parsed).not.toBeNull();
+    expect([
+      parsed!.getFullYear(),
+      parsed!.getMonth(),
+      parsed!.getDate(),
+    ]).toEqual([2025, 0, 1]);
   });
 });

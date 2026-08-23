@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ScrollView } from 'react-native';
+import { StyleSheet, ScrollView, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Stack } from 'expo-router';
 
@@ -7,6 +7,9 @@ import { useInsightsData } from '../src/hooks/useInsightsData';
 import CategoryChart from '../src/components/insights/CategoryChart';
 import InsightsHeader from '../src/components/insights/InsightsHeader';
 import DatePickerModal from '../src/components/insights/DatePickerModal';
+import InsightsSummary from '../src/components/insights/InsightsSummary';
+import InsightsChartMenu from '../src/components/insights/insights-chart-menu';
+import { mobileTheme } from '../src/theme/tokens';
 
 const ExpenseInsightsScreen = () => {
   const params = useLocalSearchParams();
@@ -15,45 +18,69 @@ const ExpenseInsightsScreen = () => {
   const insightsData = useInsightsData({
     contextType: contextType as 'personal' | 'group',
     contextId: contextId as string,
-    initialDate: initialDate ? new Date(initialDate as string) : undefined,
+    initialDate: typeof initialDate === 'string' ? initialDate : undefined,
   });
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.screen}>
       <Stack.Screen options={{ title: insightsData.screenTitle }} />
+      <Stack.Toolbar placement='right'>
+        <InsightsChartMenu
+          onChange={insightsData.setChartPreference}
+          preference={insightsData.chartPreference}
+        />
+      </Stack.Toolbar>
 
-      <InsightsHeader
-        aggregation={insightsData.aggregation}
-        onAggregationChange={insightsData.setAggregation}
-        displayPeriodText={insightsData.displayPeriodText}
-        onPeriodPress={() => insightsData.setShowDatePickers(true)}
-        onPreviousPeriod={insightsData.handlePreviousPeriod}
-        onNextPeriod={insightsData.handleNextPeriod}
-        isNextDisabled={insightsData.isNextDisabled}
-      />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior='automatic'
+        style={styles.container}
+      >
+        <InsightsHeader
+          aggregation={insightsData.aggregation}
+          onAggregationChange={insightsData.setAggregation}
+          displayPeriodText={insightsData.displayPeriodText}
+          onPeriodPress={() => insightsData.setShowDatePickers(true)}
+          onPreviousPeriod={insightsData.handlePreviousPeriod}
+          onNextPeriod={insightsData.handleNextPeriod}
+          isNextDisabled={insightsData.isNextDisabled}
+        />
 
-      <CategoryChart data={insightsData.chartData} />
+        <InsightsSummary
+          insights={insightsData.currencyInsights}
+          priorPeriodText={insightsData.previousPeriodText}
+        />
 
-      <DatePickerModal
-        visible={insightsData.showDatePickers}
-        onClose={() => insightsData.setShowDatePickers(false)}
-        aggregation={insightsData.aggregation}
-        selectedYear={insightsData.selectedYear}
-        selectedMonth={insightsData.selectedMonth}
-        onYearChange={insightsData.setSelectedYear}
-        onMonthChange={insightsData.setSelectedMonth}
-        availableYears={insightsData.availableYears}
-        monthNames={insightsData.monthNames}
-      />
-    </ScrollView>
+        <CategoryChart insights={insightsData.currencyInsights} />
+
+        <DatePickerModal
+          visible={insightsData.showDatePickers}
+          onClose={() => insightsData.setShowDatePickers(false)}
+          aggregation={insightsData.aggregation}
+          selectedYear={insightsData.selectedYear}
+          selectedMonth={insightsData.selectedMonth}
+          onYearChange={insightsData.setSelectedYear}
+          onMonthChange={insightsData.setSelectedMonth}
+          availableYears={insightsData.availableYears}
+          monthNames={insightsData.monthNames}
+          currentYear={insightsData.currentYear}
+          currentMonth={insightsData.currentMonth}
+        />
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    padding: 15,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: mobileTheme.colors.background,
+  },
+  content: {
+    padding: mobileTheme.spacing.lg,
   },
 });
 

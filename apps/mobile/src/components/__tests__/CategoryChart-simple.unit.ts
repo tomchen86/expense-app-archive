@@ -7,6 +7,7 @@ describe('CategoryChart Logic', () => {
     {
       category: 'Food & Dining',
       value: 150,
+      amountMinor: 15000,
       absoluteValue: 150,
       percentage: 60,
       color: '#FF5722',
@@ -16,6 +17,7 @@ describe('CategoryChart Logic', () => {
     {
       category: 'Transportation',
       value: 100,
+      amountMinor: 10000,
       absoluteValue: 100,
       percentage: 40,
       color: '#2196F3',
