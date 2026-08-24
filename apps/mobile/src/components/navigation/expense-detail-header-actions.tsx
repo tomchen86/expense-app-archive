@@ -1,15 +1,15 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 
-import { ExpenseOverflowMenu } from './expense-overflow-menu';
-
 interface ExpenseDetailHeaderActionsProps {
+  deleteDisabled: boolean;
   editDisabled: boolean;
   onDelete: () => void;
   onEdit: () => void;
 }
 
 export const ExpenseDetailHeaderActions = ({
+  deleteDisabled,
   editDisabled,
   onDelete,
   onEdit,
@@ -22,6 +22,19 @@ export const ExpenseDetailHeaderActions = ({
     >
       Edit
     </Stack.Toolbar.Button>
-    <ExpenseOverflowMenu onDelete={onDelete} />
+    <Stack.Toolbar.Menu
+      accessibilityHint='Shows expense actions'
+      accessibilityLabel='Expense actions'
+      icon='ellipsis.circle'
+    >
+      <Stack.Toolbar.MenuAction
+        destructive
+        disabled={deleteDisabled}
+        icon='trash'
+        onPress={onDelete}
+      >
+        Delete
+      </Stack.Toolbar.MenuAction>
+    </Stack.Toolbar.Menu>
   </Stack.Toolbar>
 );

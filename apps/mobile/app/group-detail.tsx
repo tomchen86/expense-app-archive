@@ -236,7 +236,6 @@ const GroupDetailScreen = () => {
       <ExpenseListItem
         item={item}
         group={group ?? null}
-        allParticipants={allParticipants}
         currentParticipantIds={
           currentGroupParticipantId ? [currentGroupParticipantId] : []
         }

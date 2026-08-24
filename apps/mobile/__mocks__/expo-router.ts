@@ -48,6 +48,10 @@ export const Stack = {
               typeof children === 'string' ? children : undefined,
             accessibilityRole: 'button',
             ...props,
+            accessibilityState: {
+              ...props.accessibilityState,
+              disabled: Boolean(props.disabled),
+            },
           },
           children,
         ),

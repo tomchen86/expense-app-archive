@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 
 import ExpenseDetailScreen from '../../../app/expense-detail';
 import type { Expense, ExpenseGroup, Participant } from '../../types';
+import { formatLocalDateForDisplay } from '../../utils/dateFormat';
 
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -31,8 +32,9 @@ jest.mock('react-native', () => {
 const mockRequestExpenseDeletion = jest.fn();
 
 const mockParticipants: Participant[] = [
-  { id: 'participant-1', name: 'Tom' },
+  { id: 'participant-1', name: 'Tom', userId: 'user-tom' },
   { id: 'participant-2', name: 'Sharon' },
+  { id: 'participant-3', name: 'Alex' },
 ];
 const mockGroup: ExpenseGroup = {
   id: 'group-1',
@@ -43,17 +45,18 @@ const mockGroup: ExpenseGroup = {
 const mockExpense: Expense = {
   id: 'expense-1',
   title: 'Dinner',
-  amountMinor: 2400,
+  amountMinor: 6000,
   currency: 'USD',
   date: '2026-08-24',
   category: 'Food & Dining',
   caption: 'Birthday dinner',
   spaceId: mockGroup.id,
   spaceKind: 'shared',
-  payments: [{ participantId: mockParticipants[0].id, amountMinor: 2400 }],
+  payments: [{ participantId: mockParticipants[0].id, amountMinor: 6000 }],
   shares: [
-    { participantId: mockParticipants[0].id, amountMinor: 1200 },
-    { participantId: mockParticipants[1].id, amountMinor: 1200 },
+    { participantId: mockParticipants[0].id, amountMinor: 2000 },
+    { participantId: mockParticipants[1].id, amountMinor: 2000 },
+    { participantId: mockParticipants[2].id, amountMinor: 2000 },
   ],
 };
 
@@ -70,6 +73,8 @@ jest.mock('../../store/expenseStore', () => ({
       expenses: [mockExpense],
       groups: [mockGroup],
       participants: mockParticipants,
+      internalUserId: 'user-tom',
+      personalParticipantId: 'personal-participant',
     }),
 }));
 
@@ -77,19 +82,40 @@ describe('ExpenseDetailScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockExpense.payments = [
-      { participantId: mockParticipants[0].id, amountMinor: 2400 },
+      { participantId: mockParticipants[0].id, amountMinor: 6000 },
     ];
+    mockExpense.shares = [
+      { participantId: mockParticipants[0].id, amountMinor: 2000 },
+      { participantId: mockParticipants[1].id, amountMinor: 2000 },
+      { participantId: mockParticipants[2].id, amountMinor: 2000 },
+    ];
+    delete mockGroup.archivedAt;
     (useLocalSearchParams as jest.Mock).mockReturnValue({
       expenseId: mockExpense.id,
     });
   });
 
-  it('shows a native edit action and keeps Delete in the overflow menu', () => {
+  it('turns a shared expense into a complete financial record', () => {
     const screen = render(<ExpenseDetailScreen />);
 
     expect(screen.getByText('Dinner')).toBeTruthy();
-    expect(screen.getByText('USD 24.00')).toBeTruthy();
+    expect(screen.getAllByText('USD 60.00').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('You paid')).toBeTruthy();
+    expect(screen.getByText('Your share')).toBeTruthy();
+    expect(screen.getByText('You are owed')).toBeTruthy();
+    expect(screen.getByText('USD 40.00')).toBeTruthy();
+    expect(screen.getByText('PAID BY')).toBeTruthy();
+    expect(screen.getByText('SPLIT')).toBeTruthy();
+    expect(screen.getAllByText('Tom')).toHaveLength(2);
+    expect(screen.getAllByText('Sharon').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Alex').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('USD 20.00').length).toBeGreaterThanOrEqual(4);
+    expect(screen.getByText('Brisbane')).toBeTruthy();
     expect(screen.getByText('Food & Dining')).toBeTruthy();
+    expect(
+      screen.getByText(formatLocalDateForDisplay(mockExpense.date)),
+    ).toBeTruthy();
+    expect(screen.getByText('Birthday dinner')).toBeTruthy();
     expect(screen.queryByText('2026-08-24')).toBeNull();
 
     fireEvent.press(screen.getByRole('button', { name: 'Edit expense' }));
@@ -109,17 +135,58 @@ describe('ExpenseDetailScreen', () => {
     expect(router.back).toHaveBeenCalledTimes(1);
   });
 
-  it('lists every payer when an expense has multiple payments', () => {
+  it('lists every payer and amount when an expense has multiple payments', () => {
     mockExpense.payments = [
-      { participantId: mockParticipants[0].id, amountMinor: 1200 },
-      { participantId: mockParticipants[1].id, amountMinor: 1200 },
+      { participantId: mockParticipants[0].id, amountMinor: 3000 },
+      { participantId: mockParticipants[1].id, amountMinor: 3000 },
     ];
 
     const screen = render(<ExpenseDetailScreen />);
 
-    expect(screen.getAllByText('2 people')).toHaveLength(2);
-    expect(screen.getByText('Tom paid')).toBeTruthy();
-    expect(screen.getByText('Sharon paid')).toBeTruthy();
-    expect(screen.getAllByText('USD 12.00')).toHaveLength(2);
+    expect(screen.getByText('PAID BY')).toBeTruthy();
+    expect(screen.getAllByText('Tom')).toHaveLength(2);
+    expect(screen.getAllByText('Sharon')).toHaveLength(2);
+    expect(screen.getAllByText('USD 30.00')).toHaveLength(3);
+  });
+
+  it('shows how much the current user owes when their share exceeds payment', () => {
+    mockExpense.payments = [
+      { participantId: mockParticipants[1].id, amountMinor: 6000 },
+    ];
+
+    const screen = render(<ExpenseDetailScreen />);
+
+    expect(screen.getByText('You owe')).toBeTruthy();
+    expect(screen.getAllByText('USD 20.00').length).toBeGreaterThanOrEqual(4);
+    expect(screen.queryByText('You are owed')).toBeNull();
+  });
+
+  it('shows a settled position when payment equals the current user share', () => {
+    mockExpense.payments = [
+      { participantId: mockParticipants[0].id, amountMinor: 2000 },
+      { participantId: mockParticipants[1].id, amountMinor: 4000 },
+    ];
+
+    const screen = render(<ExpenseDetailScreen />);
+
+    expect(screen.getByText('Settled up')).toBeTruthy();
+    expect(screen.getAllByText('USD 0.00')).toHaveLength(1);
+    expect(screen.queryByText('You owe')).toBeNull();
+    expect(screen.queryByText('You are owed')).toBeNull();
+  });
+
+  it('keeps archived shared history readable and disables mutations', () => {
+    mockGroup.archivedAt = '2026-08-24T01:00:00.000Z';
+
+    const screen = render(<ExpenseDetailScreen />);
+
+    expect(screen.getByText('Shared history')).toBeTruthy();
+    expect(screen.getByText('Archived · Read-only')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit expense' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
+    expect(mockRequestExpenseDeletion).not.toHaveBeenCalled();
+    expect(router.back).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import React, { type ReactNode } from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import InsightsChartHeaderAction from '../insights/insights-chart-header-action';
+import { ExpenseDetailHeaderActions } from '../navigation/expense-detail-header-actions';
 import { GroupDetailHeaderActions } from '../navigation/group-detail-header-actions';
 
 jest.mock('react-native', () => ({
@@ -26,15 +27,30 @@ jest.mock('expo-router', () => {
       },
       children,
     );
+  const Button = ({ children, ...props }: any) =>
+    React.createElement(
+      'View',
+      {
+        accessible: true,
+        accessibilityLabel:
+          props.accessibilityLabel ??
+          (typeof children === 'string' ? children : undefined),
+        accessibilityRole: 'button',
+        ...props,
+      },
+      children,
+    );
   const Toolbar = Object.assign(
     ({ children }: { children?: ReactNode }) => {
       const directNativeItems = React.Children.toArray(children).filter(
-        (child) => React.isValidElement(child) && child.type === Menu,
+        (child) =>
+          React.isValidElement(child) &&
+          (child.type === Menu || child.type === Button),
       );
 
       return React.createElement('View', null, directNativeItems);
     },
-    { Menu, MenuAction },
+    { Button, Menu, MenuAction },
   );
 
   return { Stack: { Toolbar } };
@@ -61,5 +77,21 @@ describe('iOS native-stack header action composition', () => {
     expect(screen.getByLabelText('Group actions')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Members' }));
     expect(onOpenMembers).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives Expo Router the Expense Delete menu as a direct toolbar child', () => {
+    const onDelete = jest.fn();
+    const screen = render(
+      <ExpenseDetailHeaderActions
+        deleteDisabled={false}
+        editDisabled={false}
+        onDelete={onDelete}
+        onEdit={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Expense actions')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });

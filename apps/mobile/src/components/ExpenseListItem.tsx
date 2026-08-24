@@ -3,10 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { Expense, ExpenseGroup, Participant } from '../types'; // Import necessary types
+import type { Expense, ExpenseGroup } from '../types';
 import {
   getExpenseCurrency,
-  getExpensePayments,
+  getExpenseShares,
   getExpenseSpaceKind,
 } from '../utils/expenseDomain';
 import { formatMinorUnits, minorUnitsToDecimalString } from '../utils/money';
@@ -16,7 +16,6 @@ import { formatLocalDateForDisplay } from '../utils/dateFormat';
 interface ExpenseListItemProps {
   item: Expense;
   group: ExpenseGroup | null;
-  allParticipants: Participant[]; // Add allParticipants prop
   currentParticipantIds?: readonly string[];
   displayAmountMinor: number;
   currency?: string;
@@ -27,7 +26,6 @@ interface ExpenseListItemProps {
 const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
   item,
   group,
-  allParticipants, // Destructure the new prop
   currentParticipantIds = [],
   displayAmountMinor,
   currency,
@@ -35,26 +33,22 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
   onDelete,
 }) => {
   const currentParticipantIdSet = new Set(currentParticipantIds);
-  // Safeguard: Ensure allParticipants is defined before calling .find()
-  const payerIds = [
-    ...new Set(
-      getExpensePayments(item)
-        .filter((payment) => payment.amountMinor > 0)
-        .map((payment) => payment.participantId),
-    ),
-  ];
-  const payerSummary =
-    payerIds.length === 1
-      ? currentParticipantIdSet.has(payerIds[0])
-        ? 'You'
-        : (allParticipants.find((participant) => participant.id === payerIds[0])
-            ?.name ?? 'Former member')
-      : payerIds.length > 1
-        ? `${payerIds.length} people`
-        : null;
+  const isSharedExpense = getExpenseSpaceKind(item) === 'shared';
   const isHistoricalSharedExpense =
-    getExpenseSpaceKind(item) === 'shared' &&
-    (!group || Boolean(group.archivedAt));
+    isSharedExpense && (!group || Boolean(group.archivedAt));
+  const currentUserShareMinor = getExpenseShares(item)
+    .filter((share) => currentParticipantIdSet.has(share.participantId))
+    .reduce((sum, share) => sum + share.amountMinor, 0);
+  const sharedContext = isSharedExpense
+    ? `${group ? `${group.name}${group.archivedAt ? ' (Archived)' : ''}` : 'Archived group'} · Your share ${
+        currentParticipantIdSet.size > 0
+          ? formatMinorUnits(
+              currentUserShareMinor,
+              currency ?? getExpenseCurrency(item),
+            )
+          : 'unavailable'
+      }`
+    : null;
 
   const renderDeleteAction = (
     _progress: unknown,
@@ -77,18 +71,31 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
   return (
     <ReanimatedSwipeable
       overshootRight={false}
-      renderRightActions={renderDeleteAction}
+      renderRightActions={
+        isHistoricalSharedExpense ? undefined : renderDeleteAction
+      }
       rightThreshold={40}
       testID={`expense-swipeable-${item.id}`}
     >
       <TouchableOpacity
-        accessibilityActions={[{ name: 'delete', label: 'Delete expense' }]}
-        accessibilityHint='Opens expense details. Swipe left for Delete.'
+        accessibilityActions={
+          isHistoricalSharedExpense
+            ? undefined
+            : [{ name: 'delete', label: 'Delete expense' }]
+        }
+        accessibilityHint={
+          isHistoricalSharedExpense
+            ? 'Opens read-only expense details.'
+            : 'Opens expense details. Swipe left for Delete.'
+        }
         accessibilityLabel={`Open ${item.title} expense`}
         accessibilityRole='button'
         activeOpacity={0.82}
         onAccessibilityAction={(event) => {
-          if (event.nativeEvent.actionName === 'delete') {
+          if (
+            !isHistoricalSharedExpense &&
+            event.nativeEvent.actionName === 'delete'
+          ) {
             onDelete(item);
           }
         }}
@@ -112,36 +119,20 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
             </Text>
           </View>
           <View style={styles.expenseDetails}>
-            <View style={styles.expenseMetadata}>
-              <Text style={styles.expenseCategory}>{item.category}</Text>
-              {group && (
-                <View style={styles.groupTag}>
-                  <Text style={styles.groupTagText}>{group.name}</Text>
-                </View>
-              )}
-            </View>
-            {payerSummary && (
-              <Text style={styles.paidByText}>Paid by: {payerSummary}</Text>
-            )}
+            <Text style={styles.expenseCategory}>{item.category}</Text>
+            {sharedContext ? (
+              <Text style={styles.sharedContext}>{sharedContext}</Text>
+            ) : null}
             <Text style={styles.expenseDate}>
               {formatLocalDateForDisplay(item.date)}
             </Text>
-            {item.caption && (
-              <Text style={styles.expenseCaption}>{item.caption}</Text>
-            )}
           </View>
         </View>
-        {isHistoricalSharedExpense ? (
-          <Text accessibilityRole='text' style={styles.readOnlyLabel}>
-            {group ? 'Archived shared history' : 'Historical shared expense'}
-          </Text>
-        ) : null}
       </TouchableOpacity>
     </ReanimatedSwipeable>
   );
 };
 
-// Styles copied and adapted from HomeScreen.tsx
 const styles = StyleSheet.create({
   expenseItem: {
     backgroundColor: mobileTheme.colors.surface,
@@ -151,13 +142,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: mobileTheme.spacing.md,
     ...mobileTheme.shadows.card,
-    // Consider adding flexDirection: 'row' if actions should be beside content
-    // flexDirection: 'row',
-    // alignItems: 'center',
   },
   expenseContent: {
-    flex: 1, // Takes available space if row direction is used
-    // marginRight: 10, // Add margin if actions are beside content
+    flex: 1,
   },
   expenseMain: {
     flexDirection: 'row',
@@ -172,59 +159,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: mobileTheme.colors.text,
     marginRight: mobileTheme.spacing.md,
-    // flexShrink: 1, // Allow title to shrink if too long
   },
   expenseAmount: {
     fontSize: 16,
-    color: mobileTheme.colors.success,
+    color: mobileTheme.colors.text,
     fontWeight: '600',
   },
-  expenseDetails: {
-    // No changes needed here for now
-  },
-  expenseMetadata: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: mobileTheme.spacing.sm,
-    marginTop: mobileTheme.spacing.xs,
-  },
+  expenseDetails: {},
   expenseCategory: {
     fontSize: 14,
     color: mobileTheme.colors.textMuted,
-  },
-  groupTag: {
-    backgroundColor: mobileTheme.colors.primaryContainer,
-    paddingHorizontal: mobileTheme.spacing.sm,
-    paddingVertical: mobileTheme.spacing.xs,
-    borderRadius: mobileTheme.radii.pill,
-  },
-  groupTagText: {
-    color: mobileTheme.colors.onPrimaryContainer,
-    fontSize: 12,
-    fontWeight: '600',
+    marginTop: mobileTheme.spacing.xs,
   },
   expenseDate: {
     fontSize: 14,
     color: mobileTheme.colors.textMuted,
     marginTop: mobileTheme.spacing.xs,
   },
-  expenseCaption: {
+  sharedContext: {
     fontSize: 14,
-    color: mobileTheme.colors.textMuted,
-    fontStyle: 'italic',
-    marginTop: mobileTheme.spacing.xs,
-  },
-  paidByText: {
-    fontSize: 13,
-    color: mobileTheme.colors.textMuted,
-    marginTop: mobileTheme.spacing.xs,
-  },
-  readOnlyLabel: {
-    alignSelf: 'flex-start',
-    marginTop: mobileTheme.spacing.md,
-    color: mobileTheme.colors.textMuted,
-    fontSize: 13,
+    color: mobileTheme.colors.text,
     fontWeight: '600',
+    marginTop: mobileTheme.spacing.xs,
   },
   deleteAction: {
     minWidth: 88,

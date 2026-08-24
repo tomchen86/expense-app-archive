@@ -107,6 +107,7 @@ describe('Android native-stack header actions', () => {
     const onDelete = jest.fn();
     const screen = render(
       <ExpenseDetailHeaderActions
+        deleteDisabled={false}
         editDisabled={false}
         onDelete={onDelete}
         onEdit={onEdit}
@@ -130,6 +131,22 @@ describe('Android native-stack header actions', () => {
       .find((action: { text: string }) => action.text === 'Delete')
       .onPress();
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps archived expense actions visible but disabled', () => {
+    const screen = render(
+      <ExpenseDetailHeaderActions
+        deleteDisabled
+        editDisabled
+        onDelete={jest.fn()}
+        onEdit={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Edit expense' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Expense actions' }),
+    ).toBeDisabled();
   });
 
   it('opens the group Members action from a visible overflow button', () => {

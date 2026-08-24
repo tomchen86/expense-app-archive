@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import type { Expense, ExpenseGroup, Participant } from '../../types';
+import { formatMinorUnits } from '../../utils/money';
 import ExpenseListItem from '../ExpenseListItem';
 
 jest.mock('react-native', () => {
@@ -56,6 +57,7 @@ const expense: Expense = {
   currency: 'USD',
   date: '2026-08-24',
   category: 'Food & Dining',
+  caption: 'Birthday dinner',
   spaceId: group.id,
   spaceKind: 'shared',
   payments: [{ participantId: participants[0].id, amountMinor: 2400 }],
@@ -70,9 +72,9 @@ describe('ExpenseListItem interactions', () => {
     const onPress = jest.fn();
     const screen = render(
       <ExpenseListItem
-        allParticipants={participants}
+        currentParticipantIds={[participants[0].id]}
         currency='USD'
-        displayAmountMinor={1200}
+        displayAmountMinor={2400}
         group={group}
         item={expense}
         onDelete={jest.fn()}
@@ -87,13 +89,20 @@ describe('ExpenseListItem interactions', () => {
     expect(onPress).toHaveBeenCalledWith(expense);
     expect(screen.queryByText('Edit')).toBeNull();
     expect(screen.queryByText('Delete')).toBeNull();
+    expect(screen.getByLabelText('Expense amount USD 24.00')).toBeTruthy();
+    expect(
+      screen.getByText(
+        `Brisbane · Your share ${formatMinorUnits(1200, 'USD')}`,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Paid by:/)).toBeNull();
+    expect(screen.queryByText('Birthday dinner')).toBeNull();
   });
 
   it('exposes Delete only through the left-swipe action', () => {
     const onDelete = jest.fn();
     const screen = render(
       <ExpenseListItem
-        allParticipants={participants}
         currency='USD'
         displayAmountMinor={1200}
         group={group}
@@ -116,7 +125,7 @@ describe('ExpenseListItem interactions', () => {
     expect(onDelete).toHaveBeenCalledWith(expense);
   });
 
-  it('does not describe a multi-payer expense as paid by one person', () => {
+  it('keeps payer details off the summary card even with multiple payers', () => {
     const multiPayerExpense: Expense = {
       ...expense,
       payments: [
@@ -126,9 +135,9 @@ describe('ExpenseListItem interactions', () => {
     };
     const screen = render(
       <ExpenseListItem
-        allParticipants={participants}
+        currentParticipantIds={[participants[0].id]}
         currency='USD'
-        displayAmountMinor={1200}
+        displayAmountMinor={2400}
         group={group}
         item={multiPayerExpense}
         onDelete={jest.fn()}
@@ -136,11 +145,15 @@ describe('ExpenseListItem interactions', () => {
       />,
     );
 
-    expect(screen.getByText('Paid by: 2 people')).toBeTruthy();
-    expect(screen.queryByText('Paid by: Tom')).toBeNull();
+    expect(screen.queryByText(/Paid by:/)).toBeNull();
+    expect(
+      screen.getByText(
+        `Brisbane · Your share ${formatMinorUnits(1200, 'USD')}`,
+      ),
+    ).toBeTruthy();
   });
 
-  it('identifies a fresh personal payer as the current user without a participant row', () => {
+  it('does not add sharing metadata to a personal expense card', () => {
     const personalExpense: Expense = {
       ...expense,
       spaceId: 'personal-space',
@@ -150,7 +163,6 @@ describe('ExpenseListItem interactions', () => {
     };
     const screen = render(
       <ExpenseListItem
-        allParticipants={[]}
         currentParticipantIds={['personal-participant']}
         currency='USD'
         displayAmountMinor={2400}
@@ -161,24 +173,29 @@ describe('ExpenseListItem interactions', () => {
       />,
     );
 
-    expect(screen.getByText('Paid by: You')).toBeTruthy();
-    expect(screen.queryByText('Paid by: Former member')).toBeNull();
+    expect(screen.getByLabelText('Expense amount USD 24.00')).toBeTruthy();
+    expect(screen.queryByText(/Your share/)).toBeNull();
+    expect(screen.queryByText(/Paid by:/)).toBeNull();
   });
 
-  it('keeps the former-member label for a genuinely missing shared payer', () => {
+  it('keeps a missing shared group understandable without exposing payer data', () => {
     const screen = render(
       <ExpenseListItem
-        allParticipants={[]}
-        currentParticipantIds={['personal-participant']}
+        currentParticipantIds={[participants[0].id]}
         currency='USD'
-        displayAmountMinor={1200}
-        group={group}
+        displayAmountMinor={2400}
+        group={null}
         item={expense}
         onDelete={jest.fn()}
         onPress={jest.fn()}
       />,
     );
 
-    expect(screen.getByText('Paid by: Former member')).toBeTruthy();
+    expect(
+      screen.getByText(
+        `Archived group · Your share ${formatMinorUnits(1200, 'USD')}`,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Paid by:/)).toBeNull();
   });
 });

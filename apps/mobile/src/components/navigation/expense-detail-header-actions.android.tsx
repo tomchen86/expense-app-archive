@@ -8,12 +8,14 @@ import {
 } from './android-header-action';
 
 interface ExpenseDetailHeaderActionsProps {
+  deleteDisabled: boolean;
   editDisabled: boolean;
   onDelete: () => void;
   onEdit: () => void;
 }
 
 export const ExpenseDetailHeaderActions = ({
+  deleteDisabled,
   editDisabled,
   onDelete,
   onEdit,
@@ -30,6 +32,7 @@ export const ExpenseDetailHeaderActions = ({
       <AndroidHeaderAction
         accessibilityHint='Shows expense actions'
         accessibilityLabel='Expense actions'
+        disabled={deleteDisabled}
         icon='more-vert'
         onPress={() =>
           Alert.alert('Expense actions', undefined, [
