@@ -8,6 +8,14 @@ jest.mock('react-native', () => {
       return React.createElement(name, props, children);
     };
   return {
+    PanResponder: {
+      create: (handlers: any) => ({
+        panHandlers: {
+          onMoveShouldSetResponder: handlers.onMoveShouldSetPanResponder,
+          onResponderRelease: handlers.onPanResponderRelease,
+        },
+      }),
+    },
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
       flatten: (style: unknown) => style,
@@ -15,6 +23,21 @@ jest.mock('react-native', () => {
     Text: host('Text'),
     TouchableOpacity: host('TouchableOpacity'),
     View: host('View'),
+  };
+});
+
+jest.mock('@expo/vector-icons', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    Ionicons: (props: any) => React.createElement('Ionicons', props),
+  };
+});
+
+jest.mock('../ui/adaptive-action-surface', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    AdaptiveActionSurface: ({ children, ...props }: any) =>
+      React.createElement('AdaptiveActionSurface', props, children),
   };
 });
 
@@ -101,7 +124,7 @@ describe('Insights visualization', () => {
     expect(screen.getByTestId('insight-category-usd-food-dining')).toBeTruthy();
   });
 
-  it('renders donut and horizontal bar charts as decorative visuals', () => {
+  it('renders donut and bounded horizontal bars as decorative visuals', () => {
     const donut = render(
       <CategoryChart
         insights={[insight('donut', [point(1, 500), point(2, 300)])]}
@@ -127,10 +150,20 @@ describe('Insights visualization', () => {
         ]}
       />,
     );
+    const barVisual = bar.getByTestId('insight-bar-visual', {
+      includeHiddenElements: true,
+    });
+    expect(barVisual.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ overflow: 'hidden', width: '100%' }),
+      ]),
+    );
     expect(
-      bar.getByTestId('bar-chart', { includeHiddenElements: true }).props
-        .horizontal,
-    ).toBe(true);
+      bar.getAllByTestId(/insight-bar-track-/, {
+        includeHiddenElements: true,
+      }),
+    ).toHaveLength(6);
+    expect(bar.queryByTestId('bar-chart')).toBeNull();
     expect(
       bar.getByTestId('insight-chart-visual', {
         includeHiddenElements: true,
@@ -149,11 +182,12 @@ describe('Insights visualization', () => {
         ]}
       />,
     );
-    const sixBar = sixCategories.getByTestId('bar-chart', {
+    const sixBar = sixCategories.getByTestId('insight-bar-visual', {
       includeHiddenElements: true,
     });
-    const sixHeight = sixBar.props.height;
-    expect(sixBar.props.barWidth + sixBar.props.spacing).toBe(44);
+    const sixHeight = sixBar.props.style
+      .flat()
+      .find((style: any) => style?.height)?.height;
     sixCategories.unmount();
 
     const twelveCategories = render(
@@ -168,9 +202,12 @@ describe('Insights visualization', () => {
         ]}
       />,
     );
-    const twelveHeight = twelveCategories.getByTestId('bar-chart', {
-      includeHiddenElements: true,
-    }).props.height;
+    const twelveHeight = twelveCategories
+      .getByTestId('insight-bar-visual', {
+        includeHiddenElements: true,
+      })
+      .props.style.flat()
+      .find((style: any) => style?.height)?.height;
 
     expect(sixHeight).toBeGreaterThanOrEqual(6 * 44);
     expect(twelveHeight).toBeGreaterThanOrEqual(12 * 44);
@@ -273,8 +310,74 @@ describe('Insights controls accessibility', () => {
     expect(
       screen.getByLabelText('Next period').props.accessibilityState,
     ).toEqual({ disabled: true });
+    expect(screen.getByLabelText('Previous period').props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ height: 44, width: 44 }),
+      ]),
+    );
+    expect(screen.getByTestId('previous-period-surface')).toBeTruthy();
+    expect(screen.getByTestId('period-picker-surface')).toBeTruthy();
+    expect(screen.getByTestId('period-picker-chevron').props.name).toBe(
+      'chevron-down',
+    );
     fireEvent.press(screen.getByLabelText('Year'));
     expect(onAggregationChange).toHaveBeenCalledWith('year');
+  });
+
+  it('changes period with a deliberate horizontal swipe without capturing vertical scroll', () => {
+    const onNextPeriod = jest.fn();
+    const onPreviousPeriod = jest.fn();
+    const screen = render(
+      <InsightsHeader
+        aggregation='month'
+        displayPeriodText='July 2026'
+        isNextDisabled={false}
+        onAggregationChange={jest.fn()}
+        onNextPeriod={onNextPeriod}
+        onPeriodPress={jest.fn()}
+        onPreviousPeriod={onPreviousPeriod}
+      />,
+    );
+    const navigator = screen.getByTestId('period-navigator');
+
+    expect(
+      navigator.props.onMoveShouldSetResponder(undefined, {
+        dx: -56,
+        dy: 5,
+      }),
+    ).toBe(true);
+    expect(
+      navigator.props.onMoveShouldSetResponder(undefined, {
+        dx: 5,
+        dy: 56,
+      }),
+    ).toBe(false);
+    navigator.props.onResponderRelease(undefined, { dx: -56, dy: 5 });
+    navigator.props.onResponderRelease(undefined, { dx: 56, dy: 5 });
+
+    expect(onNextPeriod).toHaveBeenCalledTimes(1);
+    expect(onPreviousPeriod).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not swipe into a disabled future period', () => {
+    const onNextPeriod = jest.fn();
+    const screen = render(
+      <InsightsHeader
+        aggregation='month'
+        displayPeriodText='August 2026'
+        isNextDisabled
+        onAggregationChange={jest.fn()}
+        onNextPeriod={onNextPeriod}
+        onPeriodPress={jest.fn()}
+        onPreviousPeriod={jest.fn()}
+      />,
+    );
+
+    screen
+      .getByTestId('period-navigator')
+      .props.onResponderRelease(undefined, { dx: -80, dy: 4 });
+
+    expect(onNextPeriod).not.toHaveBeenCalled();
   });
 });
 

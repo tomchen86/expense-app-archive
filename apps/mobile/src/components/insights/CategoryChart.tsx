@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { BarChart, PieChart } from 'react-native-gifted-charts';
+import { PieChart } from 'react-native-gifted-charts';
 import type { CurrencyInsight } from '../../utils/calculations/insightCalculations';
 import { formatMinorUnits } from '../../utils/money';
 import { mobileTheme } from '../../theme/tokens';
@@ -10,7 +10,6 @@ interface CategoryChartProps {
 }
 
 const HORIZONTAL_BAR_ROW_HEIGHT = 44;
-const HORIZONTAL_BAR_VERTICAL_PADDING = 32;
 
 const toTestIdSegment = (value: string): string =>
   value
@@ -20,10 +19,56 @@ const toTestIdSegment = (value: string): string =>
     .replace(/^-|-$/g, '');
 
 export const getHorizontalBarChartHeight = (categoryCount: number): number =>
-  Math.max(
-    200,
-    categoryCount * HORIZONTAL_BAR_ROW_HEIGHT + HORIZONTAL_BAR_VERTICAL_PADDING,
+  Math.max(96, categoryCount * HORIZONTAL_BAR_ROW_HEIGHT);
+
+const HorizontalBarVisual = ({
+  categories,
+  currency,
+}: {
+  categories: CurrencyInsight['chartCategories'];
+  currency: string;
+}) => {
+  const maxValue = Math.max(0, ...categories.map((category) => category.value));
+
+  return (
+    <View
+      style={[
+        styles.barVisual,
+        { height: getHorizontalBarChartHeight(categories.length) },
+      ]}
+      testID='insight-bar-visual'
+    >
+      {categories.map((category) => {
+        const width = maxValue > 0 ? (category.value / maxValue) * 100 : 0;
+        const categoryKey = toTestIdSegment(
+          category.categoryId ?? category.category,
+        );
+
+        return (
+          <View
+            key={`${categoryKey}-${currency}`}
+            style={styles.barRow}
+            testID={`insight-bar-track-${toTestIdSegment(
+              currency,
+            )}-${categoryKey}`}
+          >
+            <View style={styles.barTrack}>
+              <View
+                style={[
+                  styles.barFill,
+                  {
+                    backgroundColor: category.color,
+                    width: `${Math.min(100, Math.max(0, width))}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        );
+      })}
+    </View>
   );
+};
 
 const CategoryChart: React.FC<CategoryChartProps> = ({ insights }) => {
   const currentInsights = insights.filter(
@@ -80,12 +125,10 @@ const CategoryChart: React.FC<CategoryChartProps> = ({ insights }) => {
               importantForAccessibility='no-hide-descendants'
               pointerEvents='none'
               style={[
-                styles.chartContainer,
-                insight.chartKind === 'bar' && {
-                  height: getHorizontalBarChartHeight(
-                    insight.chartCategories.length,
-                  ),
-                },
+                styles.chartVisualContainer,
+                insight.chartKind === 'bar'
+                  ? styles.barChartContainer
+                  : styles.donutChartContainer,
               ]}
               testID='insight-chart-visual'
             >
@@ -99,21 +142,9 @@ const CategoryChart: React.FC<CategoryChartProps> = ({ insights }) => {
                   donut
                 />
               ) : (
-                <BarChart
-                  barWidth={20}
-                  data={insight.chartCategories.map((category) => ({
-                    category: category.category,
-                    frontColor: category.color,
-                    label: category.category,
-                    value: category.value,
-                  }))}
-                  disablePress
-                  height={getHorizontalBarChartHeight(
-                    insight.chartCategories.length,
-                  )}
-                  hideRules
-                  horizontal
-                  spacing={24}
+                <HorizontalBarVisual
+                  categories={insight.chartCategories}
+                  currency={insight.currency}
                 />
               )}
             </View>
@@ -141,8 +172,14 @@ const CategoryChart: React.FC<CategoryChartProps> = ({ insights }) => {
                     { backgroundColor: item.color },
                   ]}
                 />
-                <Text style={styles.legendText}>{item.category}</Text>
-                <Text style={styles.legendAmount}>
+                <Text
+                  ellipsizeMode='tail'
+                  numberOfLines={1}
+                  style={styles.legendText}
+                >
+                  {item.category}
+                </Text>
+                <Text numberOfLines={1} style={styles.legendAmount}>
                   {formatMinorUnits(item.amountMinor, insight.currency)} ·{' '}
                   {item.percentage.toFixed(1)}%
                 </Text>
@@ -176,6 +213,39 @@ const styles = StyleSheet.create({
     minHeight: 200,
     marginVertical: mobileTheme.spacing.lg,
   },
+  chartVisualContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: mobileTheme.spacing.lg,
+    width: '100%',
+  },
+  donutChartContainer: {
+    minHeight: 200,
+  },
+  barChartContainer: {
+    overflow: 'hidden',
+  },
+  barVisual: {
+    overflow: 'hidden',
+    width: '100%',
+  },
+  barRow: {
+    height: HORIZONTAL_BAR_ROW_HEIGHT,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  barTrack: {
+    backgroundColor: mobileTheme.colors.surfaceVariant,
+    borderRadius: mobileTheme.radii.pill,
+    height: 18,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  barFill: {
+    borderRadius: mobileTheme.radii.pill,
+    height: '100%',
+    minWidth: 2,
+  },
   noDataText: {
     fontSize: 16,
     color: mobileTheme.colors.textMuted,
@@ -202,9 +272,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: mobileTheme.colors.text,
     flex: 1,
+    flexShrink: 1,
+    marginRight: mobileTheme.spacing.sm,
   },
   legendAmount: {
     color: mobileTheme.colors.text,
+    flexShrink: 0,
     fontSize: 14,
     fontVariant: ['tabular-nums'],
     fontWeight: '600',

@@ -1,7 +1,23 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo } from 'react';
+import {
+  PanResponder,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { mobileTheme } from '../../theme/tokens';
+import { AdaptiveActionSurface } from '../ui/adaptive-action-surface';
 import PeriodAggregationControl from './period-aggregation-control';
+
+const SWIPE_CAPTURE_DISTANCE = 12;
+const SWIPE_COMMIT_DISTANCE = 44;
+const HORIZONTAL_INTENT_RATIO = 1.35;
+
+const isHorizontalPeriodSwipe = (dx: number, dy: number): boolean =>
+  Math.abs(dx) >= SWIPE_CAPTURE_DISTANCE &&
+  Math.abs(dx) > Math.abs(dy) * HORIZONTAL_INTENT_RATIO;
 
 interface InsightsHeaderProps {
   aggregation: 'month' | 'year';
@@ -22,6 +38,28 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
   onNextPeriod,
   isNextDisabled,
 }) => {
+  const periodPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gestureState) =>
+          isHorizontalPeriodSwipe(gestureState.dx, gestureState.dy),
+        onPanResponderRelease: (_event, gestureState) => {
+          if (
+            Math.abs(gestureState.dx) < SWIPE_COMMIT_DISTANCE ||
+            !isHorizontalPeriodSwipe(gestureState.dx, gestureState.dy)
+          ) {
+            return;
+          }
+          if (gestureState.dx > 0) {
+            onPreviousPeriod();
+          } else if (!isNextDisabled) {
+            onNextPeriod();
+          }
+        },
+      }),
+    [isNextDisabled, onNextPeriod, onPreviousPeriod],
+  );
+
   return (
     <View style={styles.controlsContainer}>
       <PeriodAggregationControl
@@ -29,47 +67,91 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
         onChange={onAggregationChange}
       />
 
-      <View style={styles.periodNavigatorContainer}>
-        <TouchableOpacity
-          accessibilityLabel='Previous period'
-          accessibilityRole='button'
-          onPress={onPreviousPeriod}
-          style={styles.periodArrowButton}
-          testID='previous-period-button'
+      <View
+        {...periodPanResponder.panHandlers}
+        style={styles.periodNavigatorContainer}
+        testID='period-navigator'
+      >
+        <AdaptiveActionSurface
+          interactive
+          style={styles.periodArrowSurface}
+          testID='previous-period-surface'
         >
-          <Text style={styles.periodArrowText}>{'‹'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityLabel={`Choose period. ${displayPeriodText}`}
-          accessibilityHint='Opens the month and year picker'
-          accessibilityRole='button'
-          onPress={onPeriodPress}
-          style={styles.periodButton}
-          testID='period-picker-button'
+          <TouchableOpacity
+            activeOpacity={0.72}
+            accessibilityLabel='Previous period'
+            accessibilityRole='button'
+            onPress={onPreviousPeriod}
+            style={[styles.periodArrowButton]}
+            testID='previous-period-button'
+          >
+            <Ionicons
+              color={mobileTheme.colors.primary}
+              name='chevron-back'
+              size={21}
+            />
+          </TouchableOpacity>
+        </AdaptiveActionSurface>
+        <AdaptiveActionSurface
+          interactive
+          style={styles.periodPickerSurface}
+          testID='period-picker-surface'
         >
-          <Text style={styles.periodDisplayText}>{displayPeriodText}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityLabel='Next period'
-          accessibilityRole='button'
-          accessibilityState={{ disabled: isNextDisabled }}
-          onPress={onNextPeriod}
-          disabled={isNextDisabled}
+          <TouchableOpacity
+            activeOpacity={0.72}
+            accessibilityLabel={`Choose period. ${displayPeriodText}`}
+            accessibilityHint='Opens the month and year picker'
+            accessibilityRole='button'
+            onPress={onPeriodPress}
+            style={styles.periodButton}
+            testID='period-picker-button'
+          >
+            <View style={styles.periodPickerContent}>
+              <Text
+                ellipsizeMode='tail'
+                numberOfLines={1}
+                style={styles.periodDisplayText}
+              >
+                {displayPeriodText}
+              </Text>
+              <Ionicons
+                color={mobileTheme.colors.textMuted}
+                name='chevron-down'
+                size={14}
+                testID='period-picker-chevron'
+              />
+            </View>
+          </TouchableOpacity>
+        </AdaptiveActionSurface>
+        <AdaptiveActionSurface
+          interactive
           style={[
-            styles.periodArrowButton,
+            styles.periodArrowSurface,
             isNextDisabled && styles.disabledArrowButton,
           ]}
-          testID='next-period-button'
+          testID='next-period-surface'
         >
-          <Text
-            style={[
-              styles.periodArrowText,
-              isNextDisabled && styles.disabledArrowText,
-            ]}
+          <TouchableOpacity
+            activeOpacity={0.72}
+            accessibilityLabel='Next period'
+            accessibilityRole='button'
+            accessibilityState={{ disabled: isNextDisabled }}
+            disabled={isNextDisabled}
+            onPress={onNextPeriod}
+            style={[styles.periodArrowButton]}
+            testID='next-period-button'
           >
-            {'›'}
-          </Text>
-        </TouchableOpacity>
+            <Ionicons
+              color={
+                isNextDisabled
+                  ? mobileTheme.colors.textMuted
+                  : mobileTheme.colors.primary
+              }
+              name='chevron-forward'
+              size={21}
+            />
+          </TouchableOpacity>
+        </AdaptiveActionSurface>
       </View>
     </View>
   );
@@ -85,39 +167,57 @@ const styles = StyleSheet.create({
     padding: mobileTheme.spacing.md,
   },
   periodNavigatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: mobileTheme.spacing.sm,
+    justifyContent: 'center',
+    marginTop: mobileTheme.spacing.sm,
   },
   periodArrowButton: {
     alignItems: 'center',
+    height: 44,
     justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 44,
+    width: 44,
   },
-  periodArrowText: {
-    fontSize: 28,
-    color: mobileTheme.colors.primary,
-    fontWeight: 'bold',
+  periodArrowSurface: {
+    alignItems: 'center',
+    borderRadius: 22,
+    boxShadow: '0 2px 8px rgba(32, 55, 88, 0.08)',
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
   },
   disabledArrowButton: {
-    opacity: 0.3,
-  },
-  disabledArrowText: {
-    color: mobileTheme.colors.textMuted,
+    opacity: 0.28,
   },
   periodButton: {
     alignItems: 'center',
+    flex: 1,
+    height: 44,
     justifyContent: 'center',
-    minHeight: 44,
+    minWidth: 0,
+  },
+  periodPickerSurface: {
+    borderRadius: mobileTheme.radii.pill,
+    boxShadow: '0 2px 8px rgba(32, 55, 88, 0.08)',
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  periodPickerContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingHorizontal: mobileTheme.spacing.lg,
   },
   periodDisplayText: {
+    color: mobileTheme.colors.text,
+    flexShrink: 1,
     fontSize: 18,
     fontWeight: '600',
-    color: mobileTheme.colors.text,
-    paddingHorizontal: mobileTheme.spacing.lg,
+    marginRight: mobileTheme.spacing.xs,
     textAlign: 'center',
-    minWidth: 150,
   },
 });
 
