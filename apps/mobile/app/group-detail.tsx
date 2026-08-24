@@ -236,9 +236,6 @@ const GroupDetailScreen = () => {
       <ExpenseListItem
         item={item}
         group={group ?? null}
-        currentParticipantIds={
-          currentGroupParticipantId ? [currentGroupParticipantId] : []
-        }
         displayAmountMinor={getExpenseAmountMinor(item)}
         currency={getExpenseCurrency(item)}
         onPress={handlePress}

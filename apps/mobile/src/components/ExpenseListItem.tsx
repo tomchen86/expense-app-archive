@@ -6,7 +6,6 @@ import ReanimatedSwipeable, {
 import type { Expense, ExpenseGroup } from '../types';
 import {
   getExpenseCurrency,
-  getExpenseShares,
   getExpenseSpaceKind,
 } from '../utils/expenseDomain';
 import { formatMinorUnits, minorUnitsToDecimalString } from '../utils/money';
@@ -16,7 +15,6 @@ import { formatLocalDateForDisplay } from '../utils/dateFormat';
 interface ExpenseListItemProps {
   item: Expense;
   group: ExpenseGroup | null;
-  currentParticipantIds?: readonly string[];
   displayAmountMinor: number;
   currency?: string;
   onPress: (expense: Expense) => void;
@@ -26,29 +24,17 @@ interface ExpenseListItemProps {
 const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
   item,
   group,
-  currentParticipantIds = [],
   displayAmountMinor,
   currency,
   onPress,
   onDelete,
 }) => {
-  const currentParticipantIdSet = new Set(currentParticipantIds);
   const isSharedExpense = getExpenseSpaceKind(item) === 'shared';
   const isHistoricalSharedExpense =
     isSharedExpense && (!group || Boolean(group.archivedAt));
-  const currentUserShareMinor = getExpenseShares(item)
-    .filter((share) => currentParticipantIdSet.has(share.participantId))
-    .reduce((sum, share) => sum + share.amountMinor, 0);
-  const sharedContext = isSharedExpense
-    ? `${group ? `${group.name}${group.archivedAt ? ' (Archived)' : ''}` : 'Archived group'} · Your share ${
-        currentParticipantIdSet.size > 0
-          ? formatMinorUnits(
-              currentUserShareMinor,
-              currency ?? getExpenseCurrency(item),
-            )
-          : 'unavailable'
-      }`
-    : null;
+  const groupBadgeLabel = group
+    ? `${group.name}${group.archivedAt ? ' · Archived' : ''}`
+    : 'Archived group';
 
   const renderDeleteAction = (
     _progress: unknown,
@@ -70,6 +56,8 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
 
   return (
     <ReanimatedSwipeable
+      childrenContainerStyle={styles.swipeableOverflow}
+      containerStyle={styles.swipeableOverflow}
       overshootRight={false}
       renderRightActions={
         isHistoricalSharedExpense ? undefined : renderDeleteAction
@@ -100,11 +88,23 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
           }
         }}
         onPress={() => onPress(item)}
-        style={styles.expenseItem}
+        style={[
+          styles.expenseItem,
+          isSharedExpense
+            ? styles.sharedExpenseItem
+            : styles.personalExpenseItem,
+        ]}
+        testID={`expense-card-${item.id}`}
       >
         <View style={styles.expenseContent}>
           <View style={styles.expenseMain}>
-            <Text style={styles.expenseTitle}>{item.title}</Text>
+            <Text
+              ellipsizeMode='tail'
+              numberOfLines={1}
+              style={styles.expenseTitle}
+            >
+              {item.title}
+            </Text>
             <Text
               accessibilityLabel={`Expense amount ${currency ?? getExpenseCurrency(item)} ${minorUnitsToDecimalString(
                 displayAmountMinor,
@@ -118,15 +118,32 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
               )}
             </Text>
           </View>
-          <View style={styles.expenseDetails}>
-            <Text style={styles.expenseCategory}>{item.category}</Text>
-            {sharedContext ? (
-              <Text style={styles.sharedContext}>{sharedContext}</Text>
-            ) : null}
-            <Text style={styles.expenseDate}>
-              {formatLocalDateForDisplay(item.date)}
+          <View style={styles.expenseMetadata}>
+            <Text
+              ellipsizeMode='tail'
+              numberOfLines={1}
+              style={styles.expenseCategory}
+            >
+              {item.category}
             </Text>
+            {isSharedExpense ? (
+              <View
+                style={styles.groupBadge}
+                testID={`expense-group-badge-${item.id}`}
+              >
+                <Text
+                  ellipsizeMode='tail'
+                  numberOfLines={1}
+                  style={styles.groupBadgeText}
+                >
+                  {groupBadgeLabel}
+                </Text>
+              </View>
+            ) : null}
           </View>
+          <Text style={styles.expenseDate}>
+            {formatLocalDateForDisplay(item.date)}
+          </Text>
         </View>
       </TouchableOpacity>
     </ReanimatedSwipeable>
@@ -134,14 +151,24 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
 };
 
 const styles = StyleSheet.create({
+  swipeableOverflow: {
+    overflow: 'visible',
+  },
   expenseItem: {
-    backgroundColor: mobileTheme.colors.surface,
     padding: mobileTheme.spacing.lg,
     borderRadius: mobileTheme.radii.card,
-    borderColor: mobileTheme.colors.border,
     borderWidth: 1,
     marginBottom: mobileTheme.spacing.md,
+    minHeight: 112,
     ...mobileTheme.shadows.card,
+  },
+  personalExpenseItem: {
+    backgroundColor: mobileTheme.colors.surface,
+    borderColor: mobileTheme.colors.border,
+  },
+  sharedExpenseItem: {
+    backgroundColor: mobileTheme.colors.sharedSurface,
+    borderColor: mobileTheme.colors.sharedBorder,
   },
   expenseContent: {
     flex: 1,
@@ -163,24 +190,39 @@ const styles = StyleSheet.create({
   expenseAmount: {
     fontSize: 16,
     color: mobileTheme.colors.text,
+    flexShrink: 0,
     fontWeight: '600',
   },
-  expenseDetails: {},
+  expenseMetadata: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginTop: mobileTheme.spacing.xs,
+    minHeight: 24,
+  },
   expenseCategory: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 14,
     color: mobileTheme.colors.textMuted,
-    marginTop: mobileTheme.spacing.xs,
+    marginRight: mobileTheme.spacing.sm,
   },
   expenseDate: {
     fontSize: 14,
     color: mobileTheme.colors.textMuted,
     marginTop: mobileTheme.spacing.xs,
   },
-  sharedContext: {
-    fontSize: 14,
-    color: mobileTheme.colors.text,
+  groupBadge: {
+    backgroundColor: mobileTheme.colors.sharedBadge,
+    borderRadius: mobileTheme.radii.pill,
+    flexShrink: 1,
+    maxWidth: '48%',
+    paddingHorizontal: mobileTheme.spacing.sm,
+    paddingVertical: mobileTheme.spacing.xs,
+  },
+  groupBadgeText: {
+    color: mobileTheme.colors.sharedBadgeText,
+    fontSize: 12,
     fontWeight: '600',
-    marginTop: mobileTheme.spacing.xs,
   },
   deleteAction: {
     minWidth: 88,

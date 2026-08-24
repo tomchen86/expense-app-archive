@@ -3,7 +3,6 @@ import { render } from '@testing-library/react-native';
 
 import SettingsScreen from '../../screens/settings-screen';
 import type { Expense, ExpenseGroup, Participant } from '../../types';
-import { formatMinorUnits } from '../../utils/money';
 import ExpenseListItem from '../ExpenseListItem';
 import GroupListItem from '../GroupListItem';
 
@@ -90,9 +89,8 @@ describe('adaptive UI accessibility contracts', () => {
   it('makes the expense card the labelled navigation target', () => {
     const screen = render(
       <ExpenseListItem
-        currentParticipantIds={[participants[0].id]}
         currency='AUD'
-        displayAmountMinor={12_000}
+        displayAmountMinor={4_000}
         group={group}
         item={expense}
         onDelete={jest.fn()}
@@ -100,7 +98,7 @@ describe('adaptive UI accessibility contracts', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Expense amount AUD 120.00')).toBeTruthy();
+    expect(screen.getByLabelText('Expense amount AUD 40.00')).toBeTruthy();
     expect(
       screen.getByRole('button', {
         name: `Open ${expense.title} expense`,
@@ -117,9 +115,8 @@ describe('adaptive UI accessibility contracts', () => {
     };
     const screen = render(
       <ExpenseListItem
-        currentParticipantIds={[participants[0].id]}
         currency='AUD'
-        displayAmountMinor={12_000}
+        displayAmountMinor={4_000}
         group={archivedGroup}
         item={expense}
         onDelete={jest.fn()}
@@ -133,11 +130,7 @@ describe('adaptive UI accessibility contracts', () => {
     expect(
       screen.queryByRole('button', { name: `Delete ${expense.title}` }),
     ).toBeNull();
-    expect(
-      screen.getByText(
-        `${archivedGroup.name} (Archived) · Your share ${formatMinorUnits(4_000, 'AUD')}`,
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText(`${archivedGroup.name} · Archived`)).toBeTruthy();
     expect(
       screen.getByTestId(`expense-swipeable-${expense.id}`).props
         .renderRightActions,

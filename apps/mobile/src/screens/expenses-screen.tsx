@@ -18,11 +18,7 @@ import {
 
 import ExpenseListItem from '../components/ExpenseListItem';
 import FloatingActionButton from '../components/FloatingActionButton';
-import {
-  getExpenseAmountMinor,
-  getExpenseCurrency,
-  getExpenseSpaceId,
-} from '../utils/expenseDomain';
+import { getExpenseCurrency, getExpenseSpaceId } from '../utils/expenseDomain';
 import {
   resolvePersonalParticipantIds,
   selectPersonalLedgerExpenses,
@@ -113,8 +109,11 @@ const ExpensesScreen = () => {
       <ExpenseListItem
         item={item}
         group={groupForDisplay ?? null}
-        currentParticipantIds={currentParticipantIds}
-        displayAmountMinor={getExpenseAmountMinor(item)}
+        displayAmountMinor={sumPersonalShareMinor(
+          item,
+          currentParticipantIds,
+          personalSpaceId,
+        )}
         currency={getExpenseCurrency(item)}
         onPress={handlePress}
         onDelete={handleDelete}

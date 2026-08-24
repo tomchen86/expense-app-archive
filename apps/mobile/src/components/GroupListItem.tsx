@@ -83,7 +83,7 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
         }
       }}
       onPress={() => onPress(group.id)}
-      style={styles.groupCard}
+      style={[styles.groupCard, styles.sharedGroupCard]}
       testID={`group-card-${group.id}`}
     >
       <Text style={styles.groupName}>{group.name}</Text>
@@ -152,6 +152,8 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
 
   return (
     <ReanimatedSwipeable
+      childrenContainerStyle={styles.swipeableOverflow}
+      containerStyle={styles.swipeableOverflow}
       overshootRight={false}
       renderRightActions={renderArchiveAction}
       rightThreshold={40}
@@ -163,14 +165,19 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
 };
 
 const styles = StyleSheet.create({
+  swipeableOverflow: {
+    overflow: 'visible',
+  },
   groupCard: {
-    backgroundColor: mobileTheme.colors.surface,
     padding: mobileTheme.spacing.lg,
     borderRadius: mobileTheme.radii.card,
-    borderColor: mobileTheme.colors.border,
     borderWidth: 1,
     marginBottom: mobileTheme.spacing.lg,
     ...mobileTheme.shadows.card,
+  },
+  sharedGroupCard: {
+    backgroundColor: mobileTheme.colors.sharedSurface,
+    borderColor: mobileTheme.colors.sharedBorder,
   },
   groupName: {
     fontSize: 20,

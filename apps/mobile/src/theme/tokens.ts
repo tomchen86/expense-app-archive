@@ -4,6 +4,10 @@ export const mobileTheme = {
     surface: '#FFFFFF',
     surfaceElevated: '#F8FBFF',
     surfaceVariant: '#E8EEF6',
+    sharedSurface: '#F2F6FF',
+    sharedBorder: '#C9D8FA',
+    sharedBadge: '#DFE9FF',
+    sharedBadgeText: '#315AA8',
     text: '#122033',
     textMuted: '#5F6B7A',
     primary: '#0A66D9',
@@ -32,8 +36,8 @@ export const mobileTheme = {
   },
   shadows: {
     card: {
-      boxShadow: '0 8px 24px rgba(32, 55, 88, 0.10)',
-      elevation: 3,
+      boxShadow: '0 3px 12px rgba(32, 55, 88, 0.07)',
+      elevation: 2,
     },
     action: {
       boxShadow: '0 10px 28px rgba(10, 102, 217, 0.24)',

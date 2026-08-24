@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import type { Expense, ExpenseGroup, Participant } from '../../types';
-import { formatMinorUnits } from '../../utils/money';
+import { mobileTheme } from '../../theme/tokens';
 import ExpenseListItem from '../ExpenseListItem';
 
 jest.mock('react-native', () => {
@@ -72,9 +72,8 @@ describe('ExpenseListItem interactions', () => {
     const onPress = jest.fn();
     const screen = render(
       <ExpenseListItem
-        currentParticipantIds={[participants[0].id]}
         currency='USD'
-        displayAmountMinor={2400}
+        displayAmountMinor={1200}
         group={group}
         item={expense}
         onDelete={jest.fn()}
@@ -89,14 +88,28 @@ describe('ExpenseListItem interactions', () => {
     expect(onPress).toHaveBeenCalledWith(expense);
     expect(screen.queryByText('Edit')).toBeNull();
     expect(screen.queryByText('Delete')).toBeNull();
-    expect(screen.getByLabelText('Expense amount USD 24.00')).toBeTruthy();
-    expect(
-      screen.getByText(
-        `Brisbane · Your share ${formatMinorUnits(1200, 'USD')}`,
-      ),
-    ).toBeTruthy();
+    expect(screen.getByLabelText('Expense amount USD 12.00')).toBeTruthy();
+    expect(screen.getByText('Food & Dining')).toBeTruthy();
+    expect(screen.getByText('Brisbane')).toBeTruthy();
+    expect(screen.queryByText(/Your share/)).toBeNull();
     expect(screen.queryByText(/Paid by:/)).toBeNull();
     expect(screen.queryByText('Birthday dinner')).toBeNull();
+    expect(screen.getByTestId('expense-card-expense-1').props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          backgroundColor: mobileTheme.colors.sharedSurface,
+          borderColor: mobileTheme.colors.sharedBorder,
+        }),
+      ]),
+    );
+    expect(screen.getByTestId('expense-group-badge-expense-1')).toBeTruthy();
+    const swipeable = screen.getByTestId('expense-swipeable-expense-1');
+    expect(swipeable.props.containerStyle).toEqual(
+      expect.objectContaining({ overflow: 'visible' }),
+    );
+    expect(swipeable.props.childrenContainerStyle).toEqual(
+      expect.objectContaining({ overflow: 'visible' }),
+    );
   });
 
   it('exposes Delete only through the left-swipe action', () => {
@@ -135,9 +148,8 @@ describe('ExpenseListItem interactions', () => {
     };
     const screen = render(
       <ExpenseListItem
-        currentParticipantIds={[participants[0].id]}
         currency='USD'
-        displayAmountMinor={2400}
+        displayAmountMinor={1200}
         group={group}
         item={multiPayerExpense}
         onDelete={jest.fn()}
@@ -146,11 +158,8 @@ describe('ExpenseListItem interactions', () => {
     );
 
     expect(screen.queryByText(/Paid by:/)).toBeNull();
-    expect(
-      screen.getByText(
-        `Brisbane · Your share ${formatMinorUnits(1200, 'USD')}`,
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText('Brisbane')).toBeTruthy();
+    expect(screen.queryByText(/Your share/)).toBeNull();
   });
 
   it('does not add sharing metadata to a personal expense card', () => {
@@ -163,7 +172,6 @@ describe('ExpenseListItem interactions', () => {
     };
     const screen = render(
       <ExpenseListItem
-        currentParticipantIds={['personal-participant']}
         currency='USD'
         displayAmountMinor={2400}
         group={null}
@@ -176,14 +184,66 @@ describe('ExpenseListItem interactions', () => {
     expect(screen.getByLabelText('Expense amount USD 24.00')).toBeTruthy();
     expect(screen.queryByText(/Your share/)).toBeNull();
     expect(screen.queryByText(/Paid by:/)).toBeNull();
+    expect(screen.getByTestId('expense-card-expense-1').props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          backgroundColor: mobileTheme.colors.surface,
+        }),
+      ]),
+    );
+    expect(screen.queryByTestId('expense-group-badge-expense-1')).toBeNull();
+  });
+
+  it('uses the same three-row minimum height for personal and shared cards', () => {
+    const personalExpense: Expense = {
+      ...expense,
+      id: 'personal-expense',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+    };
+    const shared = render(
+      <ExpenseListItem
+        currency='USD'
+        displayAmountMinor={1200}
+        group={group}
+        item={expense}
+        onDelete={jest.fn()}
+        onPress={jest.fn()}
+      />,
+    );
+    const personal = render(
+      <ExpenseListItem
+        currency='USD'
+        displayAmountMinor={2400}
+        group={null}
+        item={personalExpense}
+        onDelete={jest.fn()}
+        onPress={jest.fn()}
+      />,
+    );
+
+    const sharedStyle = shared
+      .getByTestId('expense-card-expense-1')
+      .props.style.flat();
+    const personalStyle = personal
+      .getByTestId('expense-card-personal-expense')
+      .props.style.flat();
+    const sharedMinHeight = sharedStyle.find(
+      (style: any) => style?.minHeight,
+    )?.minHeight;
+    const personalMinHeight = personalStyle.find(
+      (style: any) => style?.minHeight,
+    )?.minHeight;
+
+    expect(sharedMinHeight).toBeGreaterThanOrEqual(112);
+    expect(personalMinHeight).toBe(sharedMinHeight);
   });
 
   it('keeps a missing shared group understandable without exposing payer data', () => {
     const screen = render(
       <ExpenseListItem
-        currentParticipantIds={[participants[0].id]}
         currency='USD'
-        displayAmountMinor={2400}
+        displayAmountMinor={1200}
         group={null}
         item={expense}
         onDelete={jest.fn()}
@@ -191,11 +251,8 @@ describe('ExpenseListItem interactions', () => {
       />,
     );
 
-    expect(
-      screen.getByText(
-        `Archived group · Your share ${formatMinorUnits(1200, 'USD')}`,
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText('Archived group')).toBeTruthy();
+    expect(screen.queryByText(/Your share/)).toBeNull();
     expect(screen.queryByText(/Paid by:/)).toBeNull();
   });
 });

@@ -129,7 +129,7 @@ jest.mock('../../components/ExpenseListItem', () => {
 jest.mock('../../components/FloatingActionButton', () => () => null);
 
 describe('Expenses personal ledger projection', () => {
-  it('renders original card amounts while totaling only the user shares', () => {
+  it('renders the user share on shared cards and totals the same ledger amounts', () => {
     const screen = render(<ExpensesScreen />);
 
     expect(screen.getByTestId('expense-paid-only-legacy')).toBeTruthy();
@@ -137,10 +137,10 @@ describe('Expenses personal ledger projection', () => {
     expect(screen.queryByTestId('expense-unrelated')).toBeNull();
     expect(
       screen.getByTestId('expense-paid-only-legacy').props.displayAmountMinor,
-    ).toBe(100);
+    ).toBe(0);
     expect(
       screen.getByTestId('expense-linked-share').props.displayAmountMinor,
-    ).toBe(100);
+    ).toBe(30);
     expect(screen.getByText(/Your Total Share:/).props.children).toEqual([
       'Your Total Share:',
       ' ',
