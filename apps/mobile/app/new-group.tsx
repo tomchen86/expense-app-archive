@@ -7,6 +7,15 @@ import { useExpenseStore } from '../src/store/expenseStore';
 import { semanticColors } from '../src/theme/semantic-colors';
 import { mobileTheme } from '../src/theme/tokens';
 
+const closeNewGroupRoute = () => {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+
+  router.replace('/history');
+};
+
 const NewGroupScreen = () => {
   const addGroup = useExpenseStore((state) => state.addGroup);
   const [groupName, setGroupName] = useState('');
@@ -30,7 +39,7 @@ const NewGroupScreen = () => {
     try {
       await addGroup(trimmedGroupName);
       finishSubmitting();
-      router.back();
+      closeNewGroupRoute();
     } catch {
       finishSubmitting();
       Alert.alert(
@@ -43,13 +52,17 @@ const NewGroupScreen = () => {
   return (
     <View style={styles.screen}>
       <Stack.Screen
-        options={{ gestureEnabled: !isSubmitting, title: 'New Group' }}
+        options={{
+          contentStyle: { backgroundColor: semanticColors.background },
+          gestureEnabled: !isSubmitting,
+          title: 'New Group',
+        }}
       />
       <Stack.Toolbar placement='left'>
         <Stack.Toolbar.Button
           accessibilityLabel='Cancel'
           disabled={isSubmitting}
-          onPress={() => router.back()}
+          onPress={closeNewGroupRoute}
         >
           Cancel
         </Stack.Toolbar.Button>

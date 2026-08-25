@@ -4,6 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { router, Stack } from 'expo-router';
 
 import NewGroupScreen from '../../../app/new-group';
+import { semanticColors } from '../../theme/semantic-colors';
 
 const mockAddGroup = jest.fn();
 
@@ -57,6 +58,14 @@ describe('NewGroupScreen', () => {
 
     await waitFor(() => expect(mockAddGroup).toHaveBeenCalledWith('Brisbane'));
     expect(router.back).toHaveBeenCalledTimes(1);
+    const latestScreenOptions = (
+      Stack.Screen as unknown as jest.Mock
+    ).mock.calls.at(-1)?.[0]?.options;
+    expect(latestScreenOptions).toEqual(
+      expect.objectContaining({
+        contentStyle: { backgroundColor: semanticColors.background },
+      }),
+    );
   });
 
   it('keeps the sheet open and retryable when durable creation fails', async () => {
@@ -81,6 +90,16 @@ describe('NewGroupScreen', () => {
       'Durable group',
     );
     expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled();
+  });
+
+  it('returns direct-link sheets to Groups without dispatching an invalid back action', () => {
+    (router.canGoBack as jest.Mock).mockReturnValueOnce(false);
+    const screen = render(<NewGroupScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/history');
   });
 
   it('locks dismissal while creation is in flight', () => {
