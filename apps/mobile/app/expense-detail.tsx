@@ -24,12 +24,14 @@ import { resolvePersonalParticipantIds } from '../src/utils/personalExpenseSelec
 import { formatLocalDateForDisplay } from '../src/utils/dateFormat';
 import { mobileTheme } from '../src/theme/tokens';
 import { ExpenseDetailHeaderActions } from '../src/components/navigation/expense-detail-header-actions';
+import { resolveExpenseCategoryPresentation } from '../src/utils/categoryDomain';
 
 const ExpenseDetailScreen = () => {
   const params = useLocalSearchParams<{ expenseId?: RouteParam }>();
   const expenseId = resolveSingleRouteParam(params.expenseId);
   const expenses = useExpenseStore((state) => state.expenses);
   const groups = useExpenseStore((state) => state.groups);
+  const categories = useExpenseStore((state) => state.categories);
   const participants = useExpenseStore((state) => state.participants);
   const internalUserId = useExpenseStore((state) => state.internalUserId);
   const personalParticipantId = useExpenseStore(
@@ -79,8 +81,13 @@ const ExpenseDetailScreen = () => {
         : null,
     [currentParticipantIds, expense, group, participants],
   );
+  const categoryPresentation = useMemo(
+    () =>
+      expense ? resolveExpenseCategoryPresentation(expense, categories) : null,
+    [categories, expense],
+  );
 
-  if (!expense || !projection) {
+  if (!expense || !projection || !categoryPresentation) {
     return (
       <View style={styles.screen}>
         <Stack.Screen options={{ title: 'Expense' }} />
@@ -183,7 +190,7 @@ const ExpenseDetailScreen = () => {
           {isHistoricalSharedExpense ? (
             <DetailRow label='Status' value='Archived · Read-only' />
           ) : null}
-          <DetailRow label='Category' value={expense.category} />
+          <DetailRow label='Category' value={categoryPresentation.label} />
           <DetailRow
             label='Date'
             value={formatLocalDateForDisplay(expense.date)}

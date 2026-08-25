@@ -6,11 +6,24 @@
 // Represents the name of the category, used as an identifier
 export type ExpenseCategory = string;
 
+export type CategoryScopeKind = 'system' | 'personal' | 'group';
+
+export interface CategorySnapshot {
+  name: string;
+  color: string;
+  icon?: string;
+}
+
 export interface Category {
-  id: string; // Stable UUID; legacy name-based identifiers require migration before sync.
+  id: string; // Server-backed categories use UUIDs; system catalog entries can use local keys.
   name: string;
   color: string; // Hex color code
   isDefault?: boolean;
+  isSystem?: boolean;
+  archivedAt?: string;
+  scopeKind?: CategoryScopeKind;
+  spaceId?: string;
+  createdByUserId?: string;
 }
 
 export interface Participant {
@@ -82,6 +95,7 @@ export interface Expense {
   caption?: string;
   category: ExpenseCategory;
   categoryId?: string;
+  categorySnapshot?: CategorySnapshot;
 
   // Canonical V2 fields. All newly-created expenses populate these fields.
   amountMinor?: number;
@@ -205,6 +219,8 @@ export interface ExpenseState {
   // Category management
   addCategory: (categoryData: Omit<Category, 'id'>) => Category; // Returns the new category with an ID
   updateCategory: (category: Category) => void;
+  archiveCategory: (categoryId: string) => void;
+  restoreCategory: (categoryId: string) => void;
   deleteCategory: (categoryId: string) => void;
   getCategoryByName: (name: string) => Category | undefined;
 }

@@ -82,6 +82,9 @@ const buildUpdatedExpense = (
           ...(updatedExpense.categoryId
             ? { categoryId: updatedExpense.categoryId }
             : {}),
+          ...(updatedExpense.categorySnapshot
+            ? { categorySnapshot: updatedExpense.categorySnapshot }
+            : {}),
           spaceId: updatedExpense.spaceId,
           spaceKind: updatedExpense.spaceKind,
           payments: updatedExpense.payments,

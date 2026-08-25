@@ -38,6 +38,7 @@ import { useExpenseDeletion } from '../src/components/feedback/expense-deletion-
 import GroupMembersModal from '../src/components/groups/GroupMembersModal';
 import { GroupDetailHeaderActions } from '../src/components/navigation/group-detail-header-actions';
 import TextInputModal from '../src/components/TextInputModal';
+import { resolveExpenseCategoryPresentation } from '../src/utils/categoryDomain';
 
 const GroupDetailScreen = () => {
   const params = useLocalSearchParams<{ groupId?: RouteParam }>();
@@ -45,6 +46,7 @@ const GroupDetailScreen = () => {
 
   const expenses = useExpenseStore((state) => state.expenses);
   const groups = useExpenseStore((state) => state.groups);
+  const categories = useExpenseStore((state) => state.categories);
   const restoreGroup = useExpenseStore((state) => state.restoreGroup);
   const internalUserId = useExpenseStore((state) => state.internalUserId);
   const canonicalUserId = useExpenseStore((state) => state.user?.id ?? null);
@@ -237,6 +239,9 @@ const GroupDetailScreen = () => {
       <ExpenseListItem
         item={item}
         group={group ?? null}
+        categoryLabel={
+          resolveExpenseCategoryPresentation(item, categories).label
+        }
         displayAmountMinor={getExpenseAmountMinor(item)}
         currency={getExpenseCurrency(item)}
         onPress={handlePress}

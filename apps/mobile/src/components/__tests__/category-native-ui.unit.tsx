@@ -9,6 +9,7 @@ import CategoryListItem from '../categories/CategoryListItem';
 const mockOpenAddModal = jest.fn();
 const mockOpenEditModal = jest.fn();
 const mockDeleteCategory = jest.fn();
+const mockRestoreCategory = jest.fn();
 
 const mockCategories: Category[] = [
   {
@@ -69,6 +70,7 @@ jest.mock('react-native', () => {
 
 jest.mock('expo-router', () => {
   const React = jest.requireActual<typeof import('react')>('react');
+  const Screen = () => null;
   const Toolbar = ({ children, ...props }: any) =>
     React.createElement('Toolbar', props, children);
   Toolbar.Button = ({ children, ...props }: any) =>
@@ -78,7 +80,7 @@ jest.mock('expo-router', () => {
       children,
     );
 
-  return { Stack: { Toolbar } };
+  return { Stack: { Screen, Toolbar }, useLocalSearchParams: () => ({}) };
 });
 
 jest.mock('react-native-reanimated', () => ({
@@ -108,17 +110,27 @@ jest.mock('../../hooks/useCategoryManager', () => ({
   useCategoryManager: () => ({
     canDeleteCategory: (category: Category) => !category.isDefault,
     categories: mockCategories,
+    activeCategories: mockCategories,
+    archivedCategories: [],
+    canEditCategory: () => true,
+    canPermanentlyDeleteCategory: () => false,
+    closeMoveExpenses: jest.fn(),
     closeModal: jest.fn(),
     deleteCategory: mockDeleteCategory,
     isEditing: null,
+    moveExpensesToCategory: jest.fn(),
+    moveTargetCategories: [],
     modalVisible: false,
+    movingCategory: null,
     openAddModal: mockOpenAddModal,
     openEditModal: mockOpenEditModal,
+    restoreCategory: mockRestoreCategory,
     saveCategory: jest.fn(),
   }),
 }));
 
 jest.mock('../categories/CategoryForm', () => () => null);
+jest.mock('../SelectionModal', () => () => null);
 
 describe('native category management UI', () => {
   beforeEach(() => {
@@ -132,7 +144,7 @@ describe('native category management UI', () => {
     expect(screen.queryByText('+ Add New Category')).toBeNull();
     expect(
       screen.getByText(
-        'Tap a category to edit. Swipe left on custom categories to delete.',
+        'Tap a category to edit. Removing a category in use will offer Archive or explicit reclassification.',
       ),
     ).toBeTruthy();
 
@@ -181,5 +193,31 @@ describe('native category management UI', () => {
     fireEvent.press(deleteButton);
     expect(close).toHaveBeenCalledTimes(1);
     expect(mockDeleteCategory).toHaveBeenCalledWith('custom-category');
+  });
+
+  it('makes an archived category explicitly restorable', () => {
+    const archivedCategory: Category = {
+      id: 'archived-category',
+      name: 'Coffee',
+      color: '#111111',
+      archivedAt: '2026-08-25T00:00:00.000Z',
+    };
+    const screen = render(
+      <CategoryListItem
+        archived
+        canDelete={false}
+        category={archivedCategory}
+        isLast
+        onDelete={mockDeleteCategory}
+        onEdit={mockOpenEditModal}
+        onRestore={mockRestoreCategory}
+      />,
+    );
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Restore Coffee category' }),
+    );
+    expect(mockRestoreCategory).toHaveBeenCalledWith(archivedCategory.id);
+    expect(mockOpenEditModal).not.toHaveBeenCalled();
   });
 });

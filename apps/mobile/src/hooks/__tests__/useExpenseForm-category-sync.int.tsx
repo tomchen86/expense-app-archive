@@ -145,7 +145,7 @@ describe('useExpenseForm - Category Sync Integration', () => {
     expect(result.current.formState.category).toBe('Food');
   });
 
-  it('should fallback to "Other" if categories array is empty', () => {
+  it('should fallback to "Uncategorized" if categories array is empty', () => {
     // Set store to have no categories (edge case)
     act(() => {
       useExpenseStore.setState({
@@ -157,8 +157,7 @@ describe('useExpenseForm - Category Sync Integration', () => {
       useExpenseForm({ draftSessionId: 'category-sync', editingExpense: null }),
     );
 
-    // Should fallback to "Other"
-    expect(result.current.formState.category).toBe('Other');
+    expect(result.current.formState.category).toBe('Uncategorized');
   });
 
   it('should reset to first category when editingExpense becomes null', () => {

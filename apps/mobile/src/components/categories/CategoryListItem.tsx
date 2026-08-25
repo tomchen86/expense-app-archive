@@ -12,7 +12,10 @@ interface CategoryListItemProps {
   category: Category;
   onEdit: (category: Category) => void;
   onDelete: (categoryId: string) => void;
+  onRestore?: (categoryId: string) => void;
+  archived?: boolean;
   canDelete?: boolean;
+  canEdit?: boolean;
   isLast?: boolean;
 }
 
@@ -20,7 +23,10 @@ const CategoryListItem: React.FC<CategoryListItemProps> = ({
   category,
   onEdit,
   onDelete,
+  onRestore,
+  archived = false,
   canDelete = true,
+  canEdit = true,
   isLast = false,
 }) => {
   const displayName = category.name.trim() || 'Unnamed Category';
@@ -30,9 +36,13 @@ const CategoryListItem: React.FC<CategoryListItemProps> = ({
     swipeable: SwipeableMethods,
   ) => (
     <AdaptiveSwipeAction
-      accessibilityLabel={`Delete ${displayName} category`}
+      accessibilityLabel={
+        archived
+          ? `Permanently delete ${displayName} category`
+          : `Delete ${displayName} category`
+      }
       accessibilityRole='button'
-      label='Delete'
+      label={archived ? 'Delete' : 'Remove'}
       onPress={() => {
         swipeable.close();
         onDelete(category.id);
@@ -47,18 +57,35 @@ const CategoryListItem: React.FC<CategoryListItemProps> = ({
         canDelete ? [{ label: 'Delete category', name: 'delete' }] : undefined
       }
       accessibilityHint={
-        canDelete
-          ? 'Opens the category editor. Swipe left to delete.'
-          : 'Opens the category editor. Default categories cannot be deleted.'
+        archived
+          ? 'Restores this category for new expenses.'
+          : canDelete
+            ? 'Opens the category editor. Swipe left to delete.'
+            : canEdit
+              ? 'Opens the category editor. Default categories cannot be deleted.'
+              : 'This system category cannot be edited or deleted.'
       }
-      accessibilityLabel={`Edit ${displayName} category`}
-      accessibilityRole='button'
+      accessibilityLabel={
+        archived
+          ? `Restore ${displayName} category`
+          : canEdit
+            ? `Edit ${displayName} category`
+            : `${displayName} system category`
+      }
+      accessibilityRole={archived || canEdit ? 'button' : 'text'}
+      disabled={!archived && !canEdit}
       onAccessibilityAction={(event) => {
         if (canDelete && event.nativeEvent.actionName === 'delete') {
           onDelete(category.id);
         }
       }}
-      onPress={() => onEdit(category)}
+      onPress={() => {
+        if (archived) {
+          onRestore?.(category.id);
+        } else if (canEdit) {
+          onEdit(category);
+        }
+      }}
       activeOpacity={0.7}
       style={[styles.itemContainer, isLast && styles.lastItem]}
       testID={`category-row-${category.id}`}
@@ -67,6 +94,7 @@ const CategoryListItem: React.FC<CategoryListItemProps> = ({
       <Text numberOfLines={1} style={styles.itemName}>
         {displayName}
       </Text>
+      {archived ? <Text style={styles.restoreText}>Restore</Text> : null}
     </TouchableOpacity>
   );
 
@@ -112,6 +140,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: semanticColors.text,
     flex: 1,
+  },
+  restoreText: {
+    color: semanticColors.primary,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

@@ -3,7 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import ExpenseDetailScreen from '../../../app/expense-detail';
-import type { Expense, ExpenseGroup, Participant } from '../../types';
+import type { Category, Expense, ExpenseGroup, Participant } from '../../types';
 import { formatLocalDateForDisplay } from '../../utils/dateFormat';
 
 jest.mock('react-native', () => {
@@ -42,6 +42,11 @@ const mockGroup: ExpenseGroup = {
   participants: mockParticipants,
   createdAt: '2026-08-01T00:00:00.000Z',
 };
+const mockCategory: Category = {
+  id: 'category-food',
+  name: 'Food & Dining',
+  color: '#D81B60',
+};
 const mockExpense: Expense = {
   id: 'expense-1',
   title: 'Dinner',
@@ -49,6 +54,7 @@ const mockExpense: Expense = {
   currency: 'USD',
   date: '2026-08-24',
   category: 'Food & Dining',
+  categoryId: mockCategory.id,
   caption: 'Birthday dinner',
   spaceId: mockGroup.id,
   spaceKind: 'shared',
@@ -73,6 +79,7 @@ jest.mock('../../store/expenseStore', () => ({
       expenses: [mockExpense],
       groups: [mockGroup],
       participants: mockParticipants,
+      categories: [mockCategory],
       internalUserId: 'user-tom',
       personalParticipantId: 'personal-participant',
     }),
@@ -90,6 +97,7 @@ describe('ExpenseDetailScreen', () => {
       { participantId: mockParticipants[2].id, amountMinor: 2000 },
     ];
     delete mockGroup.archivedAt;
+    delete mockCategory.archivedAt;
     (useLocalSearchParams as jest.Mock).mockReturnValue({
       expenseId: mockExpense.id,
     });
@@ -188,5 +196,15 @@ describe('ExpenseDetailScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
     expect(mockRequestExpenseDeletion).not.toHaveBeenCalled();
     expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('labels an archived category without rewriting the expense', () => {
+    mockCategory.archivedAt = '2026-08-25T01:00:00.000Z';
+
+    const screen = render(<ExpenseDetailScreen />);
+
+    expect(screen.getByText('Food & Dining (Archived)')).toBeTruthy();
+    expect(mockExpense.category).toBe('Food & Dining');
+    expect(mockExpense.categoryId).toBe(mockCategory.id);
   });
 });

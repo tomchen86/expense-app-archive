@@ -45,16 +45,40 @@ export const useExpenseModals = <TFormState extends ModalFormState>({
 
   // Category modal data
   const categoryModalData = useMemo(() => {
-    const categoryNames = categories.map((cat) => cat.name);
+    const categoryNames = categories
+      .filter((category) => !category.archivedAt)
+      .filter((category) => {
+        if (category.scopeKind === 'system') {
+          return true;
+        }
+        if (formState.selectedGroup) {
+          return (
+            category.scopeKind === 'group' &&
+            category.spaceId === formState.selectedGroup.id
+          );
+        }
+        return !category.scopeKind || category.scopeKind === 'personal';
+      })
+      .map((category) => category.name);
     return [...categoryNames, ADD_NEW_CATEGORY_ACTION];
-  }, [categories]);
+  }, [categories, formState.selectedGroup]);
 
   // Modal handlers
   const handleCategorySelect = (
     item: ExpenseCategory | typeof ADD_NEW_CATEGORY_ACTION,
   ) => {
     if (item === ADD_NEW_CATEGORY_ACTION) {
-      router.push('/manage-categories');
+      router.push(
+        formState.selectedGroup
+          ? {
+              pathname: '/manage-categories',
+              params: {
+                scopeKind: 'group',
+                spaceId: formState.selectedGroup.id,
+              },
+            }
+          : '/manage-categories',
+      );
     } else {
       handleUpdateFormState('category', item);
     }

@@ -135,6 +135,25 @@ describe('CategoryStore', () => {
     ).toBe(second.color);
   });
 
+  it('prevents renaming the reserved Uncategorized category', () => {
+    const uncategorized = useCategoryStore
+      .getState()
+      .categories.find((category) => category.name === 'Uncategorized');
+
+    expect(uncategorized).toBeDefined();
+    expect(() =>
+      useCategoryStore.getState().updateCategory({
+        ...uncategorized!,
+        name: 'Something Else',
+      }),
+    ).toThrow('Uncategorized cannot be renamed');
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find((category) => category.id === uncategorized?.id)?.name,
+    ).toBe('Uncategorized');
+  });
+
   it('does not delete a custom category referenced by an active expense', () => {
     const warnSpy = jest
       .spyOn(console, 'warn')
@@ -160,5 +179,49 @@ describe('CategoryStore', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       `Cannot delete category "${category.name}" while active expenses use it.`,
     );
+  });
+
+  it('archives and restores a used custom category without rewriting expenses', () => {
+    const category = useCategoryStore
+      .getState()
+      .addCategory({ name: 'Coffee', color: '#111111' });
+    const expense = {
+      id: 'expense-coffee',
+      title: 'Flat white',
+      date: '2026-08-25',
+      category: category.name,
+      categoryId: category.id,
+    };
+    useExpenseStore.setState({ expenses: [expense] });
+
+    useCategoryStore.getState().archiveCategory(category.id);
+
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find(({ id }) => id === category.id)?.archivedAt,
+    ).toEqual(expect.any(String));
+    expect(useExpenseStore.getState().expenses[0]).toEqual(expense);
+
+    useCategoryStore.getState().restoreCategory(category.id);
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find(({ id }) => id === category.id),
+    ).not.toHaveProperty('archivedAt');
+  });
+
+  it('permanently deletes a custom category only when it is unused', () => {
+    const category = useCategoryStore
+      .getState()
+      .addCategory({ name: 'Temporary', color: '#111111' });
+
+    useCategoryStore.getState().deleteCategory(category.id);
+
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.some(({ id }) => id === category.id),
+    ).toBe(false);
   });
 });

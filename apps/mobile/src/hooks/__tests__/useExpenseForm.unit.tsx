@@ -392,7 +392,36 @@ describe('useExpenseForm', () => {
     expect(useExpenseFeatureStore.getState().expenses[0]).toMatchObject({
       category: category.name,
       categoryId: category.id,
+      categorySnapshot: {
+        name: category.name,
+        color: category.color,
+      },
     });
+  });
+  it('keeps a system category snapshot without storing its legacy name as an API ID', async () => {
+    const category = DEFAULT_CATEGORIES[0];
+    const ref = createRef<ReturnType<typeof useExpenseForm>>();
+    act(() => {
+      TestRenderer.create(<HookHarness ref={ref} editingExpense={null} />);
+    });
+    act(() => {
+      ref.current!.handleUpdateFormState('title', 'System category expense');
+      ref.current!.handleUpdateFormState('amount', '12.00');
+    });
+    await act(async () => {
+      await ref.current!.handleSubmit();
+    });
+
+    expect(useExpenseFeatureStore.getState().expenses[0]).toMatchObject({
+      category: category.name,
+      categorySnapshot: {
+        name: category.name,
+        color: category.color,
+      },
+    });
+    expect(useExpenseFeatureStore.getState().expenses[0]).not.toHaveProperty(
+      'categoryId',
+    );
   });
   it('validates group expenses require payer and participants', async () => {
     const group: ExpenseGroup = {

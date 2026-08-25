@@ -138,6 +138,27 @@ describe('insightCalculations', () => {
       });
     });
 
+    it('uses an expense category snapshot when its reference is unavailable', () => {
+      const expenses = [
+        createMockExpense({
+          category: 'Uncategorized',
+          categoryId: 'missing-category',
+          categorySnapshot: {
+            name: 'Road Trip',
+            color: '#5678C8',
+          },
+          amount: 50,
+        }),
+      ];
+
+      const result = generateCategoryChartData(expenses, [], '#CCCCCC');
+
+      expect(result[0]).toMatchObject({
+        category: 'Road Trip',
+        color: '#5678C8',
+      });
+    });
+
     it('should return empty array for no expenses', () => {
       const result = generateCategoryChartData([], mockCategories);
       expect(result).toEqual([]);

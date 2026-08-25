@@ -1,161 +1,163 @@
-import React, { createRef, forwardRef, useImperativeHandle } from 'react';
-import { Alert } from 'react-native';
-import TestRenderer, { act } from 'react-test-renderer';
-import { DEFAULT_CATEGORIES } from '../../constants/expenses';
-import { useExpenseStore as useComposedExpenseStore } from '../../store/expenseStore';
-import { useCategoryStore } from '../../store/features/categoryStore';
-import { useCategoryManager } from '../useCategoryManager';
-
 jest.mock('react-native', () => ({
-  Alert: {
-    alert: jest.fn(),
-  },
+  Alert: { alert: jest.fn() },
 }));
 
-const HookHarness = forwardRef((_, ref) => {
-  const hookValue = useCategoryManager();
-  useImperativeHandle(ref, () => hookValue, [hookValue]);
-  return null;
-});
-HookHarness.displayName = 'HookHarness';
+import React, { createRef, forwardRef, useImperativeHandle } from 'react';
+import TestRenderer, { act } from 'react-test-renderer';
+import { Alert } from 'react-native';
 
-const resetCategoryStores = () => {
-  useCategoryStore.setState({
-    categories: DEFAULT_CATEGORIES.map((category) => ({ ...category })),
-  });
-  useComposedExpenseStore.setState((state) => ({
-    ...state,
-    categories: DEFAULT_CATEGORIES.map((category) => ({ ...category })),
-  }));
+import { DEFAULT_CATEGORIES } from '../../constants/expenses';
+import { useCategoryManager } from '../useCategoryManager';
+import { useExpenseStore as useComposedExpenseStore } from '../../store/expenseStore';
+import { useCategoryStore } from '../../store/features/categoryStore';
+import { useExpenseStore as useExpenseFeatureStore } from '../../store/features/expenseStore';
+import type { Category, Expense } from '../../types';
+
+const customCategory: Category = {
+  id: '8a30b5fa-5e8e-448d-8df8-4aa46385269c',
+  name: 'Coffee',
+  color: '#111111',
+  scopeKind: 'personal',
 };
 
-describe('useCategoryManager', () => {
+const coffeeExpense: Expense = {
+  id: '91ad2a3e-0d69-437a-a1af-0df06953932b',
+  title: 'Flat white',
+  amountMinor: 500,
+  currency: 'USD',
+  date: '2026-08-25',
+  category: customCategory.name,
+  categoryId: customCategory.id,
+  categorySnapshot: {
+    name: customCategory.name,
+    color: customCategory.color,
+  },
+  spaceId: 'personal-space',
+  spaceKind: 'personal',
+  payments: [{ participantId: 'personal-participant', amountMinor: 500 }],
+  shares: [{ participantId: 'personal-participant', amountMinor: 500 }],
+};
+
+type HookValue = ReturnType<typeof useCategoryManager>;
+type HarnessProps = NonNullable<Parameters<typeof useCategoryManager>[0]>;
+
+const Harness = forwardRef<HookValue, HarnessProps>((props, ref) => {
+  const value = useCategoryManager(props);
+  useImperativeHandle(ref, () => value, [value]);
+  return null;
+});
+
+describe('useCategoryManager archive lifecycle', () => {
   beforeEach(() => {
-    resetCategoryStores();
-    (Alert.alert as jest.Mock).mockClear();
+    jest.clearAllMocks();
+    const categories = [
+      ...DEFAULT_CATEGORIES.map((category) => ({ ...category })),
+      { ...customCategory },
+    ];
+    useCategoryStore.setState({ categories });
+    useExpenseFeatureStore.setState({ expenses: [{ ...coffeeExpense }] });
+    useComposedExpenseStore.setState({
+      categories,
+      expenses: [{ ...coffeeExpense }],
+    });
   });
 
-  it('opens and closes modals for create vs edit flows', () => {
-    const ref = createRef<ReturnType<typeof useCategoryManager>>();
-
+  it('offers Archive and Move Expenses for a referenced category', () => {
+    const ref = createRef<HookValue>();
     act(() => {
-      TestRenderer.create(<HookHarness ref={ref} />);
+      TestRenderer.create(<Harness ref={ref} />);
     });
 
-    expect(ref.current?.modalVisible).toBe(false);
+    act(() => ref.current!.deleteCategory(customCategory.id));
 
-    act(() => {
-      ref.current?.openAddModal();
-    });
-    expect(ref.current?.modalVisible).toBe(true);
-    expect(ref.current?.isEditing).toBeNull();
-
-    const firstCategory = ref.current!.categories[0];
-
-    act(() => {
-      ref.current?.openEditModal(firstCategory);
-    });
-    expect(ref.current?.modalVisible).toBe(true);
-    expect(ref.current?.isEditing).toEqual(firstCategory);
-
-    act(() => {
-      ref.current?.closeModal();
-    });
-    expect(ref.current?.modalVisible).toBe(false);
-    expect(ref.current?.isEditing).toBeNull();
-  });
-
-  it('adds new categories when name unique', () => {
-    const ref = createRef<ReturnType<typeof useCategoryManager>>();
-
-    act(() => {
-      TestRenderer.create(<HookHarness ref={ref} />);
-    });
-
-    act(() => {
-      ref.current?.openAddModal();
-      ref.current?.saveCategory('Fitness', '#00FF00');
-    });
-
-    expect(Alert.alert).not.toHaveBeenCalled();
-    expect(
-      useCategoryStore.getState().getCategoryByName('Fitness')?.color,
-    ).toBe('#00FF00');
-  });
-
-  it('rejects duplicate category names', () => {
-    const ref = createRef<ReturnType<typeof useCategoryManager>>();
-
-    act(() => {
-      TestRenderer.create(<HookHarness ref={ref} />);
-    });
-
-    const existing = ref.current!.categories[0];
-
-    let didSave: boolean | undefined;
-    act(() => {
-      ref.current?.openAddModal();
-      didSave = ref.current?.saveCategory(existing.name, '#123456');
-    });
-
-    expect(didSave).toBe(false);
     expect(Alert.alert).toHaveBeenCalledWith(
-      'Error',
-      'A category with this name already exists.',
+      'Archive “Coffee”?',
+      expect.stringContaining('1 expense'),
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'Archive' }),
+        expect.objectContaining({ text: 'Move Expenses…' }),
+        expect.objectContaining({ text: 'Cancel' }),
+      ]),
+    );
+
+    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+    act(() =>
+      buttons
+        .find(({ text }: { text: string }) => text === 'Archive')
+        .onPress(),
+    );
+
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find(({ id }) => id === customCategory.id)?.archivedAt,
+    ).toEqual(expect.any(String));
+    expect(useExpenseFeatureStore.getState().expenses[0].category).toBe(
+      'Coffee',
     );
   });
 
-  it('rejects renaming a category to another existing name', () => {
-    const ref = createRef<ReturnType<typeof useCategoryManager>>();
-
+  it('moves referenced expenses only after an explicit destination choice', () => {
+    const ref = createRef<HookValue>();
     act(() => {
-      TestRenderer.create(<HookHarness ref={ref} />);
+      TestRenderer.create(<Harness ref={ref} />);
     });
+    act(() => ref.current!.deleteCategory(customCategory.id));
+    const buttons = (Alert.alert as jest.Mock).mock.calls[0][2];
+    act(() =>
+      buttons
+        .find(({ text }: { text: string }) => text === 'Move Expenses…')
+        .onPress(),
+    );
 
-    const first = ref.current!.categories[0];
-    const second = ref.current!.categories[1];
-    let didSave: boolean | undefined;
+    expect(ref.current!.movingCategory?.id).toBe(customCategory.id);
+    const uncategorized = DEFAULT_CATEGORIES.find(
+      ({ name }) => name === 'Uncategorized',
+    )!;
+    act(() => ref.current!.moveExpensesToCategory(uncategorized));
 
-    act(() => {
-      ref.current?.openEditModal(second);
-      didSave = ref.current?.saveCategory(first.name, second.color);
+    expect(useExpenseFeatureStore.getState().expenses[0]).toMatchObject({
+      category: 'Uncategorized',
+      categorySnapshot: {
+        name: 'Uncategorized',
+        color: uncategorized.color,
+      },
     });
-
-    expect(didSave).toBe(false);
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Error',
-      'A category with this name already exists.',
+    expect(useExpenseFeatureStore.getState().expenses[0]).not.toHaveProperty(
+      'categoryId',
     );
     expect(
-      useCategoryStore.getState().getCategoryByName(second.name),
-    ).toBeDefined();
+      useCategoryStore
+        .getState()
+        .categories.find(({ id }) => id === customCategory.id)?.archivedAt,
+    ).toEqual(expect.any(String));
   });
 
-  it('updates existing categories and prevents deleting every default', () => {
-    const ref = createRef<ReturnType<typeof useCategoryManager>>();
-
+  it('creates a group-owned category and hides personal categories in group scope', () => {
+    const ref = createRef<HookValue>();
     act(() => {
-      TestRenderer.create(<HookHarness ref={ref} />);
-    });
-
-    const categoryToEdit = ref.current!.categories[1];
-
-    act(() => {
-      ref.current?.openEditModal(categoryToEdit);
-      ref.current?.saveCategory('Updated Name', '#654321');
+      TestRenderer.create(
+        <Harness ref={ref} scopeKind='group' spaceId='group-brisbane' />,
+      );
     });
 
     expect(
-      useCategoryStore.getState().getCategoryByName('Updated Name')?.color,
-    ).toBe('#654321');
+      ref.current!.activeCategories.some(
+        (category) => category.id === customCategory.id,
+      ),
+    ).toBe(false);
 
     act(() => {
-      ref.current?.deleteCategory(ref.current!.categories[0].id);
+      expect(ref.current!.saveCategory('Road Trip', '#010203')).toBe(true);
     });
 
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Error',
-      'Default categories cannot be deleted.',
-    );
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find((category) => category.name === 'Road Trip'),
+    ).toMatchObject({
+      scopeKind: 'group',
+      spaceId: 'group-brisbane',
+    });
   });
 });

@@ -40,7 +40,7 @@ import {
   getExpenseSpaceKind,
 } from '../utils/expenseDomain';
 import { isExpenseGroupArchived } from '../utils/groupDomain';
-import { createUuid } from '../utils/ids';
+import { createUuid, isUuid } from '../utils/ids';
 
 // Define the shape of the form data
 interface FormState {
@@ -189,6 +189,9 @@ export const useExpenseForm = ({
     () => allGroups.filter((group) => !isExpenseGroupArchived(group)),
     [allGroups],
   );
+  const defaultCategory =
+    categories.find((category) => !category.archivedAt)?.name ??
+    'Uncategorized';
 
   // Find the current user's participant entry
   const _currentUserParticipant = useMemo(() => {
@@ -237,7 +240,7 @@ export const useExpenseForm = ({
       amount: '',
       date: new Date(),
       caption: '',
-      category: categories[0]?.name ?? 'Other',
+      category: defaultCategory,
       selectedGroup: null,
       paidByParticipant: null,
       selectedParticipants: [],
@@ -325,7 +328,7 @@ export const useExpenseForm = ({
         amount: '',
         date: new Date(),
         caption: '',
-        category: categories[0]?.name ?? 'Other',
+        category: defaultCategory,
         selectedGroup: initialGroup,
         paidByParticipant: null,
         selectedParticipants: [],
@@ -422,6 +425,7 @@ export const useExpenseForm = ({
     groups,
     participants,
     categories,
+    defaultCategory,
     initialSpaceId,
     submissionContextKey,
   ]);
@@ -800,6 +804,13 @@ export const useExpenseForm = ({
     const selectedCategory = categories.find(
       (category) => category.name === formState.category,
     );
+    const selectedCategoryId =
+      selectedCategory && isUuid(selectedCategory.id)
+        ? selectedCategory.id
+        : editingExpense?.category === formState.category &&
+            isUuid(editingExpense.categoryId)
+          ? editingExpense.categoryId
+          : undefined;
 
     // Prepare data for the store action
     const expenseData = {
@@ -808,7 +819,17 @@ export const useExpenseForm = ({
       currency,
       date: formatLocalCalendarDate(formState.date),
       category: formState.category,
-      ...(selectedCategory ? { categoryId: selectedCategory.id } : {}),
+      ...(selectedCategoryId ? { categoryId: selectedCategoryId } : {}),
+      ...(selectedCategory
+        ? {
+            categorySnapshot: {
+              name: selectedCategory.name,
+              color: selectedCategory.color,
+            },
+          }
+        : editingExpense?.categorySnapshot
+          ? { categorySnapshot: editingExpense.categorySnapshot }
+          : {}),
       spaceId,
       spaceKind: isSharedExpense ? ('shared' as const) : ('personal' as const),
       payments,

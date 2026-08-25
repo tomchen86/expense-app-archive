@@ -17,6 +17,7 @@ interface ExpenseListItemProps {
   item: Expense;
   group: ExpenseGroup | null;
   displayAmountMinor: number;
+  categoryLabel?: string;
   currency?: string;
   onPress: (expense: Expense) => void;
   onDelete: (expense: Expense) => void;
@@ -26,6 +27,7 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
   item,
   group,
   displayAmountMinor,
+  categoryLabel,
   currency,
   onPress,
   onDelete,
@@ -125,7 +127,7 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
               numberOfLines={1}
               style={styles.expenseCategory}
             >
-              {item.category}
+              {categoryLabel ?? item.category}
             </Text>
             {isSharedExpense ? (
               <View

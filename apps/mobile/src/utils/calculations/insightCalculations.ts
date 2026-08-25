@@ -103,7 +103,10 @@ export const generateCategoryChartData = (
       ? categories.find((category) => category.id === expense.categoryId)
       : categories.find((category) => category.name === expense.category);
     const categoryId = expense.categoryId ?? categoryDetails?.id;
-    const category = categoryDetails?.name ?? expense.category;
+    const category =
+      categoryDetails?.name ??
+      expense.categorySnapshot?.name ??
+      expense.category;
     const key = `${currency}\u0000${
       categoryId ? `id:${categoryId}` : `legacy:${category}`
     }`;
@@ -111,7 +114,10 @@ export const generateCategoryChartData = (
     totals.set(key, {
       category,
       ...(categoryId ? { categoryId } : {}),
-      color: categoryDetails?.color ?? defaultColor,
+      color:
+        categoryDetails?.color ??
+        expense.categorySnapshot?.color ??
+        defaultColor,
       currency,
       amountMinor: (existing?.amountMinor ?? 0) + amountMinor,
     });

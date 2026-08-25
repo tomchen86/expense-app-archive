@@ -28,12 +28,14 @@ import { formatMinorUnits } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
 import { buildExpenseDetailRoute } from '../navigation/expense-edit-route';
 import { useExpenseDeletion } from '../components/feedback/expense-deletion-context';
+import { resolveExpenseCategoryPresentation } from '../utils/categoryDomain';
 
 const ExpensesScreen = () => {
   const expenses = useExpenseStore((state) => state.expenses);
   const participants = useExpenseStore((state) => state.participants);
   const _userSettings = useExpenseStore((state) => state.userSettings);
   const groups = useExpenseStore((state) => state.groups);
+  const categories = useExpenseStore((state) => state.categories);
   const internalUserId = useExpenseStore((state) => state.internalUserId);
   const personalParticipantId = useExpenseStore(
     (state) => state.personalParticipantId,
@@ -109,6 +111,9 @@ const ExpensesScreen = () => {
       <ExpenseListItem
         item={item}
         group={groupForDisplay ?? null}
+        categoryLabel={
+          resolveExpenseCategoryPresentation(item, categories).label
+        }
         displayAmountMinor={sumPersonalShareMinor(
           item,
           currentParticipantIds,

@@ -1232,6 +1232,14 @@ export const useExpenseStore = create(
         useCategoryStore.getState().updateCategory(category);
       },
 
+      archiveCategory: (categoryId) => {
+        useCategoryStore.getState().archiveCategory(categoryId);
+      },
+
+      restoreCategory: (categoryId) => {
+        useCategoryStore.getState().restoreCategory(categoryId);
+      },
+
       deleteCategory: (categoryId) => {
         useCategoryStore.getState().deleteCategory(categoryId);
       },

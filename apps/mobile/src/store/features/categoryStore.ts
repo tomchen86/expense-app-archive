@@ -39,6 +39,8 @@ export interface CategoryState {
   // Actions
   addCategory: (categoryData: Omit<Category, 'id'>) => Category;
   updateCategory: (category: Category) => void;
+  archiveCategory: (categoryId: string) => void;
+  restoreCategory: (categoryId: string) => void;
   deleteCategory: (categoryId: string) => void;
   getCategoryByName: (name: string) => Category | undefined;
 }
@@ -76,6 +78,11 @@ export const useCategoryStore = create<CategoryState>()(
           name,
           color,
           isDefault: false,
+          scopeKind: categoryData.scopeKind ?? 'personal',
+          ...(categoryData.spaceId ? { spaceId: categoryData.spaceId } : {}),
+          ...(categoryData.createdByUserId
+            ? { createdByUserId: categoryData.createdByUserId }
+            : {}),
         };
 
         set((state) => ({
@@ -86,6 +93,16 @@ export const useCategoryStore = create<CategoryState>()(
       },
 
       updateCategory: (updatedCategory) => {
+        const currentCategory = get().categories.find(
+          (category) => category.id === updatedCategory.id,
+        );
+        if (
+          currentCategory?.isSystem &&
+          currentCategory.name === 'Uncategorized' &&
+          updatedCategory.name !== currentCategory.name
+        ) {
+          throw new Error('Uncategorized cannot be renamed.');
+        }
         assertUniqueColor(
           get().categories,
           updatedCategory.color,
@@ -97,6 +114,26 @@ export const useCategoryStore = create<CategoryState>()(
           ),
         }));
       },
+
+      archiveCategory: (categoryId) =>
+        set((state) => ({
+          categories: state.categories.map((category) =>
+            category.id === categoryId && !isProtectedDefault(category)
+              ? { ...category, archivedAt: new Date().toISOString() }
+              : category,
+          ),
+        })),
+
+      restoreCategory: (categoryId) =>
+        set((state) => ({
+          categories: state.categories.map((category) => {
+            if (category.id !== categoryId || !category.archivedAt) {
+              return category;
+            }
+            const { archivedAt: _archivedAt, ...activeCategory } = category;
+            return activeCategory;
+          }),
+        })),
 
       deleteCategory: (categoryId) =>
         set((state) => {
@@ -138,9 +175,55 @@ export const useCategoryStore = create<CategoryState>()(
     }),
     {
       name: 'expense-mobile-categories-v2',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ categories: state.categories }),
+      migrate: (persistedState) => {
+        const state = (persistedState ?? {}) as Partial<CategoryState>;
+        const existingCategories = state.categories ?? [];
+        const defaultById = new Map(
+          DEFAULT_CATEGORIES.map((category) => [category.id, category]),
+        );
+        const legacyDefaultColors = new Map([
+          ['Food & Dining', '#FF6384'],
+          ['Transportation', '#36A2EB'],
+          ['Shopping', '#FFCE56'],
+          ['Entertainment', '#4BC0C0'],
+          ['Bills & Utilities', '#9966FF'],
+          ['Health', '#FF9F40'],
+          ['Travel', '#C9CBCF'],
+          ['Other', '#61C0BF'],
+        ]);
+        const migratedCategories: Category[] = existingCategories.map(
+          (category) => {
+            const systemDefault = defaultById.get(category.id);
+            if (!systemDefault) {
+              return {
+                ...category,
+                scopeKind: category.scopeKind ?? ('personal' as const),
+              };
+            }
+            const shouldRefreshColor =
+              normalizeCategoryColor(category.color) ===
+              normalizeCategoryColor(
+                legacyDefaultColors.get(category.id) ?? category.color,
+              );
+            return {
+              ...category,
+              color: shouldRefreshColor ? systemDefault.color : category.color,
+              isDefault: true,
+              isSystem: true,
+              scopeKind: 'system' as const,
+            };
+          },
+        );
+        DEFAULT_CATEGORIES.forEach((category) => {
+          if (!migratedCategories.some(({ id }) => id === category.id)) {
+            migratedCategories.push({ ...category });
+          }
+        });
+        return { ...state, categories: migratedCategories } as CategoryState;
+      },
     },
   ),
 );
