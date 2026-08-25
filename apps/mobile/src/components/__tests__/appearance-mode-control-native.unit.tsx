@@ -36,11 +36,16 @@ jest.mock('react-native', () => {
     PanResponder: {
       create: (handlers: any) => ({
         panHandlers: {
+          onStartShouldSetResponder: handlers.onStartShouldSetPanResponder,
+          onStartShouldSetResponderCapture:
+            handlers.onStartShouldSetPanResponderCapture,
           onMoveShouldSetResponder: handlers.onMoveShouldSetPanResponder,
           onResponderGrant: handlers.onPanResponderGrant,
           onResponderMove: handlers.onPanResponderMove,
           onResponderRelease: handlers.onPanResponderRelease,
           onResponderTerminate: handlers.onPanResponderTerminate,
+          onResponderTerminationRequest:
+            handlers.onPanResponderTerminationRequest,
         },
       }),
     },
@@ -106,14 +111,20 @@ describe('AppearanceModeControl platform adapters', () => {
     expect(screen.getByTestId('appearance-mode-glass-thumb').props.tone).toBe(
       'selection',
     );
+    const thumbTarget = screen.getByTestId('appearance-mode-thumb-drag-target');
+    expect(thumbTarget.props.onStartShouldSetResponder()).toBe(true);
+    expect(thumbTarget.props.onStartShouldSetResponderCapture()).toBe(true);
+    expect(thumbTarget.props.onResponderTerminationRequest()).toBe(false);
+    expect(track.props.onMoveShouldSetResponder).toBeUndefined();
     act(() => {
-      track.props.onResponderGrant({}, { dx: 0, dy: 0 });
-      track.props.onResponderRelease({}, { dx: 220, dy: 0 });
+      thumbTarget.props.onResponderGrant({}, { dx: 0, dy: 0 });
+      thumbTarget.props.onResponderMove({}, { dx: 80, dy: 120 });
+      thumbTarget.props.onResponderRelease({}, { dx: 80, dy: 120 });
     });
-    expect(onChange).toHaveBeenCalledWith('dark');
-
-    fireEvent.press(screen.getByLabelText('Light'));
     expect(onChange).toHaveBeenCalledWith('light');
+
+    fireEvent.press(screen.getByLabelText('Dark'));
+    expect(onChange).toHaveBeenCalledWith('dark');
   });
 
   it('keeps an accessible dependency-safe fallback on Android', () => {

@@ -16,7 +16,6 @@ import { AdaptiveActionSurface } from './adaptive-action-surface';
 import type { AppearanceModeControlProps } from './appearance-mode-control-fallback';
 
 const TRACK_INSET = 4;
-const DRAG_THRESHOLD = 5;
 const OPTIONS: ReadonlyArray<{
   label: string;
   value: ThemePreference;
@@ -97,9 +96,8 @@ const AppearanceModeControl = ({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gestureState) =>
-          Math.abs(gestureState.dx) >= DRAG_THRESHOLD &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onPanResponderGrant: () => {
           dragOriginRef.current = selectedIndexRef.current * getSegmentWidth();
         },
@@ -112,6 +110,7 @@ const AppearanceModeControl = ({
         onPanResponderTerminate: () => {
           animateToIndex(selectedIndexRef.current);
         },
+        onPanResponderTerminationRequest: () => false,
       }),
     // The responder reads current dimensions and selection through refs so it
     // remains stable while the glass thumb moves.
@@ -143,7 +142,6 @@ const AppearanceModeControl = ({
         onLayout={handleLayout}
         style={styles.track}
         testID='appearance-mode-drag-track'
-        {...panResponder.panHandlers}
       >
         {segmentWidth > 0 ? (
           <Animated.View
@@ -188,6 +186,25 @@ const AppearanceModeControl = ({
             );
           })}
         </View>
+        {segmentWidth > 0 ? (
+          <Animated.View
+            pointerEvents='box-none'
+            style={[
+              styles.thumbDragTarget,
+              {
+                transform: [{ translateX }],
+                width: segmentWidth,
+              },
+            ]}
+          >
+            <View
+              pointerEvents='box-only'
+              style={styles.thumbDragHitArea}
+              testID='appearance-mode-thumb-drag-target'
+              {...panResponder.panHandlers}
+            />
+          </Animated.View>
+        ) : null}
       </View>
     </AdaptiveActionSurface>
   );
@@ -214,6 +231,20 @@ const styles = StyleSheet.create({
   thumbSurface: {
     borderRadius: mobileTheme.radii.pill,
     flex: 1,
+  },
+  thumbDragTarget: {
+    bottom: TRACK_INSET,
+    left: TRACK_INSET,
+    position: 'absolute',
+    top: TRACK_INSET,
+    zIndex: 2,
+  },
+  thumbDragHitArea: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
   options: {
     flex: 1,
