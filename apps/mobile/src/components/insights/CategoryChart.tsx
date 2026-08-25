@@ -140,6 +140,7 @@ const CategoryChart: React.FC<CategoryChartProps> = ({ insights }) => {
                     value: category.value,
                   }))}
                   donut
+                  innerCircleColor={mobileTheme.colors.surface}
                 />
               ) : (
                 <HorizontalBarVisual

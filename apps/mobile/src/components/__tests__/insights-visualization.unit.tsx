@@ -82,6 +82,7 @@ import type {
   InsightChartKind,
 } from '../../utils/calculations/insightCalculations';
 import { formatMinorUnits } from '../../utils/money';
+import { mobileTheme } from '../../theme/tokens';
 
 const point = (
   index: number,
@@ -164,7 +165,7 @@ describe('Insights visualization', () => {
     );
     expect(
       donut.getByTestId('pie-chart', { includeHiddenElements: true }),
-    ).toBeTruthy();
+    ).toHaveProp('innerCircleColor', mobileTheme.colors.surface);
     expect(
       donut.getByTestId('insight-chart-visual', {
         includeHiddenElements: true,

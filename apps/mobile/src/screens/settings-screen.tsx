@@ -109,13 +109,12 @@ const SettingsScreen = () => {
                 false: semanticColors.fill,
                 true: semanticColors.primary,
               }}
+              style={styles.switchControl}
+              testID='dark-mode-switch'
               value={settings.theme === 'dark'}
             />
           </View>
         </AdaptiveGroupedSection>
-        <Text style={styles.footerText}>
-          Applies immediately throughout the app.
-        </Text>
 
         <Text style={[styles.sectionLabel, styles.spacedSectionLabel]}>
           APP
@@ -183,7 +182,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     marginBottom: mobileTheme.spacing.sm,
-    marginLeft: mobileTheme.spacing.md,
+    marginLeft: mobileTheme.spacing.lg,
     color: semanticColors.textMuted,
     fontSize: 12,
     fontWeight: '600',
@@ -215,6 +214,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: semanticColors.surface,
+  },
+  switchControl: {
+    alignSelf: 'center',
   },
   rowLabel: {
     color: semanticColors.text,

@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import ArchivedGroupsScreen from '../../screens/archived-groups-screen';
 import SettingsScreen from '../../screens/settings-screen';
 import { semanticColors } from '../../theme/semantic-colors';
+import { mobileTheme } from '../../theme/tokens';
 import type { ExpenseGroup } from '../../types';
 
 jest.mock('react-native', () => {
@@ -115,6 +116,20 @@ describe('Settings archived groups', () => {
     expect(mockMobileState.updateSettings).toHaveBeenCalledWith({
       theme: 'dark',
     });
+  });
+
+  it('aligns the appearance controls without redundant helper copy', () => {
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.getByText('APPEARANCE')).toHaveStyle({
+      marginLeft: mobileTheme.spacing.lg,
+    });
+    expect(screen.getByTestId('dark-mode-switch')).toHaveStyle({
+      alignSelf: 'center',
+    });
+    expect(
+      screen.queryByText('Applies immediately throughout the app.'),
+    ).toBeNull();
   });
 
   it('lists only archived groups and restores them without rewriting history', () => {
