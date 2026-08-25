@@ -54,6 +54,9 @@ const ManageCategoriesScreen = () => {
         editingCategory={categoryManager.isEditing}
         onClose={categoryManager.closeModal}
         onSave={categoryManager.saveCategory}
+        usedColors={categoryManager.categories.map(
+          (category) => category.color,
+        )}
         visible={categoryManager.modalVisible}
       />
     </AdaptiveGroupedScreen>

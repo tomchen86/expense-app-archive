@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { useExpenseStore } from '../store/expenseStore';
+import { normalizeCategoryColor } from '../theme/category-palette';
 import { Category } from '../types';
 
 interface UseCategoryManagerReturn {
@@ -69,6 +70,17 @@ export const useCategoryManager = (): UseCategoryManagerReturn => {
     );
     if (existingCategory) {
       Alert.alert('Error', 'A category with this name already exists.');
+      return false;
+    }
+
+    const colorConflict = categories.find(
+      (category) =>
+        category.id !== isEditing?.id &&
+        normalizeCategoryColor(category.color) ===
+          normalizeCategoryColor(color),
+    );
+    if (colorConflict) {
+      Alert.alert('Error', 'A category already uses this color.');
       return false;
     }
 

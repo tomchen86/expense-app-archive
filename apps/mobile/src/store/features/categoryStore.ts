@@ -3,12 +3,35 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Category } from '../../types';
 import { DEFAULT_CATEGORIES } from '../../constants/expenses';
+import { normalizeCategoryColor } from '../../theme/category-palette';
 import { createUuid } from '../../utils/ids';
 import { useExpenseStore } from './expenseStore';
 
 const isProtectedDefault = (category: Category): boolean =>
   category.isDefault === true ||
   DEFAULT_CATEGORIES.some((candidate) => candidate.id === category.id);
+
+const findColorConflict = (
+  categories: Category[],
+  color: string,
+  excludedCategoryId?: string,
+): Category | undefined =>
+  categories.find(
+    (category) =>
+      category.id !== excludedCategoryId &&
+      normalizeCategoryColor(category.color) === normalizeCategoryColor(color),
+  );
+
+const assertUniqueColor = (
+  categories: Category[],
+  color: string,
+  excludedCategoryId?: string,
+): void => {
+  const conflict = findColorConflict(categories, color, excludedCategoryId);
+  if (conflict) {
+    throw new Error(`${conflict.name} already uses this color.`);
+  }
+};
 
 export interface CategoryState {
   categories: Category[];
@@ -34,6 +57,7 @@ export const useCategoryStore = create<CategoryState>()(
           console.warn(`Category with name "${name}" already exists.`);
           // For now, let's update the color if it's different
           if (existingCategory.color !== color) {
+            assertUniqueColor(get().categories, color, existingCategory.id);
             const updatedCategory = { ...existingCategory, color };
             set((state) => ({
               categories: state.categories.map((c) =>
@@ -44,6 +68,8 @@ export const useCategoryStore = create<CategoryState>()(
           }
           return existingCategory;
         }
+
+        assertUniqueColor(get().categories, color);
 
         const newCategory: Category = {
           id: createUuid(),
@@ -59,12 +85,18 @@ export const useCategoryStore = create<CategoryState>()(
         return newCategory;
       },
 
-      updateCategory: (updatedCategory) =>
+      updateCategory: (updatedCategory) => {
+        assertUniqueColor(
+          get().categories,
+          updatedCategory.color,
+          updatedCategory.id,
+        );
         set((state) => ({
           categories: state.categories.map((category) =>
             category.id === updatedCategory.id ? updatedCategory : category,
           ),
-        })),
+        }));
+      },
 
       deleteCategory: (categoryId) =>
         set((state) => {

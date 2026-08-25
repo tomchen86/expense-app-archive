@@ -30,6 +30,21 @@ describe('CategoryStore', () => {
     expect(categories).toContainEqual(result);
   });
 
+  it('rejects a color already assigned to another category', () => {
+    const existing = useCategoryStore.getState().categories[0];
+
+    expect(() =>
+      useCategoryStore
+        .getState()
+        .addCategory({ name: 'Fitness', color: existing.color.toLowerCase() }),
+    ).toThrow('already uses this color');
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.some((category) => category.name === 'Fitness'),
+    ).toBe(false);
+  });
+
   it('warns and returns the existing category when adding a duplicate name', () => {
     const warnSpy = jest
       .spyOn(console, 'warn')
@@ -103,6 +118,21 @@ describe('CategoryStore', () => {
     updateCategory(updated);
 
     expect(getCategoryByName('Outdoors')?.color).toBe('#654321');
+  });
+
+  it('rejects changing a category to another category color', () => {
+    const [first, second] = useCategoryStore.getState().categories;
+
+    expect(() =>
+      useCategoryStore
+        .getState()
+        .updateCategory({ ...second, color: first.color.toLowerCase() }),
+    ).toThrow('already uses this color');
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find((category) => category.id === second.id)?.color,
+    ).toBe(second.color);
   });
 
   it('does not delete a custom category referenced by an active expense', () => {

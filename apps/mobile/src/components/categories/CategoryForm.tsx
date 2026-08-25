@@ -3,6 +3,10 @@ import { Text, TextInput, StyleSheet, ScrollView } from 'react-native';
 import ColorPicker, { DEFAULT_COLORS } from './ColorPicker';
 import { Category } from '../../types';
 import { semanticColors } from '../../theme/semantic-colors';
+import {
+  getFirstAvailableCategoryColor,
+  normalizeCategoryColor,
+} from '../../theme/category-palette';
 import { mobileTheme } from '../../theme/tokens';
 import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
 import { AdaptiveSheet } from '../ui/adaptive-sheet';
@@ -13,6 +17,7 @@ interface CategoryFormProps {
   onSave: (name: string, color: string) => boolean | void;
   editingCategory?: Category | null;
   title?: string;
+  usedColors?: readonly string[];
 }
 
 const CategoryForm: React.FC<CategoryFormProps> = ({
@@ -21,6 +26,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
   onSave,
   editingCategory,
   title,
+  usedColors = [],
 }) => {
   const [categoryName, setCategoryName] = useState('');
   const [selectedColor, setSelectedColor] = useState<string>(DEFAULT_COLORS[0]);
@@ -31,14 +37,21 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
       setSelectedColor(editingCategory.color);
     } else {
       setCategoryName('');
-      setSelectedColor(DEFAULT_COLORS[0]);
+      setSelectedColor(getFirstAvailableCategoryColor(usedColors) ?? '');
     }
-  }, [editingCategory, visible]);
+  }, [editingCategory, usedColors, visible]);
+
+  const unavailableColors = usedColors.filter(
+    (color) =>
+      !editingCategory ||
+      normalizeCategoryColor(color) !==
+        normalizeCategoryColor(editingCategory.color),
+  );
 
   const handleSave = () => {
     const trimmedName = categoryName.trim();
-    if (!trimmedName) {
-      return; // Don't save empty categories
+    if (!trimmedName || !selectedColor) {
+      return;
     }
 
     if (onSave(trimmedName, selectedColor) !== false) {
@@ -61,7 +74,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
       testID='category-form-sheet'
       title={modalTitle}
       trailingAction={{
-        disabled: !categoryName.trim(),
+        disabled: !categoryName.trim() || !selectedColor,
         label: editingCategory ? 'Save' : 'Add',
         onPress: handleSave,
         testID: 'category-save-action',
@@ -94,8 +107,14 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
             label={null}
             selectedColor={selectedColor}
             onColorSelect={setSelectedColor}
+            unavailableColors={unavailableColors}
           />
         </AdaptiveGroupedSection>
+        {!selectedColor ? (
+          <Text accessibilityLiveRegion='polite' style={styles.helperText}>
+            All category colors are already in use.
+          </Text>
+        ) : null}
       </ScrollView>
     </AdaptiveSheet>
   );
@@ -123,6 +142,13 @@ const styles = StyleSheet.create({
   },
   colorSection: {
     padding: mobileTheme.spacing.md,
+  },
+  helperText: {
+    color: semanticColors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginHorizontal: mobileTheme.spacing.md,
+    marginTop: mobileTheme.spacing.sm,
   },
 });
 

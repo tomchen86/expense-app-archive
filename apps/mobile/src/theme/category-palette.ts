@@ -14,3 +14,22 @@ export const CATEGORY_PALETTE = {
 } as const;
 
 export const CATEGORY_COLOR_OPTIONS = Object.values(CATEGORY_PALETTE);
+
+export const normalizeCategoryColor = (color: string): string =>
+  color.trim().toUpperCase();
+
+export const isCategoryColorAvailable = (
+  color: string,
+  usedColors: readonly string[],
+): boolean => {
+  const normalizedColor = normalizeCategoryColor(color);
+  return !usedColors.some(
+    (usedColor) => normalizeCategoryColor(usedColor) === normalizedColor,
+  );
+};
+
+export const getFirstAvailableCategoryColor = (
+  usedColors: readonly string[],
+  colors: readonly string[] = CATEGORY_COLOR_OPTIONS,
+): string | null =>
+  colors.find((color) => isCategoryColorAvailable(color, usedColors)) ?? null;
