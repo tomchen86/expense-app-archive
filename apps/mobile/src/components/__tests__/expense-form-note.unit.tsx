@@ -73,7 +73,7 @@ describe('Expense note field', () => {
     const screen = render(<BasicInfoSection {...baseProps} />);
     let noteInput = screen.getByTestId('expense-caption-input');
 
-    expect(noteInput).toHaveProp('multiline', false);
+    expect(noteInput).toHaveProp('multiline', true);
     expect(screen.getByText('Note')).toBeTruthy();
 
     fireEvent(noteInput, 'focus');
@@ -87,7 +87,7 @@ describe('Expense note field', () => {
     fireEvent(noteInput, 'blur');
     expect(screen.getByTestId('expense-caption-input')).toHaveProp(
       'multiline',
-      false,
+      true,
     );
     expect(screen.getByText('Note')).toBeTruthy();
   });

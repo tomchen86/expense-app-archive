@@ -11,6 +11,9 @@ import {
 import AddExpenseScreen from '../../../app/add-expense';
 import type { Expense } from '../../types';
 
+const mockScrollNoteIntoView = jest.fn();
+let keyboardDidShowListener: (() => void) | undefined;
+
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const host = (name: string, accessible = false) =>
@@ -38,7 +41,10 @@ jest.mock('react-native', () => {
       },
       View: host('AnimatedView'),
       timing: (value: { setValue: (next: number) => void }, config: any) => ({
-        start: () => value.setValue(config.toValue),
+        start: (callback?: (result: { finished: boolean }) => void) => {
+          value.setValue(config.toValue);
+          callback?.({ finished: true });
+        },
       }),
     },
     Button: ({ title, ...props }: any) =>
@@ -52,12 +58,28 @@ jest.mock('react-native', () => {
         },
         title,
       ),
+    Keyboard: {
+      addListener: (eventName: string, listener: () => void) => {
+        if (eventName === 'keyboardDidShow') {
+          keyboardDidShowListener = listener;
+        }
+        return { remove: jest.fn() };
+      },
+    },
     Platform: {
       OS: 'ios',
       select: (selection: Record<string, unknown>) =>
         selection.ios ?? selection.default,
     },
-    ScrollView: host('ScrollView'),
+    ScrollView: React.forwardRef(function MockScrollView(
+      { children, ...props }: any,
+      ref: React.ForwardedRef<unknown>,
+    ) {
+      React.useImperativeHandle(ref, () => ({
+        scrollTo: mockScrollNoteIntoView,
+      }));
+      return React.createElement('ScrollView', props, children);
+    }),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
       flatten: (style: unknown) => style,
@@ -155,6 +177,7 @@ const buildHookResult = (overrides: Record<string, unknown> = {}) => ({
 describe('AddExpenseScreen native task', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    keyboardDidShowListener = undefined;
     beforeRemoveListener = undefined;
     mockExpenses.splice(0);
     (useLocalSearchParams as jest.Mock).mockReturnValue({
@@ -173,6 +196,27 @@ describe('AddExpenseScreen native task', () => {
       dispatch: mockNavigationDispatch,
     });
     mockUseExpenseForm.mockReturnValue(buildHookResult());
+  });
+
+  it('keeps the expanded note above the keyboard after its first focus', () => {
+    const screen = render(<AddExpenseScreen />);
+
+    fireEvent(screen.getByTestId('expense-note-section'), 'layout', {
+      nativeEvent: { layout: { y: 320 } },
+    });
+    fireEvent(screen.getByTestId('expense-caption-input'), 'focus');
+
+    expect(mockScrollNoteIntoView).toHaveBeenCalledWith({
+      animated: true,
+      y: 304,
+    });
+
+    act(() => keyboardDidShowListener?.());
+    expect(mockScrollNoteIntoView).toHaveBeenCalledTimes(2);
+
+    fireEvent(screen.getByTestId('expense-caption-input'), 'blur');
+    act(() => keyboardDidShowListener?.());
+    expect(mockScrollNoteIntoView).toHaveBeenCalledTimes(2);
   });
 
   it('uses modal navigation actions and progressive sharing', () => {

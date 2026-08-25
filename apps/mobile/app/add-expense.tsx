@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, View, StyleSheet, ScrollView } from 'react-native';
+import { Alert, Keyboard, View, StyleSheet, ScrollView } from 'react-native';
 import {
   router,
   Stack,
@@ -23,6 +23,9 @@ import { mobileTheme } from '../src/theme/tokens';
 import { createUuid } from '../src/utils/ids';
 
 const AddExpenseScreen = () => {
+  const formScrollRef = React.useRef<ScrollView>(null);
+  const isNoteFocused = React.useRef(false);
+  const noteLayoutY = React.useRef<number | null>(null);
   const params = useLocalSearchParams<{
     expenseId?: RouteParam;
     draftSessionId?: RouteParam;
@@ -102,6 +105,34 @@ const AddExpenseScreen = () => {
     : defaultCurrency.toUpperCase();
   const interactionDisabled = isSubmitting || isRollbackPending;
   const hasUnsavedWork = isDirty || hasPendingMutation;
+  const scrollNoteAboveKeyboard = React.useCallback(() => {
+    if (noteLayoutY.current === null) {
+      return;
+    }
+    formScrollRef.current?.scrollTo({
+      animated: true,
+      y: Math.max(0, noteLayoutY.current - mobileTheme.spacing.lg),
+    });
+  }, []);
+  const handleNoteFocus = React.useCallback(() => {
+    isNoteFocused.current = true;
+    scrollNoteAboveKeyboard();
+  }, [scrollNoteAboveKeyboard]);
+  const handleNoteBlur = React.useCallback(() => {
+    isNoteFocused.current = false;
+  }, []);
+  const handleNoteLayout = React.useCallback((y: number) => {
+    noteLayoutY.current = y;
+  }, []);
+
+  React.useEffect(() => {
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      if (isNoteFocused.current) {
+        scrollNoteAboveKeyboard();
+      }
+    });
+    return () => subscription.remove();
+  }, [scrollNoteAboveKeyboard]);
 
   const confirmDiscard = React.useCallback(
     (removeRoute: () => void) => {
@@ -183,6 +214,7 @@ const AddExpenseScreen = () => {
         contentContainerStyle={styles.content}
         keyboardDismissMode='on-drag'
         keyboardShouldPersistTaps='handled'
+        ref={formScrollRef}
         testID='expense-form-scroll-view'
       >
         <BasicInfoSection
@@ -200,6 +232,9 @@ const AddExpenseScreen = () => {
           onCategoryPress={() => setShowCategoryModal(true)}
           onCaptionChange={(value) => handleUpdateFormState('caption', value)}
           onDateChange={onChangeDate}
+          onNoteBlur={handleNoteBlur}
+          onNoteFocus={handleNoteFocus}
+          onNoteLayout={handleNoteLayout}
         />
 
         <GroupSection

@@ -16,6 +16,9 @@ export interface BasicInfoSectionProps {
   onAmountChange: (value: string) => void;
   onCategoryPress: () => void;
   onCaptionChange: (value: string) => void;
+  onNoteBlur?: () => void;
+  onNoteFocus?: () => void;
+  onNoteLayout?: (y: number) => void;
   onDateChange: (event: DateTimePickerEvent, selectedDate?: Date) => void;
 }
 

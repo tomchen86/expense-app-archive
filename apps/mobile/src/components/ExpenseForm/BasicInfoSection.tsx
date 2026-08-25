@@ -30,18 +30,25 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
   onAmountChange,
   onCategoryPress,
   onCaptionChange,
+  onNoteBlur,
+  onNoteFocus,
+  onNoteLayout,
   onDateChange,
 }) => {
   const [isNoteFocused, setIsNoteFocused] = useState(false);
   const noteHeight = useRef(new Animated.Value(NOTE_COLLAPSED_HEIGHT)).current;
 
-  const setNoteExpanded = (expanded: boolean) => {
+  const setNoteExpanded = (expanded: boolean, onComplete?: () => void) => {
     setIsNoteFocused(expanded);
     Animated.timing(noteHeight, {
       duration: 160,
       toValue: expanded ? NOTE_EXPANDED_HEIGHT : NOTE_COLLAPSED_HEIGHT,
       useNativeDriver: false,
-    }).start();
+    }).start(({ finished }) => {
+      if (finished) {
+        onComplete?.();
+      }
+    });
   };
 
   return (
@@ -117,7 +124,11 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
         />
       </AdaptiveGroupedSection>
 
-      <AdaptiveGroupedSection style={styles.noteSection}>
+      <AdaptiveGroupedSection
+        onLayout={(event) => onNoteLayout?.(event.nativeEvent.layout.y)}
+        style={styles.noteSection}
+        testID='expense-note-section'
+      >
         <Animated.View
           style={[styles.noteContainer, { height: noteHeight }]}
           testID='expense-note-container'
@@ -141,11 +152,14 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
             accessibilityLabel='Expense note'
             caretHidden={!isNoteFocused}
             editable={!interactionDisabled}
-            multiline={isNoteFocused}
-            numberOfLines={isNoteFocused ? 4 : 1}
-            onBlur={() => setNoteExpanded(false)}
+            multiline
+            numberOfLines={4}
+            onBlur={() => {
+              onNoteBlur?.();
+              setNoteExpanded(false);
+            }}
             onChangeText={onCaptionChange}
-            onFocus={() => setNoteExpanded(true)}
+            onFocus={() => setNoteExpanded(true, onNoteFocus)}
             placeholder={isNoteFocused ? 'Add a note…' : undefined}
             placeholderTextColor={semanticColors.placeholder}
             scrollEnabled={isNoteFocused}
