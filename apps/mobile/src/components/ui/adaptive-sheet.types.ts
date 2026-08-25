@@ -16,6 +16,7 @@ export interface AdaptiveSheetProps {
   contentStyle?: StyleProp<ViewStyle>;
   leadingAction?: AdaptiveSheetAction;
   onClose: () => void;
+  sizing?: 'content' | 'resizable';
   testID?: string;
   title: string;
   trailingAction?: AdaptiveSheetAction;

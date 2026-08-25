@@ -32,6 +32,28 @@ jest.mock('react-native', () => ({
   View: 'View',
 }));
 
+jest.mock('@expo/ui/community/bottom-sheet', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    __esModule: true,
+    default: ({ children, ...props }: any) =>
+      React.createElement('BottomSheet', props, children),
+    BottomSheetView: ({ children, ...props }: any) =>
+      React.createElement('View', props, children),
+  };
+});
+
+jest.mock('../ui/adaptive-action-surface', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    AdaptiveActionSurface: ({ children, ...props }: any) =>
+      React.createElement('View', props, children),
+  };
+});
+
+const BottomSheetHost =
+  'BottomSheet' as unknown as React.ComponentType<unknown>;
+
 describe('iOS semantic UI contract', () => {
   it('maps UI roles to adaptive iOS system colors', () => {
     expect(semanticColors.background).toBe(
@@ -49,13 +71,14 @@ describe('iOS semantic UI contract', () => {
     expect(PlatformColor).toHaveBeenCalledWith('systemRedColor');
   });
 
-  it('presents transient tasks as a native page sheet with navigation actions', () => {
+  it('presents transient tasks as a native draggable bottom sheet with glass navigation actions', () => {
     const onCancel = jest.fn();
     const onSave = jest.fn();
     const screen = render(
       <AdaptiveSheet
         leadingAction={{ label: 'Cancel', onPress: onCancel }}
         onClose={onCancel}
+        sizing='content'
         testID='semantic-sheet'
         title='New Category'
         trailingAction={{ label: 'Add', onPress: onSave }}
@@ -65,9 +88,16 @@ describe('iOS semantic UI contract', () => {
       </AdaptiveSheet>,
     );
 
-    expect(
-      screen.UNSAFE_getByProps({ presentationStyle: 'pageSheet' }),
-    ).toBeTruthy();
+    expect(screen.UNSAFE_getByType(BottomSheetHost)).toHaveProp('index', 0);
+    expect(screen.UNSAFE_getByType(BottomSheetHost)).toHaveProp(
+      'enableDynamicSizing',
+      true,
+    );
+    expect(screen.UNSAFE_getByType(BottomSheetHost)).toHaveProp(
+      'enablePanDownToClose',
+      true,
+    );
+    expect(screen.getByTestId('adaptive-sheet-glass-header')).toBeTruthy();
     expect(screen.getByTestId('semantic-sheet')).toHaveStyle({
       backgroundColor: 'platform:systemGroupedBackgroundColor',
     });

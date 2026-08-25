@@ -44,12 +44,17 @@ function SelectionModal<T>({
     }
   };
 
+  const compactRowCount = data.length + (onClearSelection ? 1 : 0);
+  const sheetSizing =
+    !multiSelect && compactRowCount <= 5 ? 'content' : 'resizable';
+
   return (
     <AdaptiveSheet
       leadingAction={
         multiSelect ? undefined : { label: 'Cancel', onPress: onClose }
       }
       onClose={onClose}
+      sizing={sheetSizing}
       testID='selection-modal-content'
       title={title}
       trailingAction={
@@ -57,7 +62,12 @@ function SelectionModal<T>({
       }
       visible={visible}
     >
-      <View style={styles.content}>
+      <View
+        style={[
+          styles.content,
+          sheetSizing === 'resizable' && styles.resizableContent,
+        ]}
+      >
         <AdaptiveGroupedSection style={styles.listSection}>
           <FlatList
             data={data}
@@ -111,9 +121,12 @@ function SelectionModal<T>({
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
     paddingHorizontal: mobileTheme.spacing.lg,
     paddingTop: mobileTheme.spacing.xl,
+    paddingBottom: mobileTheme.spacing.xl,
+  },
+  resizableContent: {
+    flex: 1,
   },
   listSection: {
     flexShrink: 1,

@@ -94,6 +94,7 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
         onPress: () => void handleSubmit(),
         testID: submitButtonTestID,
       }}
+      sizing='content'
       visible={visible}
     >
       <View style={styles.content}>

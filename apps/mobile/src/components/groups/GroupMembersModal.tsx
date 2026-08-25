@@ -40,6 +40,7 @@ const GroupMembersModal = ({
   const isArchived = isExpenseGroupArchived(group);
   const canEditMembers = !isArchived && currentParticipantId !== null;
   const isMutationPending = removingParticipantId !== null;
+  const sheetSizing = group.participants.length <= 5 ? 'content' : 'resizable';
 
   useEffect(() => {
     if (!visible || !canEditMembers) {
@@ -109,9 +110,15 @@ const GroupMembersModal = ({
             }
           : undefined
       }
+      sizing={sheetSizing}
       visible={visible}
     >
-      <View style={styles.content}>
+      <View
+        style={[
+          styles.content,
+          sheetSizing === 'resizable' && styles.resizableContent,
+        ]}
+      >
         <AdaptiveGroupedSection style={styles.listSection}>
           <FlatList
             data={group.participants}
@@ -149,9 +156,12 @@ const GroupMembersModal = ({
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
     paddingHorizontal: mobileTheme.spacing.lg,
     paddingTop: mobileTheme.spacing.xl,
+    paddingBottom: mobileTheme.spacing.xl,
+  },
+  resizableContent: {
+    flex: 1,
   },
   listSection: {
     flexShrink: 1,

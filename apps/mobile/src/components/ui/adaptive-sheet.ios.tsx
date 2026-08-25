@@ -1,16 +1,10 @@
+import BottomSheet, { BottomSheetView } from '@expo/ui/community/bottom-sheet';
 import React from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { semanticColors } from '../../theme/semantic-colors.ios';
 import { mobileTheme } from '../../theme/tokens';
+import { AdaptiveActionSurface } from './adaptive-action-surface';
 import type {
   AdaptiveSheetAction,
   AdaptiveSheetProps,
@@ -20,6 +14,8 @@ export type {
   AdaptiveSheetAction,
   AdaptiveSheetProps,
 } from './adaptive-sheet.types';
+
+const RESIZABLE_SNAP_POINTS = ['50%', '90%'];
 
 const HeaderAction = ({ action }: { action?: AdaptiveSheetAction }) => {
   if (!action) {
@@ -57,50 +53,71 @@ export const AdaptiveSheet = ({
   contentStyle,
   leadingAction,
   onClose,
+  sizing = 'resizable',
   testID,
   title,
   trailingAction,
   visible,
-}: AdaptiveSheetProps) => (
-  <Modal
-    animationType='slide'
-    onRequestClose={onClose}
-    presentationStyle='pageSheet'
-    visible={visible}
-  >
-    <KeyboardAvoidingView
-      behavior='padding'
-      style={styles.keyboardAvoidingView}
+}: AdaptiveSheetProps) => {
+  const fitsContent = sizing === 'content';
+
+  return (
+    <BottomSheet
+      enableDynamicSizing={fitsContent}
+      enablePanDownToClose
+      index={visible ? 0 : -1}
+      onClose={() => {
+        if (visible) {
+          onClose();
+        }
+      }}
+      snapPoints={fitsContent ? undefined : RESIZABLE_SNAP_POINTS}
     >
-      <SafeAreaView
-        accessibilityViewIsModal
-        style={styles.screen}
-        testID={testID}
-      >
-        <View style={styles.header}>
-          <HeaderAction action={leadingAction} />
-          <Text
-            accessibilityRole='header'
-            numberOfLines={1}
-            style={styles.title}
+      <BottomSheetView style={styles.host}>
+        <View
+          accessibilityViewIsModal
+          style={[styles.screen, !fitsContent && styles.resizableScreen]}
+          testID={testID}
+        >
+          <AdaptiveActionSurface
+            style={styles.header}
+            testID='adaptive-sheet-glass-header'
+            tone='neutral'
           >
-            {title}
-          </Text>
-          <HeaderAction action={trailingAction} />
+            <HeaderAction action={leadingAction} />
+            <Text
+              accessibilityRole='header'
+              numberOfLines={1}
+              style={styles.title}
+            >
+              {title}
+            </Text>
+            <HeaderAction action={trailingAction} />
+          </AdaptiveActionSurface>
+          <View
+            style={[
+              styles.content,
+              !fitsContent && styles.resizableContent,
+              contentStyle,
+            ]}
+          >
+            {children}
+          </View>
         </View>
-        <View style={[styles.content, contentStyle]}>{children}</View>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
-  </Modal>
-);
+      </BottomSheetView>
+    </BottomSheet>
+  );
+};
 
 const styles = StyleSheet.create({
-  keyboardAvoidingView: {
-    flex: 1,
+  host: {
+    backgroundColor: semanticColors.background,
   },
   screen: {
-    flex: 1,
     backgroundColor: semanticColors.background,
+  },
+  resizableScreen: {
+    flex: 1,
   },
   header: {
     minHeight: 52,
@@ -108,7 +125,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomColor: semanticColors.separator,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    backgroundColor: semanticColors.surface,
+    borderWidth: 0,
   },
   title: {
     flex: 1,
@@ -136,7 +153,8 @@ const styles = StyleSheet.create({
   disabledActionText: {
     opacity: 0.35,
   },
-  content: {
+  content: {},
+  resizableContent: {
     flex: 1,
   },
 });
