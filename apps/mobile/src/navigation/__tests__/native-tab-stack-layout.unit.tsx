@@ -58,4 +58,13 @@ describe('native tab stack layouts', () => {
 
     expect(route?.props.options).toEqual({ title: 'Archived Groups' });
   });
+
+  it('keeps category management inside the Settings stack', () => {
+    const screen = render(<SettingsStackLayout />);
+    const route = screen
+      .getAllByTestId('stack-screen')
+      .find((candidate) => candidate.props.name === 'manage-categories');
+
+    expect(route?.props.options).toEqual({ title: 'Manage Categories' });
+  });
 });

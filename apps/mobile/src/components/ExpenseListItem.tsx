@@ -11,6 +11,7 @@ import {
 import { formatMinorUnits, minorUnitsToDecimalString } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
 import { formatLocalDateForDisplay } from '../utils/dateFormat';
+import { AdaptiveSwipeAction } from './ui/adaptive-swipe-action';
 
 interface ExpenseListItemProps {
   item: Expense;
@@ -41,17 +42,17 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
     _translation: unknown,
     swipeable: SwipeableMethods,
   ) => (
-    <TouchableOpacity
+    <AdaptiveSwipeAction
       accessibilityLabel={`Delete ${item.title} expense`}
       accessibilityRole='button'
+      label='Delete'
       onPress={() => {
         swipeable.close();
         onDelete(item);
       }}
       style={styles.deleteAction}
-    >
-      <Text style={styles.deleteActionText}>Delete</Text>
-    </TouchableOpacity>
+      tone='destructive'
+    />
   );
 
   return (
@@ -227,15 +228,7 @@ const styles = StyleSheet.create({
   deleteAction: {
     minWidth: 88,
     marginBottom: mobileTheme.spacing.md,
-    backgroundColor: mobileTheme.colors.danger,
     borderRadius: mobileTheme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteActionText: {
-    color: mobileTheme.colors.onPrimary,
-    fontSize: 15,
-    fontWeight: '700',
   },
 });
 

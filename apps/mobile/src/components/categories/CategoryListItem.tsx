@@ -1,14 +1,19 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
-import Animated, { interpolate } from 'react-native-reanimated';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Category } from '../../types';
+import { semanticColors } from '../../theme/semantic-colors';
+import { mobileTheme } from '../../theme/tokens';
+import { AdaptiveSwipeAction } from '../ui/adaptive-swipe-action';
 
 interface CategoryListItemProps {
   category: Category;
   onEdit: (category: Category) => void;
   onDelete: (categoryId: string) => void;
   canDelete?: boolean;
+  isLast?: boolean;
 }
 
 const CategoryListItem: React.FC<CategoryListItemProps> = ({
@@ -16,40 +21,52 @@ const CategoryListItem: React.FC<CategoryListItemProps> = ({
   onEdit,
   onDelete,
   canDelete = true,
+  isLast = false,
 }) => {
-  const renderRightActions = (progress: any, dragX: any) => {
-    // Note: react-native-gesture-handler passes Animated values
-    // Use Reanimated's interpolate function
-    const trans = interpolate(dragX, [-80, 0], [0, 80], 'clamp');
-
-    return (
-      <TouchableOpacity
-        onPress={() => onDelete(category.id)}
-        style={styles.deleteButton}
-      >
-        <Animated.Text
-          style={[
-            styles.deleteButtonText,
-            {
-              transform: [{ translateX: trans }],
-            },
-          ]}
-        >
-          Delete
-        </Animated.Text>
-      </TouchableOpacity>
-    );
-  };
+  const displayName = category.name.trim() || 'Unnamed Category';
+  const renderRightActions = (
+    _progress: unknown,
+    _translation: unknown,
+    swipeable: SwipeableMethods,
+  ) => (
+    <AdaptiveSwipeAction
+      accessibilityLabel={`Delete ${displayName} category`}
+      accessibilityRole='button'
+      label='Delete'
+      onPress={() => {
+        swipeable.close();
+        onDelete(category.id);
+      }}
+      tone='destructive'
+    />
+  );
 
   const renderContent = () => (
     <TouchableOpacity
-      style={styles.itemContainer}
+      accessibilityActions={
+        canDelete ? [{ label: 'Delete category', name: 'delete' }] : undefined
+      }
+      accessibilityHint={
+        canDelete
+          ? 'Opens the category editor. Swipe left to delete.'
+          : 'Opens the category editor. Default categories cannot be deleted.'
+      }
+      accessibilityLabel={`Edit ${displayName} category`}
+      accessibilityRole='button'
+      onAccessibilityAction={(event) => {
+        if (canDelete && event.nativeEvent.actionName === 'delete') {
+          onDelete(category.id);
+        }
+      }}
       onPress={() => onEdit(category)}
       activeOpacity={0.7}
+      style={[styles.itemContainer, isLast && styles.lastItem]}
+      testID={`category-row-${category.id}`}
     >
       <View style={[styles.colorDot, { backgroundColor: category.color }]} />
-      <Text style={styles.itemName}>{category.name}</Text>
-      {!canDelete && <Text style={styles.protectedLabel}>Protected</Text>}
+      <Text numberOfLines={1} style={styles.itemName}>
+        {displayName}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -59,9 +76,14 @@ const CategoryListItem: React.FC<CategoryListItemProps> = ({
   }
 
   return (
-    <Swipeable renderRightActions={renderRightActions}>
+    <ReanimatedSwipeable
+      overshootRight={false}
+      renderRightActions={renderRightActions}
+      rightThreshold={40}
+      testID={`category-swipeable-${category.id}`}
+    >
       {renderContent()}
-    </Swipeable>
+    </ReanimatedSwipeable>
   );
 };
 
@@ -69,10 +91,14 @@ const styles = StyleSheet.create({
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    minHeight: 54,
+    paddingHorizontal: mobileTheme.spacing.lg,
+    backgroundColor: semanticColors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: semanticColors.separator,
+  },
+  lastItem: {
+    borderBottomWidth: 0,
   },
   colorDot: {
     width: 20,
@@ -80,29 +106,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginRight: 15,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: semanticColors.separator,
   },
   itemName: {
     fontSize: 16,
-    color: '#333',
+    color: semanticColors.text,
     flex: 1,
-  },
-  protectedLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  deleteButton: {
-    backgroundColor: '#FF3B30',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 80,
-    height: '100%',
-  },
-  deleteButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
 

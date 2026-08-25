@@ -92,15 +92,43 @@ describe('useCategoryManager', () => {
 
     const existing = ref.current!.categories[0];
 
+    let didSave: boolean | undefined;
     act(() => {
       ref.current?.openAddModal();
-      ref.current?.saveCategory(existing.name, '#123456');
+      didSave = ref.current?.saveCategory(existing.name, '#123456');
     });
 
+    expect(didSave).toBe(false);
     expect(Alert.alert).toHaveBeenCalledWith(
       'Error',
       'A category with this name already exists.',
     );
+  });
+
+  it('rejects renaming a category to another existing name', () => {
+    const ref = createRef<ReturnType<typeof useCategoryManager>>();
+
+    act(() => {
+      TestRenderer.create(<HookHarness ref={ref} />);
+    });
+
+    const first = ref.current!.categories[0];
+    const second = ref.current!.categories[1];
+    let didSave: boolean | undefined;
+
+    act(() => {
+      ref.current?.openEditModal(second);
+      didSave = ref.current?.saveCategory(first.name, second.color);
+    });
+
+    expect(didSave).toBe(false);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'A category with this name already exists.',
+    );
+    expect(
+      useCategoryStore.getState().getCategoryByName(second.name),
+    ).toBeDefined();
   });
 
   it('updates existing categories and prevents deleting every default', () => {

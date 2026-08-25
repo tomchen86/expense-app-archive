@@ -8,6 +8,7 @@ import type { CurrentUserGroupCurrencySummary } from '../utils/groupCalculations
 import { formatMinorUnits } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
 import { isExpenseGroupArchived } from '../utils/groupDomain';
+import { AdaptiveSwipeAction } from './ui/adaptive-swipe-action';
 
 interface GroupListItemProps {
   group: ExpenseGroup;
@@ -132,7 +133,7 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
     _translation: unknown,
     swipeable: SwipeableMethods,
   ) => (
-    <TouchableOpacity
+    <AdaptiveSwipeAction
       accessibilityLabel={`Archive ${group.name}`}
       accessibilityRole='button'
       accessibilityState={{
@@ -140,14 +141,14 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
         disabled: isLifecyclePending,
       }}
       disabled={isLifecyclePending}
+      label='Archive'
       onPress={() => {
         swipeable.close();
         void onArchiveGroup(group.id);
       }}
       style={styles.archiveSwipeAction}
-    >
-      <Text style={styles.archiveSwipeActionText}>Archive</Text>
-    </TouchableOpacity>
+      tone='neutral'
+    />
   );
 
   return (
@@ -228,15 +229,7 @@ const styles = StyleSheet.create({
   archiveSwipeAction: {
     minWidth: 88,
     marginBottom: mobileTheme.spacing.lg,
-    backgroundColor: mobileTheme.colors.textMuted,
     borderRadius: mobileTheme.radii.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  archiveSwipeActionText: {
-    color: mobileTheme.colors.onPrimary,
-    fontSize: 15,
-    fontWeight: '700',
   },
 });
 

@@ -1,103 +1,85 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
+import { ScrollView, Text, StyleSheet } from 'react-native';
+import { Stack } from 'expo-router';
 
 import { useCategoryManager } from '../src/hooks/useCategoryManager';
 import CategoryForm from '../src/components/categories/CategoryForm';
 import CategoryListItem from '../src/components/categories/CategoryListItem';
-import { Category } from '../src/types';
+import { AdaptiveGroupedScreen } from '../src/components/ui/adaptive-grouped-list';
+import { AdaptiveGroupedSection } from '../src/components/ui/adaptive-grouped-list';
+import { semanticColors } from '../src/theme/semantic-colors';
+import { mobileTheme } from '../src/theme/tokens';
 
 const ManageCategoriesScreen = () => {
   const categoryManager = useCategoryManager();
 
-  const renderCategoryItem = ({ item }: { item: Category }) => (
-    <CategoryListItem
-      category={item}
-      onEdit={categoryManager.openEditModal}
-      onDelete={categoryManager.deleteCategory}
-      canDelete={categoryManager.canDeleteCategory(item)}
-    />
-  );
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Manage Categories</Text>
-      <Text style={styles.subtitle}>
-        Tap to edit, swipe left to delete (except "Other")
-      </Text>
+    <AdaptiveGroupedScreen>
+      <Stack.Toolbar placement='right'>
+        <Stack.Toolbar.Button
+          accessibilityLabel='Add category'
+          icon='plus'
+          onPress={categoryManager.openAddModal}
+        />
+      </Stack.Toolbar>
 
-      <FlatList
-        data={categoryManager.categories}
-        renderItem={renderCategoryItem}
-        keyExtractor={(item) => item.id}
-        style={styles.list}
+      <ScrollView
+        contentInsetAdjustmentBehavior='automatic'
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-      />
-
-      <TouchableOpacity
-        accessibilityLabel='Add new category'
-        accessibilityRole='button'
-        style={styles.addButton}
-        onPress={categoryManager.openAddModal}
-        activeOpacity={0.8}
-        testID='add-category-button'
       >
-        <Text style={styles.addButtonText}>+ Add New Category</Text>
-      </TouchableOpacity>
+        <Text style={styles.sectionLabel}>CATEGORIES</Text>
+        <AdaptiveGroupedSection>
+          {categoryManager.categories.map((category, index) => (
+            <CategoryListItem
+              canDelete={categoryManager.canDeleteCategory(category)}
+              category={category}
+              isLast={index === categoryManager.categories.length - 1}
+              key={category.id}
+              onDelete={categoryManager.deleteCategory}
+              onEdit={categoryManager.openEditModal}
+            />
+          ))}
+        </AdaptiveGroupedSection>
+        <Text style={styles.footerText}>
+          Tap a category to edit. Swipe left on custom categories to delete.
+        </Text>
+
+        <Text style={styles.footerText}>
+          Default categories can be edited but not deleted.
+        </Text>
+      </ScrollView>
 
       <CategoryForm
-        visible={categoryManager.modalVisible}
+        editingCategory={categoryManager.isEditing}
         onClose={categoryManager.closeModal}
         onSave={categoryManager.saveCategory}
-        editingCategory={categoryManager.isEditing}
+        visible={categoryManager.modalVisible}
       />
-    </View>
+    </AdaptiveGroupedScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
+  content: {
+    paddingHorizontal: mobileTheme.spacing.xl,
+    paddingTop: mobileTheme.spacing.lg,
+    paddingBottom: mobileTheme.spacing.xxxl,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 20,
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#666',
-    paddingHorizontal: 20,
-  },
-  list: {
-    flex: 1,
-    backgroundColor: 'white',
-    marginHorizontal: 15,
-    borderRadius: 10,
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-  },
-  addButton: {
-    backgroundColor: '#007bff',
-    margin: 20,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 18,
+  sectionLabel: {
+    color: semanticColors.textMuted,
+    fontSize: 12,
     fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: mobileTheme.spacing.sm,
+    marginLeft: mobileTheme.spacing.md,
+  },
+  footerText: {
+    color: semanticColors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginHorizontal: mobileTheme.spacing.md,
+    marginTop: mobileTheme.spacing.sm,
   },
 });
 

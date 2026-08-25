@@ -17,7 +17,7 @@ interface UseCategoryManagerReturn {
   closeModal: () => void;
 
   // Category operations
-  saveCategory: (name: string, color: string) => void;
+  saveCategory: (name: string, color: string) => boolean;
   deleteCategory: (categoryId: string) => void;
 
   // Helper functions
@@ -59,7 +59,17 @@ export const useCategoryManager = (): UseCategoryManagerReturn => {
 
     if (!trimmedName) {
       Alert.alert('Error', 'Category name cannot be empty.');
-      return;
+      return false;
+    }
+
+    const existingCategory = categories.find(
+      (category) =>
+        category.id !== isEditing?.id &&
+        category.name.toLowerCase() === trimmedName.toLowerCase(),
+    );
+    if (existingCategory) {
+      Alert.alert('Error', 'A category with this name already exists.');
+      return false;
     }
 
     if (isEditing) {
@@ -72,21 +82,11 @@ export const useCategoryManager = (): UseCategoryManagerReturn => {
 
       updateCategory(updatedCategory);
     } else {
-      // Check if category with same name already exists
-      const existingCategory = categories.find(
-        (cat) => cat.name.toLowerCase() === trimmedName.toLowerCase(),
-      );
-
-      if (existingCategory) {
-        Alert.alert('Error', 'A category with this name already exists.');
-        return;
-      }
-
       // Create new category
       addCategory({ name: trimmedName, color });
     }
 
-    closeModal();
+    return true;
   };
 
   const deleteCategory = (categoryId: string) => {

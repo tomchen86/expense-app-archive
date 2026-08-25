@@ -96,7 +96,7 @@ const SettingsScreen = () => {
           <TouchableOpacity
             accessibilityRole='button'
             style={[styles.saveButton, styles.manageCategoriesButton]}
-            onPress={() => router.push('/manage-categories')}
+            onPress={() => router.push('/settings/manage-categories' as Href)}
           >
             <Text style={styles.manageCategoriesButtonText}>
               Manage Categories
