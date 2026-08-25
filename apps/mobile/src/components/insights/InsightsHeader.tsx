@@ -258,10 +258,10 @@ const styles = StyleSheet.create({
   periodArrowSurface: {
     alignItems: 'center',
     borderRadius: 22,
-    boxShadow: '0 2px 8px rgba(32, 55, 88, 0.08)',
     height: 44,
     justifyContent: 'center',
     width: 44,
+    ...mobileTheme.shadows.card,
   },
   disabledArrowButton: {
     opacity: 0.28,
@@ -279,11 +279,11 @@ const styles = StyleSheet.create({
   },
   periodPickerSurface: {
     borderRadius: mobileTheme.radii.pill,
-    boxShadow: '0 2px 8px rgba(32, 55, 88, 0.08)',
     flex: 1,
     height: 44,
     justifyContent: 'center',
     width: '100%',
+    ...mobileTheme.shadows.card,
   },
   periodPickerContent: {
     alignItems: 'center',

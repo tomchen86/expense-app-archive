@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderRadius: mobileTheme.radii.card,
     borderWidth: StyleSheet.hairlineWidth,
-    boxShadow: '0 16px 40px rgba(0, 0, 0, 0.22)',
+    ...mobileTheme.shadows.action,
   },
   header: {
     minHeight: 50,

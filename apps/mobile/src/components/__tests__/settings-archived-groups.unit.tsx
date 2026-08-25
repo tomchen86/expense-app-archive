@@ -46,6 +46,7 @@ jest.mock('react-native', () => {
     },
     Text: host('Text'),
     TextInput: host('TextInput'),
+    Switch: host('Switch', true),
     TouchableOpacity: host('View', true),
     View: host('View'),
   };
@@ -68,6 +69,8 @@ const archivedGroup: ExpenseGroup = {
 const mockMobileState = {
   groups: [activeGroup, archivedGroup],
   restoreGroup: jest.fn(),
+  settings: { theme: 'light' as 'light' | 'dark' },
+  updateSettings: jest.fn(),
   updateUserSettings: jest.fn(),
   userSettings: { name: 'Alex' },
 };
@@ -98,6 +101,20 @@ describe('Settings archived groups', () => {
       backgroundColor: semanticColors.surface,
     });
     expect(router.push).toHaveBeenCalledWith('/settings/archived-groups');
+  });
+
+  it('updates the persisted appearance preference from a native switch', () => {
+    const screen = render(<SettingsScreen />);
+
+    fireEvent(
+      screen.getByRole('switch', { name: 'Dark mode' }),
+      'valueChange',
+      true,
+    );
+
+    expect(mockMobileState.updateSettings).toHaveBeenCalledWith({
+      theme: 'dark',
+    });
   });
 
   it('lists only archived groups and restores them without rewriting history', () => {

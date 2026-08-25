@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, type Href } from 'expo-router';
@@ -18,7 +19,8 @@ import { mobileTheme } from '../theme/tokens';
 import { isExpenseGroupArchived } from '../utils/groupDomain';
 
 const SettingsScreen = () => {
-  const { groups, userSettings, updateUserSettings } = useExpenseStore();
+  const { groups, settings, updateSettings, userSettings, updateUserSettings } =
+    useExpenseStore();
   const [name, setName] = useState(userSettings?.name ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
@@ -91,7 +93,33 @@ const SettingsScreen = () => {
           Used to identify you in shared expenses and balances.
         </Text>
 
-        <Text style={[styles.sectionLabel, styles.appSectionLabel]}>APP</Text>
+        <Text style={[styles.sectionLabel, styles.spacedSectionLabel]}>
+          APPEARANCE
+        </Text>
+        <AdaptiveGroupedSection testID='settings-appearance-section'>
+          <View style={styles.settingsRow}>
+            <Text style={styles.rowLabel}>Dark Mode</Text>
+            <Switch
+              accessibilityLabel='Dark mode'
+              accessibilityRole='switch'
+              onValueChange={(enabled) =>
+                updateSettings({ theme: enabled ? 'dark' : 'light' })
+              }
+              trackColor={{
+                false: semanticColors.fill,
+                true: semanticColors.primary,
+              }}
+              value={settings.theme === 'dark'}
+            />
+          </View>
+        </AdaptiveGroupedSection>
+        <Text style={styles.footerText}>
+          Applies immediately throughout the app.
+        </Text>
+
+        <Text style={[styles.sectionLabel, styles.spacedSectionLabel]}>
+          APP
+        </Text>
         <AdaptiveGroupedSection testID='settings-app-section'>
           <TouchableOpacity
             accessibilityHint='Opens category names and chart colors'
@@ -161,7 +189,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  appSectionLabel: {
+  spacedSectionLabel: {
     marginTop: mobileTheme.spacing.xxl,
   },
   profileRow: {

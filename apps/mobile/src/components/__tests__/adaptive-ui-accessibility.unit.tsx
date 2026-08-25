@@ -42,6 +42,7 @@ jest.mock('react-native', () => {
     },
     Text: host('Text'),
     TextInput: host('TextInput'),
+    Switch: host('Switch', true),
     TouchableOpacity: host('View', true),
     View: host('View'),
   };
@@ -50,6 +51,8 @@ jest.mock('react-native', () => {
 jest.mock('../../store/expenseStore', () => ({
   useExpenseStore: () => ({
     groups: [],
+    settings: { theme: 'light' },
+    updateSettings: jest.fn(),
     updateUserSettings: jest.fn(),
     userSettings: { name: 'Alex' },
   }),

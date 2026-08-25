@@ -116,7 +116,5 @@ const styles = StyleSheet.create({
     backgroundColor: mobileTheme.colors.surfaceElevated,
     borderColor: mobileTheme.colors.border,
   },
-  interactive: {
-    boxShadow: '0 8px 22px rgba(32, 55, 88, 0.18)',
-  },
+  interactive: mobileTheme.shadows.action,
 });

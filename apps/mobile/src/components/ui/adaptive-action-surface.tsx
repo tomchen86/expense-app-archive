@@ -30,7 +30,6 @@ const styles = StyleSheet.create({
   base: {
     overflow: 'hidden',
     borderWidth: 1,
-    boxShadow: '0 8px 22px rgba(32, 55, 88, 0.18)',
   },
   primary: {
     backgroundColor: mobileTheme.colors.primaryContainer,

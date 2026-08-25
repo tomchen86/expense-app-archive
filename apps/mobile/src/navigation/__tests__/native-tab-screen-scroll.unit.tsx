@@ -34,6 +34,7 @@ jest.mock('react-native', () => {
     },
     Text: host('Text'),
     TextInput: host('TextInput'),
+    Switch: host('Switch'),
     TouchableOpacity: host('View'),
     View: host('View'),
   };
@@ -63,6 +64,8 @@ const mockMobileState = {
   personalSpaceId: 'personal-space-1',
   removeParticipantFromGroup: jest.fn(),
   restoreGroup: jest.fn(),
+  settings: { theme: 'light' as const },
+  updateSettings: jest.fn(),
   updateUserSettings: jest.fn(),
   userSettings: { name: 'Alex' },
 };

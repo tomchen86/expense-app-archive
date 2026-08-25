@@ -1,10 +1,12 @@
 import React from 'react';
+import { Appearance } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import RootLayout from '../../../app/_layout';
 
 jest.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
+  Appearance: { setColorScheme: jest.fn() },
   StyleSheet: {
     flatten: (style: unknown) => style,
   },
@@ -25,6 +27,11 @@ jest.mock('../../store/hydration', () => ({
   useMobileStoresHydrated: () => true,
 }));
 
+jest.mock('../../store/expenseStore', () => ({
+  useExpenseStore: (selector: (state: unknown) => unknown) =>
+    selector({ settings: { theme: 'dark' } }),
+}));
+
 jest.mock('../../components/feedback/expense-deletion-provider', () => ({
   ExpenseDeletionProvider: ({ children }: { children: React.ReactNode }) =>
     children,
@@ -42,10 +49,37 @@ jest.mock('expo-router', () => {
 
   Stack.Screen = Screen;
 
-  return { Stack };
+  return {
+    DarkTheme: { dark: true },
+    DefaultTheme: { dark: false },
+    Stack,
+    ThemeProvider: ({
+      children,
+      value,
+    }: {
+      children: React.ReactNode;
+      value: { dark: boolean };
+    }) =>
+      React.createElement(
+        'View',
+        { testID: 'navigation-theme', value },
+        children,
+      ),
+  };
 });
 
 describe('RootLayout', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('applies the persisted color scheme after store hydration', () => {
+    const screen = render(<RootLayout />);
+
+    expect(Appearance.setColorScheme).toHaveBeenCalledWith('dark');
+    expect(screen.getByTestId('navigation-theme').props.value.dark).toBe(true);
+  });
+
   it('keeps route-group implementation names out of native back buttons', () => {
     const screen = render(<RootLayout />);
 
