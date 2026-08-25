@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
+  Animated,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +12,9 @@ import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
 import { semanticColors } from '../../theme/semantic-colors';
 import { mobileTheme } from '../../theme/tokens';
 import type { BasicInfoSectionProps } from './expense-form-section.types';
+
+const NOTE_COLLAPSED_HEIGHT = 54;
+const NOTE_EXPANDED_HEIGHT = 116;
 
 export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
   title,
@@ -28,6 +32,18 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
   onCaptionChange,
   onDateChange,
 }) => {
+  const [isNoteFocused, setIsNoteFocused] = useState(false);
+  const noteHeight = useRef(new Animated.Value(NOTE_COLLAPSED_HEIGHT)).current;
+
+  const setNoteExpanded = (expanded: boolean) => {
+    setIsNoteFocused(expanded);
+    Animated.timing(noteHeight, {
+      duration: 160,
+      toValue: expanded ? NOTE_EXPANDED_HEIGHT : NOTE_COLLAPSED_HEIGHT,
+      useNativeDriver: false,
+    }).start();
+  };
+
   return (
     <View>
       <View style={styles.amountContainer}>
@@ -101,22 +117,49 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
         />
       </AdaptiveGroupedSection>
 
-      <Text accessibilityRole='header' style={styles.sectionLabel}>
-        NOTE
-      </Text>
       <AdaptiveGroupedSection style={styles.noteSection}>
-        <TextInput
-          accessibilityLabel='Expense note'
-          editable={!interactionDisabled}
-          multiline
-          onChangeText={onCaptionChange}
-          placeholder='Add a note…'
-          placeholderTextColor={semanticColors.placeholder}
-          style={styles.noteInput}
-          testID='expense-caption-input'
-          textAlignVertical='top'
-          value={caption}
-        />
+        <Animated.View
+          style={[styles.noteContainer, { height: noteHeight }]}
+          testID='expense-note-container'
+        >
+          {!isNoteFocused ? (
+            <>
+              <Text pointerEvents='none' style={styles.noteLabel}>
+                Note
+              </Text>
+              <Text
+                ellipsizeMode='tail'
+                numberOfLines={1}
+                pointerEvents='none'
+                style={[styles.noteSummary, !caption && styles.notePlaceholder]}
+              >
+                {caption || 'Add a note…'}
+              </Text>
+            </>
+          ) : null}
+          <TextInput
+            accessibilityLabel='Expense note'
+            caretHidden={!isNoteFocused}
+            editable={!interactionDisabled}
+            multiline={isNoteFocused}
+            numberOfLines={isNoteFocused ? 4 : 1}
+            onBlur={() => setNoteExpanded(false)}
+            onChangeText={onCaptionChange}
+            onFocus={() => setNoteExpanded(true)}
+            placeholder={isNoteFocused ? 'Add a note…' : undefined}
+            placeholderTextColor={semanticColors.placeholder}
+            scrollEnabled={isNoteFocused}
+            style={[
+              styles.noteInput,
+              isNoteFocused
+                ? styles.noteInputExpanded
+                : styles.noteInputCollapsed,
+            ]}
+            testID='expense-caption-input'
+            textAlignVertical={isNoteFocused ? 'top' : 'center'}
+            value={caption}
+          />
+        </Animated.View>
       </AdaptiveGroupedSection>
     </View>
   );
@@ -200,13 +243,47 @@ const styles = StyleSheet.create({
     marginLeft: mobileTheme.spacing.sm,
   },
   noteSection: {
-    minHeight: 112,
+    marginTop: mobileTheme.spacing.lg,
+    overflow: 'hidden',
   },
-  noteInput: {
-    minHeight: 110,
+  noteContainer: {
+    minHeight: NOTE_COLLAPSED_HEIGHT,
+    position: 'relative',
+  },
+  noteLabel: {
+    left: mobileTheme.spacing.lg,
+    position: 'absolute',
+    top: 17,
     color: semanticColors.text,
     fontSize: 16,
+  },
+  noteSummary: {
+    left: 88,
+    position: 'absolute',
+    right: mobileTheme.spacing.lg,
+    top: 17,
+    color: semanticColors.textMuted,
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  notePlaceholder: {
+    color: semanticColors.placeholder,
+  },
+  noteInput: {
+    bottom: 0,
+    fontSize: 16,
+    left: 0,
     lineHeight: 22,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  noteInputCollapsed: {
+    color: 'transparent',
+  },
+  noteInputExpanded: {
+    color: semanticColors.text,
     padding: mobileTheme.spacing.lg,
+    textAlign: 'left',
   },
 });
