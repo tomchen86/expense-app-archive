@@ -64,7 +64,7 @@ const ManageCategoriesScreen = () => {
         </Text>
 
         <Text style={styles.footerText}>
-          Default categories can be edited but not deleted.
+          Uncategorized is reserved. Any other unused category can be deleted.
         </Text>
 
         {categoryManager.archivedCategories.length > 0 ? (

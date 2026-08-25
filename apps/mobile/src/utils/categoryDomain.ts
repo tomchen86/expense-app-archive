@@ -8,6 +8,9 @@ export interface ExpenseCategoryPresentation {
   name: string;
 }
 
+export const isReservedUncategorizedCategory = (category: Category): boolean =>
+  category.isSystem === true && category.name === 'Uncategorized';
+
 export const resolveExpenseCategoryPresentation = (
   expense: Expense,
   categories: Category[] = [],

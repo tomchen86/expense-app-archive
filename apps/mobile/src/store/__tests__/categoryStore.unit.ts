@@ -89,10 +89,7 @@ describe('CategoryStore', () => {
     );
   });
 
-  it('prevents deleting every protected default category', () => {
-    const warnSpy = jest
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
+  it('permanently deletes an unused default category', () => {
     const defaultCategory = useCategoryStore.getState().categories[0];
 
     expect(defaultCategory).toBeDefined();
@@ -101,10 +98,45 @@ describe('CategoryStore', () => {
 
     const categories = useCategoryStore.getState().categories;
 
-    expect(categories).toContainEqual(defaultCategory);
-    expect(warnSpy).toHaveBeenCalledWith(
-      `Cannot delete the default category "${defaultCategory.name}".`,
-    );
+    expect(categories).not.toContainEqual(defaultCategory);
+  });
+
+  it('never archives or deletes the reserved Uncategorized category', () => {
+    const uncategorized = useCategoryStore
+      .getState()
+      .categories.find((category) => category.name === 'Uncategorized');
+
+    expect(uncategorized).toBeDefined();
+
+    useCategoryStore.getState().archiveCategory(uncategorized!.id);
+    useCategoryStore.getState().deleteCategory(uncategorized!.id);
+
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find((category) => category.id === uncategorized!.id),
+    ).toEqual(uncategorized);
+  });
+
+  it('archives a used default category while preserving its expense', () => {
+    const defaultCategory = useCategoryStore.getState().categories[0];
+    const expense = {
+      id: 'expense-default-category',
+      title: 'Dinner',
+      date: '2026-08-25',
+      category: defaultCategory.name,
+      categoryId: defaultCategory.id,
+    };
+    useExpenseStore.setState({ expenses: [expense] });
+
+    useCategoryStore.getState().archiveCategory(defaultCategory.id);
+
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find((category) => category.id === defaultCategory.id),
+    ).toHaveProperty('archivedAt');
+    expect(useExpenseStore.getState().expenses).toEqual([expense]);
   });
 
   it('retrieves categories by name after updates', () => {

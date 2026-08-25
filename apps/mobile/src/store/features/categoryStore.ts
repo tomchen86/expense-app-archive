@@ -4,12 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Category } from '../../types';
 import { DEFAULT_CATEGORIES } from '../../constants/expenses';
 import { normalizeCategoryColor } from '../../theme/category-palette';
+import { isReservedUncategorizedCategory } from '../../utils/categoryDomain';
 import { createUuid } from '../../utils/ids';
 import { useExpenseStore } from './expenseStore';
-
-const isProtectedDefault = (category: Category): boolean =>
-  category.isDefault === true ||
-  DEFAULT_CATEGORIES.some((candidate) => candidate.id === category.id);
 
 const findColorConflict = (
   categories: Category[],
@@ -97,8 +94,8 @@ export const useCategoryStore = create<CategoryState>()(
           (category) => category.id === updatedCategory.id,
         );
         if (
-          currentCategory?.isSystem &&
-          currentCategory.name === 'Uncategorized' &&
+          currentCategory &&
+          isReservedUncategorizedCategory(currentCategory) &&
           updatedCategory.name !== currentCategory.name
         ) {
           throw new Error('Uncategorized cannot be renamed.');
@@ -118,7 +115,8 @@ export const useCategoryStore = create<CategoryState>()(
       archiveCategory: (categoryId) =>
         set((state) => ({
           categories: state.categories.map((category) =>
-            category.id === categoryId && !isProtectedDefault(category)
+            category.id === categoryId &&
+            !isReservedUncategorizedCategory(category)
               ? { ...category, archivedAt: new Date().toISOString() }
               : category,
           ),
@@ -140,9 +138,12 @@ export const useCategoryStore = create<CategoryState>()(
           const categoryToDelete = state.categories.find(
             (c) => c.id === categoryId,
           );
-          if (categoryToDelete && isProtectedDefault(categoryToDelete)) {
+          if (
+            categoryToDelete &&
+            isReservedUncategorizedCategory(categoryToDelete)
+          ) {
             console.warn(
-              `Cannot delete the default category "${categoryToDelete.name}".`,
+              `Cannot delete the reserved category "${categoryToDelete.name}".`,
             );
             return state;
           }

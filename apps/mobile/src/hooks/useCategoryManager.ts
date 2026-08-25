@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { useExpenseStore } from '../store/expenseStore';
 import { normalizeCategoryColor } from '../theme/category-palette';
 import { Category } from '../types';
+import { isReservedUncategorizedCategory } from '../utils/categoryDomain';
 import { isExpenseDeleted } from '../utils/expenseDomain';
 import { isUuid } from '../utils/ids';
 
@@ -174,7 +175,10 @@ export const useCategoryManager = ({
     }
 
     if (!canDeleteCategory(categoryToDelete)) {
-      Alert.alert('Error', 'Default categories cannot be deleted.');
+      Alert.alert(
+        'System Category',
+        'Uncategorized cannot be renamed or deleted.',
+      );
       return;
     }
 
@@ -239,11 +243,11 @@ export const useCategoryManager = ({
 
   // Helper functions
   const canDeleteCategory = (category: Category): boolean => {
-    return category.isDefault !== true;
+    return !isReservedUncategorizedCategory(category);
   };
 
   const canEditCategory = (category: Category): boolean =>
-    !(category.isSystem && category.name === 'Uncategorized');
+    !isReservedUncategorizedCategory(category);
 
   const canPermanentlyDeleteCategory = (category: Category): boolean =>
     canDeleteCategory(category) && expensesUsingCategory(category).length === 0;

@@ -97,6 +97,23 @@ describe('useCategoryManager archive lifecycle', () => {
     );
   });
 
+  it('allows ordinary defaults to be removed but reserves Uncategorized', () => {
+    const ref = createRef<HookValue>();
+    act(() => {
+      TestRenderer.create(<Harness ref={ref} />);
+    });
+    const food = ref.current!.categories.find(
+      ({ name }) => name === 'Food & Dining',
+    )!;
+    const uncategorized = ref.current!.categories.find(
+      ({ name }) => name === 'Uncategorized',
+    )!;
+
+    expect(ref.current!.canDeleteCategory(food)).toBe(true);
+    expect(ref.current!.canDeleteCategory(uncategorized)).toBe(false);
+    expect(ref.current!.canEditCategory(uncategorized)).toBe(false);
+  });
+
   it('moves referenced expenses only after an explicit destination choice', () => {
     const ref = createRef<HookValue>();
     act(() => {

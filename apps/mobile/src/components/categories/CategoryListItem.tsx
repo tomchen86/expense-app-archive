@@ -62,7 +62,7 @@ const CategoryListItem: React.FC<CategoryListItemProps> = ({
           : canDelete
             ? 'Opens the category editor. Swipe left to delete.'
             : canEdit
-              ? 'Opens the category editor. Default categories cannot be deleted.'
+              ? 'Opens the category editor.'
               : 'This system category cannot be edited or deleted.'
       }
       accessibilityLabel={
@@ -98,7 +98,7 @@ const CategoryListItem: React.FC<CategoryListItemProps> = ({
     </TouchableOpacity>
   );
 
-  // Special handling for protected categories (like "Other")
+  // The reserved Uncategorized row has no destructive swipe action.
   if (!canDelete) {
     return renderContent();
   }

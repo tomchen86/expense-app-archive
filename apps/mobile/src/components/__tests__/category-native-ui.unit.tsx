@@ -108,7 +108,8 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
 
 jest.mock('../../hooks/useCategoryManager', () => ({
   useCategoryManager: () => ({
-    canDeleteCategory: (category: Category) => !category.isDefault,
+    canDeleteCategory: (category: Category) =>
+      category.name !== 'Uncategorized',
     categories: mockCategories,
     activeCategories: mockCategories,
     archivedCategories: [],
@@ -152,20 +153,26 @@ describe('native category management UI', () => {
     expect(mockOpenAddModal).toHaveBeenCalledTimes(1);
   });
 
-  it('does not expose administration labels on protected default rows', () => {
+  it('does not expose administration labels on a reserved system row', () => {
     const screen = render(
       <CategoryListItem
         canDelete={false}
-        category={mockCategories[0]}
+        category={{
+          id: 'Uncategorized',
+          name: 'Uncategorized',
+          color: '#888888',
+          isDefault: true,
+          isSystem: true,
+        }}
         isLast
         onDelete={mockDeleteCategory}
         onEdit={mockOpenEditModal}
       />,
     );
 
-    expect(screen.getByText('Food & Dining')).toBeTruthy();
+    expect(screen.getByText('Uncategorized')).toBeTruthy();
     expect(screen.queryByText('Protected')).toBeNull();
-    expect(screen.queryByTestId('category-swipeable-Food & Dining')).toBeNull();
+    expect(screen.queryByTestId('category-swipeable-Uncategorized')).toBeNull();
   });
 
   it('uses the semantic destructive swipe action for custom categories', () => {
