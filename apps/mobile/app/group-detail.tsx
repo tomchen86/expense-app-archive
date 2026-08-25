@@ -32,6 +32,7 @@ import {
   type RouteParam,
 } from '../src/navigation/expense-edit-route';
 import { isExpenseGroupArchived } from '../src/utils/groupDomain';
+import { semanticColors } from '../src/theme/semantic-colors';
 import { mobileTheme } from '../src/theme/tokens';
 import { useExpenseDeletion } from '../src/components/feedback/expense-deletion-context';
 import GroupMembersModal from '../src/components/groups/GroupMembersModal';
@@ -400,7 +401,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: mobileTheme.spacing.xxxl,
     fontSize: 18,
-    color: mobileTheme.colors.danger,
+    color: semanticColors.destructive,
   },
   archivedBanner: {
     padding: mobileTheme.spacing.lg,

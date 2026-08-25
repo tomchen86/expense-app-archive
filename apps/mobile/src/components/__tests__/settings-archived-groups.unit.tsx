@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 
 import ArchivedGroupsScreen from '../../screens/archived-groups-screen';
 import SettingsScreen from '../../screens/settings-screen';
+import { semanticColors } from '../../theme/semantic-colors';
 import type { ExpenseGroup } from '../../types';
 
 jest.mock('react-native', () => {
@@ -37,7 +38,11 @@ jest.mock('react-native', () => {
     ScrollView: host('ScrollView'),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
-      flatten: (style: unknown) => style,
+      flatten: (style: unknown) =>
+        Array.isArray(style)
+          ? Object.assign({}, ...style.flat().filter(Boolean))
+          : style,
+      hairlineWidth: 1,
     },
     Text: host('Text'),
     TextInput: host('TextInput'),
@@ -86,6 +91,12 @@ describe('Settings archived groups', () => {
 
     expect(screen.getByText('Archived Groups')).toBeTruthy();
     expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByTestId('settings-profile-section')).toHaveStyle({
+      backgroundColor: semanticColors.surface,
+    });
+    expect(screen.getByTestId('settings-app-section')).toHaveStyle({
+      backgroundColor: semanticColors.surface,
+    });
     expect(router.push).toHaveBeenCalledWith('/settings/archived-groups');
   });
 
@@ -147,9 +158,12 @@ describe('Settings archived groups', () => {
     await waitFor(() =>
       expect(saveButton).toHaveProp(
         'accessibilityState',
-        expect.objectContaining({ busy: true, disabled: true }),
+        expect.objectContaining({ disabled: true }),
       ),
     );
+    expect(
+      screen.getByRole('button', { name: 'Save settings' }).props.children,
+    ).toBe('Saving…');
     expect(mockMobileState.updateUserSettings).toHaveBeenCalledTimes(1);
     expect(Alert.alert).not.toHaveBeenCalledWith('Success', expect.anything());
 

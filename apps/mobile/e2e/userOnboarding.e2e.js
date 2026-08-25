@@ -22,7 +22,7 @@ describe('First-use group journey', () => {
     await testHelpers.dismissAlert('Go to Settings');
 
     await testHelpers.waitAndReplace(by.id('username-input'), 'First User');
-    await testHelpers.waitAndTap(by.id('save-settings-button'));
+    await testHelpers.waitAndTap(by.label('Save settings'));
     await testHelpers.expectVisible(by.text('Settings saved successfully'));
     await testHelpers.dismissAlert();
 

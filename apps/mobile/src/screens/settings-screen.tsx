@@ -9,8 +9,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, type Href } from 'expo-router';
+import { router, Stack, type Href } from 'expo-router';
+
+import { AdaptiveGroupedSection } from '../components/ui/adaptive-grouped-list';
 import { useExpenseStore } from '../store/expenseStore';
+import { semanticColors } from '../theme/semantic-colors';
 import { mobileTheme } from '../theme/tokens';
 import { isExpenseGroupArchived } from '../utils/groupDomain';
 
@@ -65,43 +68,45 @@ const SettingsScreen = () => {
         keyboardShouldPersistTaps='handled'
         testID='settings-scroll-view'
       >
-        <View style={styles.card}>
-          <Text style={styles.label}>Your Name</Text>
-          <TextInput
-            accessibilityLabel='Your name'
-            autoCapitalize='words'
-            editable={!isSaving}
-            onSubmitEditing={() => void handleSave()}
-            placeholder='Enter your name'
-            placeholderTextColor={mobileTheme.colors.textMuted}
-            returnKeyType='done'
-            style={styles.input}
-            testID='username-input'
-            value={name}
-            onChangeText={setName}
-          />
+        <Text style={styles.sectionLabel}>PROFILE</Text>
+        <AdaptiveGroupedSection testID='settings-profile-section'>
+          <View style={styles.profileRow}>
+            <Text style={styles.rowLabel}>Your Name</Text>
+            <TextInput
+              accessibilityLabel='Your name'
+              autoCapitalize='words'
+              editable={!isSaving}
+              onChangeText={setName}
+              onSubmitEditing={() => void handleSave()}
+              placeholder='Enter your name'
+              placeholderTextColor={semanticColors.placeholder}
+              returnKeyType='done'
+              style={styles.input}
+              testID='username-input'
+              value={name}
+            />
+          </View>
+        </AdaptiveGroupedSection>
+        <Text style={styles.footerText}>
+          Used to identify you in shared expenses and balances.
+        </Text>
 
+        <Text style={[styles.sectionLabel, styles.appSectionLabel]}>APP</Text>
+        <AdaptiveGroupedSection testID='settings-app-section'>
           <TouchableOpacity
+            accessibilityHint='Opens category names and chart colors'
+            accessibilityLabel='Manage categories'
             accessibilityRole='button'
-            accessibilityLabel='Save settings'
-            accessibilityState={{ busy: isSaving, disabled: isSaving }}
-            disabled={isSaving}
-            style={styles.saveButton}
-            onPress={() => void handleSave()}
-            testID='save-settings-button'
-          >
-            <Text style={styles.saveButtonText}>Save Settings</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            accessibilityRole='button'
-            style={[styles.saveButton, styles.manageCategoriesButton]}
             onPress={() => router.push('/settings/manage-categories' as Href)}
+            style={styles.settingsRow}
           >
-            <Text style={styles.manageCategoriesButtonText}>
-              Manage Categories
+            <Text style={styles.rowLabel}>Manage Categories</Text>
+            <Text accessibilityElementsHidden style={styles.chevron}>
+              ›
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.separator} />
 
           <TouchableOpacity
             accessibilityHint='Opens groups hidden from the active Groups tab'
@@ -111,7 +116,7 @@ const SettingsScreen = () => {
             style={styles.settingsRow}
             testID='archived-groups-row'
           >
-            <Text style={styles.settingsRowLabel}>Archived Groups</Text>
+            <Text style={styles.rowLabel}>Archived Groups</Text>
             <View style={styles.settingsRowAccessory}>
               <Text style={styles.settingsRowCount}>{archivedGroupCount}</Text>
               <Text accessibilityElementsHidden style={styles.chevron}>
@@ -119,8 +124,19 @@ const SettingsScreen = () => {
               </Text>
             </View>
           </TouchableOpacity>
-        </View>
+        </AdaptiveGroupedSection>
       </ScrollView>
+
+      <Stack.Toolbar placement='right'>
+        <Stack.Toolbar.Button
+          accessibilityLabel='Save settings'
+          disabled={isSaving}
+          onPress={() => void handleSave()}
+          variant='done'
+        >
+          {isSaving ? 'Saving…' : 'Save'}
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
     </SafeAreaView>
   );
 };
@@ -128,86 +144,78 @@ const SettingsScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: mobileTheme.colors.background,
+    backgroundColor: semanticColors.background,
   },
   container: {
     flexGrow: 1,
     paddingHorizontal: mobileTheme.spacing.xl,
-    paddingTop: mobileTheme.spacing.md,
+    paddingTop: mobileTheme.spacing.lg,
     paddingBottom: mobileTheme.spacing.xxxl,
-    backgroundColor: mobileTheme.colors.background,
+    backgroundColor: semanticColors.background,
   },
-  card: {
-    backgroundColor: mobileTheme.colors.surface,
-    borderColor: mobileTheme.colors.border,
-    borderRadius: mobileTheme.radii.card,
-    borderWidth: 1,
-    padding: mobileTheme.spacing.xl,
-    ...mobileTheme.shadows.card,
-  },
-  label: {
-    color: mobileTheme.colors.text,
-    fontSize: 16,
-    fontWeight: '600',
+  sectionLabel: {
     marginBottom: mobileTheme.spacing.sm,
+    marginLeft: mobileTheme.spacing.md,
+    color: semanticColors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  appSectionLabel: {
+    marginTop: mobileTheme.spacing.xxl,
+  },
+  profileRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: mobileTheme.spacing.lg,
+    backgroundColor: semanticColors.surface,
   },
   input: {
+    flex: 1,
     minHeight: 48,
-    color: mobileTheme.colors.text,
-    backgroundColor: mobileTheme.colors.surfaceElevated,
-    borderColor: mobileTheme.colors.border,
-    borderWidth: 1,
-    borderRadius: mobileTheme.radii.control,
-    paddingHorizontal: mobileTheme.spacing.lg,
-    marginBottom: mobileTheme.spacing.xl,
-  },
-  saveButton: {
-    backgroundColor: mobileTheme.colors.primary,
-    padding: mobileTheme.spacing.lg,
-    borderRadius: mobileTheme.radii.control,
-    alignItems: 'center',
-  },
-  manageCategoriesButton: {
-    marginTop: mobileTheme.spacing.md,
-    backgroundColor: mobileTheme.colors.primaryContainer,
-  },
-  saveButtonText: {
-    color: mobileTheme.colors.onPrimary,
+    marginLeft: mobileTheme.spacing.lg,
+    paddingVertical: 0,
+    color: semanticColors.text,
     fontSize: 16,
-    fontWeight: '600',
-  },
-  manageCategoriesButtonText: {
-    color: mobileTheme.colors.onPrimaryContainer,
-    fontSize: 16,
-    fontWeight: '600',
+    textAlign: 'right',
   },
   settingsRow: {
     minHeight: 52,
-    marginTop: mobileTheme.spacing.md,
     paddingHorizontal: mobileTheme.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: mobileTheme.radii.control,
-    backgroundColor: mobileTheme.colors.surfaceVariant,
+    backgroundColor: semanticColors.surface,
   },
-  settingsRowLabel: {
-    color: mobileTheme.colors.text,
+  rowLabel: {
+    color: semanticColors.text,
     fontSize: 16,
-    fontWeight: '600',
   },
   settingsRowAccessory: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   settingsRowCount: {
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 15,
   },
   chevron: {
     marginLeft: mobileTheme.spacing.sm,
-    color: mobileTheme.colors.textMuted,
-    fontSize: 24,
+    color: semanticColors.textMuted,
+    fontSize: 22,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: mobileTheme.spacing.lg,
+    backgroundColor: semanticColors.separator,
+  },
+  footerText: {
+    marginHorizontal: mobileTheme.spacing.md,
+    marginTop: mobileTheme.spacing.sm,
+    color: semanticColors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
 

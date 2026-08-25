@@ -67,7 +67,7 @@ const testHelpers = {
   async setUsername(username) {
     await this.tapTab('Settings');
     await this.waitAndReplace(by.id('username-input'), username);
-    await this.waitAndTap(by.id('save-settings-button'));
+    await this.waitAndTap(by.label('Save settings'));
     await this.expectVisible(by.text('Settings saved successfully'));
     await this.dismissAlert();
     await this.tapTab('Expenses');
