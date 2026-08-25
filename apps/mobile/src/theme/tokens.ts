@@ -11,7 +11,7 @@ export const mobileTheme = {
     text: '#122033',
     textMuted: '#5F6B7A',
     primary: '#0A66D9',
-    primaryGlassTint: 'rgba(10, 102, 217, 0.20)',
+    primaryGlassTint: 'rgba(10, 102, 217, 0.10)',
     primaryContainer: '#DCEBFF',
     onPrimary: '#FFFFFF',
     onPrimaryContainer: '#083B78',

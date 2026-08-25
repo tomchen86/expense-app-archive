@@ -11,6 +11,8 @@ jest.mock('react-native', () => ({
     isReduceTransparencyEnabled: jest.fn(),
   },
   Platform: { OS: 'ios' },
+  DynamicColorIOS: (colors: { dark: string; light: string }) => colors,
+  PlatformColor: (name: string) => `platform:${name}`,
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
     flatten: (style: unknown): Record<string, unknown> | undefined => {
@@ -33,6 +35,7 @@ jest.mock('react-native', () => ({
     },
   },
   Text: 'Text',
+  useColorScheme: () => 'light',
   View: 'View',
 }));
 
@@ -161,8 +164,30 @@ describe('AdaptiveActionSurface', () => {
     expect(StyleSheet.flatten(glassProps.style)).toEqual(
       expect.objectContaining({ marginTop: 12 }),
     );
+    expect(StyleSheet.flatten(glassProps.style)).not.toHaveProperty(
+      'borderWidth',
+    );
     expect(screen.getByTestId('mock-glass-view')).toBeTruthy();
     expect(screen.getByText('Action')).toBeTruthy();
+  });
+
+  it('keeps primary iOS glass neutral with only a subtle blue tint', async () => {
+    render(
+      <AdaptiveActionSurface interactive tone='primary'>
+        <Text>Primary action</Text>
+      </AdaptiveActionSurface>,
+    );
+
+    await waitFor(() => {
+      expect(glassEffectMock.GlassView).toHaveBeenCalledTimes(1);
+    });
+
+    expect(glassEffectMock.GlassView.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        isInteractive: true,
+        tintColor: 'rgba(0, 122, 255, 0.10)',
+      }),
+    );
   });
 
   it('uses a Material tonal surface on Android without importing glass semantics into the caller', () => {

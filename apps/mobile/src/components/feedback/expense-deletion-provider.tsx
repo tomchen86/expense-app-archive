@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useExpenseStore } from '../../store/expenseStore';
 import { flushExpensePersistence } from '../../store/features/expenseStore';
+import { semanticColors } from '../../theme/semantic-colors';
 import { mobileTheme } from '../../theme/tokens';
 import {
   ExpenseDeletionContext,
@@ -215,7 +216,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   undoText: {
-    color: mobileTheme.colors.primaryContainer,
+    color: semanticColors.primary,
     fontSize: 15,
     fontWeight: '700',
   },

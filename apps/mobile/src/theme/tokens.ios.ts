@@ -1,7 +1,12 @@
-import { DynamicColorIOS } from 'react-native';
+import { DynamicColorIOS, PlatformColor } from 'react-native';
 
 const dynamicColor = (light: string, dark: string) =>
   DynamicColorIOS({ light, dark });
+
+export const iosPrimaryGlassTint = {
+  light: 'rgba(0, 122, 255, 0.10)',
+  dark: 'rgba(10, 132, 255, 0.12)',
+} as const;
 
 export const mobileTheme = {
   colors: {
@@ -9,20 +14,29 @@ export const mobileTheme = {
     surface: dynamicColor('#FFFFFF', '#1C1C1E'),
     surfaceElevated: dynamicColor('#F8FBFF', '#2C2C2E'),
     surfaceVariant: dynamicColor('#E8EEF6', '#3A3A3C'),
-    sharedSurface: dynamicColor('#F2F6FF', '#20283A'),
-    sharedBorder: dynamicColor('#C9D8FA', '#3B4B70'),
-    sharedBadge: dynamicColor('#DFE9FF', '#2C3D63'),
-    sharedBadgeText: dynamicColor('#315AA8', '#B5C9FF'),
+    sharedSurface: dynamicColor('#F2F7FF', '#1A2839'),
+    sharedBorder: dynamicColor(
+      'rgba(0, 122, 255, 0.18)',
+      'rgba(10, 132, 255, 0.26)',
+    ),
+    sharedBadge: dynamicColor(
+      'rgba(0, 122, 255, 0.08)',
+      'rgba(10, 132, 255, 0.14)',
+    ),
+    sharedBadgeText: PlatformColor('systemBlueColor'),
     text: dynamicColor('#122033', '#F2F2F7'),
     textMuted: dynamicColor('#5F6B7A', '#AEAEB2'),
-    primary: dynamicColor('#0A66D9', '#0A84FF'),
+    primary: PlatformColor('systemBlueColor'),
     primaryGlassTint: dynamicColor(
-      'rgba(10, 102, 217, 0.20)',
-      'rgba(10, 132, 255, 0.24)',
+      iosPrimaryGlassTint.light,
+      iosPrimaryGlassTint.dark,
     ),
-    primaryContainer: dynamicColor('#DCEBFF', '#12345D'),
+    primaryContainer: dynamicColor(
+      'rgba(0, 122, 255, 0.14)',
+      'rgba(10, 132, 255, 0.20)',
+    ),
     onPrimary: dynamicColor('#FFFFFF', '#FFFFFF'),
-    onPrimaryContainer: dynamicColor('#083B78', '#D6E8FF'),
+    onPrimaryContainer: PlatformColor('systemBlueColor'),
     success: dynamicColor('#187A55', '#30D158'),
     destructive: dynamicColor('#C9362B', '#FF453A'),
     border: dynamicColor('rgba(18, 32, 51, 0.12)', 'rgba(255, 255, 255, 0.16)'),
@@ -54,7 +68,7 @@ export const mobileTheme = {
       elevation: 2,
     },
     action: {
-      shadowColor: dynamicColor('#0A66D9', '#000000'),
+      shadowColor: dynamicColor('#000000', '#000000'),
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.18,
       shadowRadius: 12,

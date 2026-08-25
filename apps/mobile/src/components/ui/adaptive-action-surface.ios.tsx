@@ -4,10 +4,15 @@ import {
   isLiquidGlassAvailable,
 } from 'expo-glass-effect';
 import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  StyleSheet,
+  useColorScheme,
+  View,
+} from 'react-native';
 
 import { resolvePlatformMaterial } from '../../theme/platform-material';
-import { mobileTheme } from '../../theme/tokens';
+import { iosPrimaryGlassTint, mobileTheme } from '../../theme/tokens.ios';
 import type { AdaptiveActionSurfaceProps } from './adaptive-action-surface.types';
 
 export type { AdaptiveActionSurfaceProps } from './adaptive-action-surface.types';
@@ -31,6 +36,7 @@ export const AdaptiveActionSurface = ({
   tone = 'neutral',
   ...viewProps
 }: AdaptiveActionSurfaceProps) => {
+  const colorScheme = useColorScheme();
   const [reduceTransparency, setReduceTransparency] = useState<boolean | null>(
     null,
   );
@@ -75,9 +81,11 @@ export const AdaptiveActionSurface = ({
         colorScheme='auto'
         glassEffectStyle='regular'
         isInteractive={interactive}
-        style={[styles.base, styles.glass, style]}
+        style={[styles.base, style]}
         tintColor={
-          tone === 'primary' ? mobileTheme.colors.primaryGlassTint : undefined
+          tone === 'primary'
+            ? iosPrimaryGlassTint[colorScheme === 'dark' ? 'dark' : 'light']
+            : undefined
         }
       >
         {children}
@@ -103,18 +111,16 @@ export const AdaptiveActionSurface = ({
 const styles = StyleSheet.create({
   base: {
     overflow: 'hidden',
-    borderWidth: 1,
-  },
-  glass: {
-    borderColor: mobileTheme.colors.glassBorder,
   },
   primary: {
-    backgroundColor: mobileTheme.colors.primaryContainer,
-    borderColor: 'transparent',
+    backgroundColor: mobileTheme.colors.surfaceElevated,
+    borderColor: mobileTheme.colors.glassBorder,
+    borderWidth: 1,
   },
   neutral: {
     backgroundColor: mobileTheme.colors.surfaceElevated,
     borderColor: mobileTheme.colors.border,
+    borderWidth: 1,
   },
   interactive: mobileTheme.shadows.action,
 });

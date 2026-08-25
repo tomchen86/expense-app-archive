@@ -1,10 +1,12 @@
 import React from 'react';
-import { Pressable, Text, StyleSheet, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 
 import { mobileTheme } from '../theme/tokens';
 import { buildCreateExpenseRoute } from '../navigation/expense-edit-route';
 import { AdaptiveActionSurface } from './ui/adaptive-action-surface';
+import { AdaptiveAddIcon } from './ui/adaptive-add-icon';
+import { useAdaptivePressFeedback } from './ui/use-adaptive-press-feedback';
 import { useFloatingActionOffset } from './ui/use-floating-action-offset';
 
 interface FloatingActionButtonProps {
@@ -29,8 +31,11 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   const bottomOffset = useFloatingActionOffset({
     nativeTabsContentInsetApplied,
   });
+  const { onPressIn, onPressOut, surfaceStyle, triggerFeedback } =
+    useAdaptivePressFeedback();
 
   const handlePress = () => {
+    triggerFeedback();
     if (onPress) {
       onPress();
     } else {
@@ -41,8 +46,8 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   return (
     <AdaptiveActionSurface
       interactive
-      tone='primary'
-      style={[styles.surface, { bottom: bottomOffset }, style]}
+      tone='neutral'
+      style={[styles.surface, { bottom: bottomOffset }, style, surfaceStyle]}
       testID={surfaceTestID}
     >
       <Pressable
@@ -51,12 +56,12 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
         android_ripple={{ color: 'rgba(10, 102, 217, 0.16)' }}
         hitSlop={mobileTheme.spacing.sm}
         onPress={handlePress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
         style={styles.fab}
         testID={testID}
       >
-        <Text accessibilityElementsHidden style={styles.fabText}>
-          +
-        </Text>
+        <AdaptiveAddIcon />
       </Pressable>
     </AdaptiveActionSurface>
   );
@@ -74,12 +79,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  fabText: {
-    fontSize: 32,
-    color: mobileTheme.colors.onPrimaryContainer,
-    lineHeight: 34,
-    fontWeight: '400',
   },
 });
 

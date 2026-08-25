@@ -5,6 +5,9 @@ import { router } from 'expo-router';
 import FloatingActionButton from '../FloatingActionButton';
 
 const mockUseFloatingActionOffset = jest.fn((_options?: unknown) => 16);
+const mockPressIn = jest.fn();
+const mockPressOut = jest.fn();
+const mockTriggerFeedback = jest.fn();
 
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -31,10 +34,37 @@ jest.mock('../ui/adaptive-action-surface', () => {
   const React = jest.requireActual<typeof import('react')>('react');
 
   return {
-    AdaptiveActionSurface: ({ children, testID }: any) =>
-      React.createElement('View', { testID }, children),
+    AdaptiveActionSurface: ({ children, ...props }: any) =>
+      React.createElement('View', props, children),
   };
 });
+
+jest.mock(
+  '../ui/adaptive-add-icon',
+  () => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    return {
+      AdaptiveAddIcon: () =>
+        React.createElement('AdaptiveAddIcon', {
+          testID: 'adaptive-add-icon',
+        }),
+    };
+  },
+  { virtual: true },
+);
+
+jest.mock(
+  '../ui/use-adaptive-press-feedback',
+  () => ({
+    useAdaptivePressFeedback: () => ({
+      onPressIn: mockPressIn,
+      onPressOut: mockPressOut,
+      surfaceStyle: { transform: [{ scale: 0.96 }] },
+      triggerFeedback: mockTriggerFeedback,
+    }),
+  }),
+  { virtual: true },
+);
 
 jest.mock('../ui/use-floating-action-offset', () => ({
   useFloatingActionOffset: (options: unknown) =>
@@ -49,8 +79,21 @@ describe('FloatingActionButton native surface', () => {
   it('exposes an accessible action inside the adaptive platform surface', () => {
     const screen = render(<FloatingActionButton />);
 
-    expect(screen.getByTestId('add-expense-surface')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Add expense' })).toBeTruthy();
+    expect(screen.getByTestId('add-expense-surface')).toHaveStyle({
+      transform: [{ scale: 0.96 }],
+    });
+    expect(screen.getByTestId('add-expense-surface').props.tone).toBe(
+      'neutral',
+    );
+    const button = screen.getByRole('button', { name: 'Add expense' });
+    expect(button).toBeTruthy();
+    expect(screen.getByTestId('adaptive-add-icon')).toBeTruthy();
+    expect(screen.queryByText('+')).toBeNull();
+
+    fireEvent(button, 'pressIn');
+    fireEvent(button, 'pressOut');
+    expect(mockPressIn).toHaveBeenCalledTimes(1);
+    expect(mockPressOut).toHaveBeenCalledTimes(1);
   });
 
   it('preserves group-aware navigation', () => {
@@ -58,6 +101,7 @@ describe('FloatingActionButton native surface', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Add expense' }));
 
+    expect(mockTriggerFeedback).toHaveBeenCalledTimes(1);
     expect(router.push).toHaveBeenCalledWith({
       pathname: '/add-expense',
       params: {
