@@ -41,6 +41,7 @@ export const GroupSection: React.FC<GroupSectionProps> = ({
             accessibilityState={{ disabled: sharingControlDisabled }}
             disabled={sharingControlDisabled}
             onValueChange={onSharingChange}
+            style={styles.switchControl}
             testID='sharing-toggle'
             trackColor={{
               false: semanticColors.fill,
@@ -147,6 +148,12 @@ const styles = StyleSheet.create({
   rowLabel: {
     color: semanticColors.text,
     fontSize: 16,
+  },
+  switchControl: {
+    alignSelf: 'center',
+    height: 31,
+    marginRight: mobileTheme.spacing.sm,
+    width: 51,
   },
   valueContainer: {
     flexShrink: 1,

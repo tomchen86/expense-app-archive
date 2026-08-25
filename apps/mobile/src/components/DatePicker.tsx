@@ -9,6 +9,7 @@ import {
   TextStyle,
 } from 'react-native';
 import DateTimePicker, {
+  DateTimePickerChangeEvent,
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { semanticColors } from '../theme/semantic-colors';
@@ -46,26 +47,37 @@ const DatePicker: React.FC<DatePickerProps> = ({
     }
   }, [disabled]);
 
-  const handleDateChange = (
-    event: DateTimePickerEvent,
-    selectedDate?: Date,
+  const handleDateValueChange = (
+    event: DateTimePickerChangeEvent,
+    selectedDate: Date,
   ) => {
-    if (Platform.OS === 'android') {
-      setShowPicker(false);
-    }
-    onChange(event, selectedDate);
+    setShowPicker(false);
+    onChange({ ...event, type: 'set' }, selectedDate);
   };
 
-  const renderIOSConfirmationButton = () => (
-    <TouchableOpacity
-      accessibilityLabel='Done choosing date'
-      accessibilityRole='button'
-      onPress={() => setShowPicker(false)}
-      style={styles.iosDoneButton}
-    >
-      <Text style={styles.iosDoneButtonText}>Done</Text>
-    </TouchableOpacity>
-  );
+  if (Platform.OS === 'ios') {
+    return (
+      <View
+        accessibilityState={{ disabled }}
+        style={[styles.container, styles.compactRow, containerStyle]}
+        testID={testID}
+      >
+        <Text style={[styles.label, labelStyle]}>{label}</Text>
+        <DateTimePicker
+          accessibilityLabel={`${label}, ${formatLocalDateForDisplay(date)}`}
+          disabled={disabled}
+          display='compact'
+          maximumDate={new Date()}
+          mode='date'
+          onValueChange={handleDateValueChange}
+          style={styles.compactPicker}
+          testID='native-date-picker'
+          value={date}
+          {...rest}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -92,15 +104,15 @@ const DatePicker: React.FC<DatePickerProps> = ({
       {showPicker && (
         <View style={styles.pickerContainer}>
           <DateTimePicker
-            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            display='default'
             maximumDate={new Date()}
             mode='date'
-            onChange={handleDateChange}
+            onDismiss={() => setShowPicker(false)}
+            onValueChange={handleDateValueChange}
             testID='native-date-picker'
             value={date}
             {...rest}
           />
-          {Platform.OS === 'ios' && renderIOSConfirmationButton()}
         </View>
       )}
     </View>
@@ -117,6 +129,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: mobileTheme.spacing.lg,
+  },
+  compactRow: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: mobileTheme.spacing.lg,
+    paddingRight: mobileTheme.spacing.lg,
+  },
+  compactPicker: {
+    minHeight: 44,
   },
   label: {
     color: semanticColors.text,
@@ -140,16 +163,6 @@ const styles = StyleSheet.create({
     borderTopColor: semanticColors.separator,
     borderTopWidth: StyleSheet.hairlineWidth,
     padding: mobileTheme.spacing.md,
-  },
-  iosDoneButton: {
-    alignSelf: 'flex-end',
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: mobileTheme.spacing.lg,
-  },
-  iosDoneButtonText: {
-    color: semanticColors.primary,
-    fontWeight: '700',
   },
 });
 

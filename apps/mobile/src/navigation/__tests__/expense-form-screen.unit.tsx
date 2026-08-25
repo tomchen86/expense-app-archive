@@ -177,10 +177,12 @@ describe('AddExpenseScreen native task', () => {
     expect(screen.queryByText('Group')).toBeNull();
     expect(screen.queryByText('Add Expense')).toBeNull();
     expect(screen.queryByText('2026-08-24')).toBeNull();
-    expect(screen.getByText('Aug 24, 2026')).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('date-picker'));
-    expect(screen.getByTestId('native-date-picker').props.maximumDate).toEqual(
+    expect(screen.getByTestId('native-date-picker')).toHaveProp(
+      'accessibilityLabel',
+      'Date, Aug 24, 2026',
+    );
+    expect(screen.getByTestId('native-date-picker')).toHaveProp(
+      'maximumDate',
       expect.any(Date),
     );
 
