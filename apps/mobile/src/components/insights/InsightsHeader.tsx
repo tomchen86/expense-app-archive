@@ -12,9 +12,9 @@ import { mobileTheme } from '../../theme/tokens';
 import { AdaptiveActionSurface } from '../ui/adaptive-action-surface';
 import PeriodAggregationControl from './period-aggregation-control';
 
-const SWIPE_CAPTURE_DISTANCE = 8;
-const SWIPE_COMMIT_DISTANCE = 30;
-const SWIPE_FLICK_VELOCITY = 0.55;
+const SWIPE_CAPTURE_DISTANCE = 2;
+const SWIPE_COMMIT_DISTANCE = 3;
+const SWIPE_FLICK_VELOCITY = 0.45;
 const HORIZONTAL_INTENT_RATIO = 0.7;
 const MAX_DRAG_DISTANCE = 52;
 const PERIOD_ENTRY_DISTANCE = 36;

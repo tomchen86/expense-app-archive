@@ -384,6 +384,12 @@ describe('Insights controls accessibility', () => {
     expect(navigator.props.onMoveShouldSetResponder).toBeUndefined();
     expect(
       swipeTarget.props.onMoveShouldSetResponder(undefined, {
+        dx: 2,
+        dy: 1,
+      }),
+    ).toBe(true);
+    expect(
+      swipeTarget.props.onMoveShouldSetResponder(undefined, {
         dx: 32,
         dy: 24,
       }),
@@ -396,16 +402,16 @@ describe('Insights controls accessibility', () => {
     ).toBe(false);
     expect(swipeTarget.props.onResponderTerminationRequest()).toBe(false);
     expect(screen.getByTestId('period-transition')).toBeTruthy();
-    swipeTarget.props.onResponderMove(undefined, { dx: 32, dy: 80 });
+    swipeTarget.props.onResponderMove(undefined, { dx: 3, dy: 80 });
     swipeTarget.props.onResponderRelease(undefined, {
-      dx: 32,
+      dx: 3,
       dy: 80,
       vx: 0.1,
     });
     swipeTarget.props.onResponderRelease(undefined, {
-      dx: -18,
+      dx: -14,
       dy: 4,
-      vx: -0.8,
+      vx: -0.45,
     });
 
     expect(onNextPeriod).toHaveBeenCalledTimes(1);

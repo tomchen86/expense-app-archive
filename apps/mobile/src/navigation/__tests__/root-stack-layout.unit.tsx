@@ -141,13 +141,17 @@ describe('RootLayout', () => {
     );
   });
 
-  it('keeps Insights as a root native stack destination with the compact title', () => {
+  it('keeps native edge-back on Insights without a competing full-screen gesture', () => {
     const screen = render(<RootLayout />);
     const insights = screen
       .getAllByTestId('root-stack-screen')
       .find((route) => route.props.name === 'insights');
 
     expect(insights).toBeTruthy();
-    expect(insights?.props.options).toEqual({ title: 'Insights' });
+    expect(insights?.props.options).toEqual({
+      fullScreenGestureEnabled: false,
+      gestureEnabled: true,
+      title: 'Insights',
+    });
   });
 });

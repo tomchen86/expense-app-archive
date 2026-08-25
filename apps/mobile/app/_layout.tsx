@@ -74,7 +74,14 @@ export default function RootLayout() {
               name='group-detail'
               options={{ title: 'Group Details' }}
             />
-            <Stack.Screen name='insights' options={{ title: 'Insights' }} />
+            <Stack.Screen
+              name='insights'
+              options={{
+                fullScreenGestureEnabled: false,
+                gestureEnabled: true,
+                title: 'Insights',
+              }}
+            />
             <Stack.Screen
               name='manage-categories'
               options={{ title: 'Manage Categories' }}
