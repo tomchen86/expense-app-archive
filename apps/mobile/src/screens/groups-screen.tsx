@@ -6,7 +6,6 @@ import { useExpenseStore } from '../store/expenseStore';
 import { ExpenseGroup } from '../types';
 
 import GroupListItem from '../components/GroupListItem';
-import TextInputModal from '../components/TextInputModal';
 import FloatingActionButton from '../components/FloatingActionButton';
 import { calculateCurrentUserGroupSummaryByCurrency } from '../utils/groupCalculations';
 import { mobileTheme } from '../theme/tokens';
@@ -30,11 +29,9 @@ const GroupsScreen = () => {
     return expenses.filter((expense) => !pendingIds.has(expense.id));
   }, [expenses, pendingExpenseDeletionIds]);
 
-  const addGroup = useExpenseStore((state) => state.addGroup);
   const archiveGroup = useExpenseStore((state) => state.archiveGroup);
   const restoreGroup = useExpenseStore((state) => state.restoreGroup);
 
-  const [isNewGroupModalVisible, setIsNewGroupModalVisible] = useState(false);
   const [isArchiveNoticeVisible, setIsArchiveNoticeVisible] = useState(false);
   const [pendingLifecycleGroupIds, setPendingLifecycleGroupIds] = useState<
     Set<string>
@@ -91,7 +88,7 @@ const GroupsScreen = () => {
     }
   };
 
-  const openNewGroupModal = () => {
+  const openNewGroup = () => {
     if (!(user?.displayName?.trim() || userSettings?.name?.trim())) {
       Alert.alert(
         'Username Required',
@@ -106,20 +103,7 @@ const GroupsScreen = () => {
       );
       return;
     }
-    setIsNewGroupModalVisible(true);
-  };
-
-  const handleNewGroupSubmit = async (groupName: string) => {
-    try {
-      await addGroup(groupName);
-      return true;
-    } catch {
-      Alert.alert(
-        'Unable to Create Group',
-        'Your group could not be saved. Please try again.',
-      );
-      return false;
-    }
+    router.push('/new-group');
   };
 
   const handleGroupPress = (groupId: string) => {
@@ -164,17 +148,6 @@ const GroupsScreen = () => {
         renderItem={renderGroupListItem}
       />
 
-      <TextInputModal
-        visible={isNewGroupModalVisible}
-        title='Create New Group'
-        placeholder='Enter group name'
-        submitButtonText='Create'
-        inputTestID='group-name-input'
-        submitButtonTestID='create-group-submit'
-        onSubmit={handleNewGroupSubmit}
-        onClose={() => setIsNewGroupModalVisible(false)}
-      />
-
       <TransientNotice
         message='Group archived · Find it in Settings'
         testID='group-archived-notice'
@@ -183,7 +156,7 @@ const GroupsScreen = () => {
       <FloatingActionButton
         accessibilityLabel='Add group'
         nativeTabsContentInsetApplied
-        onPress={openNewGroupModal}
+        onPress={openNewGroup}
         surfaceTestID='add-group-surface'
         testID='add-group-fab'
       />

@@ -123,6 +123,24 @@ describe('RootLayout', () => {
     );
   });
 
+  it('presents group creation as a compact draggable form sheet', () => {
+    const screen = render(<RootLayout />);
+    const newGroupRoute = screen
+      .getAllByTestId('root-stack-screen')
+      .find((route) => route.props.name === 'new-group');
+
+    expect(newGroupRoute).toBeDefined();
+    expect(newGroupRoute?.props.options).toEqual(
+      expect.objectContaining({
+        headerBackVisible: false,
+        presentation: 'formSheet',
+        sheetAllowedDetents: 'fitToContents',
+        sheetGrabberVisible: true,
+        title: 'New Group',
+      }),
+    );
+  });
+
   it('keeps Insights as a root native stack destination with the compact title', () => {
     const screen = render(<RootLayout />);
     const insights = screen

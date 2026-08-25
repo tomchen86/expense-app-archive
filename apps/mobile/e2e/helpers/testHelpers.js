@@ -98,7 +98,7 @@ const testHelpers = {
     await this.tapTab('Groups');
     await this.waitAndTap(by.id('add-group-fab'));
     await this.waitAndType(by.id('group-name-input'), groupName);
-    await this.waitAndTap(by.id('create-group-submit'));
+    await this.waitAndTap(by.label('Create'));
     await this.expectVisible(by.text(groupName));
   },
 

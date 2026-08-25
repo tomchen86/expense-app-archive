@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import GroupsScreen, {
   GROUP_ARCHIVE_NOTICE_DURATION_MS,
@@ -97,29 +97,6 @@ jest.mock('../../store/expenseStore', () => ({
     selector(mockMobileState),
 }));
 
-jest.mock('../../components/TextInputModal', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  return ({ onClose, onSubmit, title, visible }: any) =>
-    visible
-      ? React.createElement(
-          'View',
-          { testID: 'text-input-modal' },
-          React.createElement('Text', null, title),
-          React.createElement('View', {
-            accessible: true,
-            accessibilityLabel: 'Submit group name',
-            accessibilityRole: 'button',
-            onPress: () => {
-              void Promise.resolve(onSubmit('Durable group')).then((result) => {
-                if (result !== false) {
-                  onClose();
-                }
-              });
-            },
-          }),
-        )
-      : null;
-});
 jest.mock('../../components/FloatingActionButton', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return ({ accessibilityLabel, onPress, testID }: any) =>
@@ -131,6 +108,7 @@ jest.mock('../../components/FloatingActionButton', () => {
       testID: testID ?? 'floating-action',
     });
 });
+jest.mock('../../components/TextInputModal', () => () => null);
 jest.mock('../../components/GroupBalancesOverlay', () => () => null);
 jest.mock('../../components/groups/GroupMembersModal', () => () => null);
 
@@ -146,7 +124,7 @@ describe('group archive UI', () => {
     jest.useRealTimers();
   });
 
-  it('keeps archived groups out of the active list and creates from the FAB', () => {
+  it('keeps archived groups out of the active list and opens creation from the FAB', () => {
     const screen = render(<GroupsScreen />);
 
     expect(screen.getByText(activeGroup.name)).toBeTruthy();
@@ -155,8 +133,7 @@ describe('group archive UI', () => {
     expect(screen.queryByText('Create New Group')).toBeNull();
 
     fireEvent.press(screen.getByRole('button', { name: 'Add group' }));
-    expect(screen.getByTestId('text-input-modal')).toBeTruthy();
-    expect(screen.getByText('Create New Group')).toBeTruthy();
+    expect(router.push).toHaveBeenCalledWith('/new-group');
   });
 
   it('archives from the swipe action and points to Settings temporarily', async () => {
@@ -210,25 +187,6 @@ describe('group archive UI', () => {
     } finally {
       mockMobileState.groups = previousGroups;
     }
-  });
-
-  it('reports identity persistence failure without creating through a fallback path', async () => {
-    mockMobileState.addGroup.mockRejectedValueOnce(
-      new Error('identity unavailable'),
-    );
-    const screen = render(<GroupsScreen />);
-
-    fireEvent.press(screen.getByRole('button', { name: 'Add group' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Submit group name' }));
-
-    await waitFor(() =>
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Unable to Create Group',
-        'Your group could not be saved. Please try again.',
-      ),
-    );
-    expect(mockMobileState.addGroup).toHaveBeenCalledWith('Durable group');
-    expect(screen.getByTestId('text-input-modal')).toBeTruthy();
   });
 
   it('does not show archive success when durable persistence rejects', async () => {

@@ -56,6 +56,17 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name='new-group'
+              options={{
+                headerBackVisible: false,
+                presentation: 'formSheet',
+                sheetAllowedDetents: 'fitToContents',
+                sheetExpandsWhenScrolledToEdge: false,
+                sheetGrabberVisible: true,
+                title: 'New Group',
+              }}
+            />
+            <Stack.Screen
               name='expense-detail'
               options={{ title: 'Expense' }}
             />
