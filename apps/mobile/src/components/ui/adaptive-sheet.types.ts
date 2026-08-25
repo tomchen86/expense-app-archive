@@ -3,6 +3,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 
 export interface AdaptiveSheetAction {
   accessibilityLabel?: string;
+  busy?: boolean;
   destructive?: boolean;
   disabled?: boolean;
   label: string;

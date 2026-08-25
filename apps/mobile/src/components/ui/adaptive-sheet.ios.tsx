@@ -30,7 +30,10 @@ const HeaderAction = ({ action }: { action?: AdaptiveSheetAction }) => {
     <TouchableOpacity
       accessibilityLabel={action.accessibilityLabel ?? action.label}
       accessibilityRole='button'
-      accessibilityState={{ disabled: action.disabled }}
+      accessibilityState={{
+        busy: action.busy,
+        disabled: action.disabled,
+      }}
       disabled={action.disabled}
       onPress={action.onPress}
       style={styles.action}

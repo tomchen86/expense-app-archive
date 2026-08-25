@@ -87,7 +87,6 @@ describe('TextInputModal automation contract', () => {
 
     fireEvent.press(screen.getByTestId('add-member-submit'));
     fireEvent.press(screen.getByTestId('text-input-modal-cancel'));
-    fireEvent.press(screen.getByTestId('text-input-modal-overlay'));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith('Casey');

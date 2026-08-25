@@ -1,19 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import {
   FlatList,
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 
+import { semanticColors } from '../../theme/semantic-colors';
 import { mobileTheme } from '../../theme/tokens';
 import type { ExpenseGroup, Participant } from '../../types';
 import {
   canRemoveParticipantFromGroup,
   isExpenseGroupArchived,
 } from '../../utils/groupDomain';
+import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
+import { AdaptiveSheet } from '../ui/adaptive-sheet';
 
 interface GroupMembersModalProps {
   currentParticipantId: string | null;
@@ -86,110 +88,78 @@ const GroupMembersModal = ({
   };
 
   return (
-    <Modal
-      animationType='slide'
-      onRequestClose={close}
-      presentationStyle='pageSheet'
+    <AdaptiveSheet
+      leadingAction={{
+        accessibilityLabel: 'Close members',
+        disabled: isMutationPending,
+        label: 'Close',
+        onPress: close,
+      }}
+      onClose={close}
+      title='Members'
+      trailingAction={
+        canEditMembers
+          ? {
+              accessibilityLabel: isEditing
+                ? 'Finish editing members'
+                : 'Edit members',
+              disabled: isMutationPending,
+              label: isEditing ? 'Done' : 'Edit',
+              onPress: () => setIsEditing((editing) => !editing),
+            }
+          : undefined
+      }
       visible={visible}
     >
-      <View accessibilityViewIsModal style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            accessibilityLabel='Close members'
-            accessibilityRole='button'
-            accessibilityState={{ disabled: isMutationPending }}
-            disabled={isMutationPending}
-            onPress={close}
-            style={styles.headerButton}
-          >
-            <Text style={styles.headerButtonText}>Close</Text>
-          </TouchableOpacity>
-          <Text accessibilityRole='header' style={styles.title}>
-            Members
-          </Text>
-          {!canEditMembers ? (
-            <View style={styles.headerButtonPlaceholder} />
-          ) : (
-            <TouchableOpacity
-              accessibilityLabel={
-                isEditing ? 'Finish editing members' : 'Edit members'
-              }
-              accessibilityRole='button'
-              accessibilityState={{ disabled: isMutationPending }}
-              disabled={isMutationPending}
-              onPress={() => setIsEditing((editing) => !editing)}
-              style={styles.headerButton}
-            >
-              <Text style={styles.headerButtonText}>
-                {isEditing ? 'Done' : 'Edit'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <FlatList
-          contentContainerStyle={styles.listContent}
-          data={group.participants}
-          keyExtractor={(participant) => participant.id}
-          ListFooterComponent={
-            canEditMembers && isEditing ? (
-              <TouchableOpacity
-                accessibilityLabel='Add member'
-                accessibilityRole='button'
-                accessibilityState={{ disabled: isMutationPending }}
-                disabled={isMutationPending}
-                onPress={onAddMember}
-                style={styles.addButton}
-              >
-                <Text style={styles.addButtonText}>Add Member</Text>
-              </TouchableOpacity>
-            ) : null
-          }
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No current members.</Text>
-          }
-          renderItem={renderMember}
-        />
+      <View style={styles.content}>
+        <AdaptiveGroupedSection style={styles.listSection}>
+          <FlatList
+            data={group.participants}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            keyExtractor={(participant) => participant.id}
+            ListFooterComponent={
+              canEditMembers && isEditing ? (
+                <>
+                  {group.participants.length > 0 ? (
+                    <View style={styles.separator} />
+                  ) : null}
+                  <TouchableOpacity
+                    accessibilityLabel='Add member'
+                    accessibilityRole='button'
+                    accessibilityState={{ disabled: isMutationPending }}
+                    disabled={isMutationPending}
+                    onPress={onAddMember}
+                    style={styles.addButton}
+                  >
+                    <Text style={styles.addButtonText}>Add Member</Text>
+                  </TouchableOpacity>
+                </>
+              ) : null
+            }
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>No current members.</Text>
+            }
+            renderItem={renderMember}
+          />
+        </AdaptiveGroupedSection>
       </View>
-    </Modal>
+    </AdaptiveSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  content: {
     flex: 1,
-    backgroundColor: mobileTheme.colors.background,
+    paddingHorizontal: mobileTheme.spacing.lg,
+    paddingTop: mobileTheme.spacing.xl,
   },
-  header: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: mobileTheme.spacing.md,
-    borderBottomColor: mobileTheme.colors.border,
-    borderBottomWidth: 1,
-    backgroundColor: mobileTheme.colors.surface,
+  listSection: {
+    flexShrink: 1,
   },
-  headerButton: {
-    minWidth: 64,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  headerButtonPlaceholder: {
-    width: 64,
-  },
-  headerButtonText: {
-    color: mobileTheme.colors.primary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  title: {
-    color: mobileTheme.colors.text,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  listContent: {
-    padding: mobileTheme.spacing.xl,
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: mobileTheme.spacing.lg,
+    backgroundColor: semanticColors.separator,
   },
   memberRow: {
     minHeight: 52,
@@ -197,13 +167,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: mobileTheme.spacing.lg,
-    borderBottomColor: mobileTheme.colors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    backgroundColor: mobileTheme.colors.surface,
+    backgroundColor: semanticColors.surface,
   },
   memberName: {
     flex: 1,
-    color: mobileTheme.colors.text,
+    color: semanticColors.text,
     fontSize: 16,
   },
   removeButton: {
@@ -212,7 +180,7 @@ const styles = StyleSheet.create({
     paddingLeft: mobileTheme.spacing.lg,
   },
   removeText: {
-    color: mobileTheme.colors.danger,
+    color: semanticColors.destructive,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -220,17 +188,17 @@ const styles = StyleSheet.create({
     minHeight: 52,
     justifyContent: 'center',
     paddingHorizontal: mobileTheme.spacing.lg,
-    backgroundColor: mobileTheme.colors.surface,
+    backgroundColor: semanticColors.surface,
   },
   addButtonText: {
-    color: mobileTheme.colors.primary,
+    color: semanticColors.primary,
     fontSize: 16,
     fontWeight: '600',
   },
   emptyText: {
+    padding: mobileTheme.spacing.xxl,
     textAlign: 'center',
-    marginTop: mobileTheme.spacing.xxxl,
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 16,
   },
 });

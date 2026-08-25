@@ -1,7 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, Button } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+
+import { semanticColors } from '../../theme/semantic-colors';
 import { mobileTheme } from '../../theme/tokens';
+import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
+import { AdaptiveSheet } from '../ui/adaptive-sheet';
 
 interface DatePickerModalProps {
   visible: boolean;
@@ -31,111 +35,81 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
   currentMonth,
 }) => {
   return (
-    <Modal
-      transparent={true}
+    <AdaptiveSheet
+      onClose={onClose}
+      title='Select Period'
+      trailingAction={{ label: 'Done', onPress: onClose }}
       visible={visible}
-      animationType='slide'
-      onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View accessibilityViewIsModal style={styles.modalContent}>
-          <Text accessibilityRole='header' style={styles.modalTitle}>
-            Select Period
-          </Text>
-
-          <View style={styles.dateSelectorsContainer}>
-            {aggregation === 'month' && (
-              <View style={styles.pickerContainer}>
-                <Text style={styles.dateSelectorLabel}>Month:</Text>
-                <Picker
-                  accessibilityLabel='Month'
-                  selectedValue={selectedMonth}
-                  style={styles.picker}
-                  onValueChange={onMonthChange}
-                  itemStyle={styles.pickerItem}
-                >
-                  {monthNames.map((monthName, index) => (
-                    <Picker.Item
-                      enabled={
-                        selectedYear < currentYear || index <= currentMonth
-                      }
-                      key={index}
-                      label={monthName}
-                      value={index}
-                    />
-                  ))}
-                </Picker>
-              </View>
-            )}
-
-            <View style={styles.pickerContainer}>
-              <Text style={styles.dateSelectorLabel}>Year:</Text>
+      <View style={styles.content}>
+        {aggregation === 'month' ? (
+          <View style={styles.field}>
+            <Text style={styles.sectionLabel}>MONTH</Text>
+            <AdaptiveGroupedSection>
               <Picker
-                accessibilityLabel='Year'
-                selectedValue={selectedYear}
-                style={styles.picker}
-                onValueChange={onYearChange}
+                accessibilityLabel='Month'
                 itemStyle={styles.pickerItem}
+                onValueChange={onMonthChange}
+                selectedValue={selectedMonth}
+                style={styles.picker}
               >
-                {availableYears.map((year) => (
+                {monthNames.map((monthName, index) => (
                   <Picker.Item
-                    key={year}
-                    label={year.toString()}
-                    value={year}
+                    enabled={
+                      selectedYear < currentYear || index <= currentMonth
+                    }
+                    key={monthName}
+                    label={monthName}
+                    value={index}
                   />
                 ))}
               </Picker>
-            </View>
+            </AdaptiveGroupedSection>
           </View>
+        ) : null}
 
-          <Button title='Done' onPress={onClose} />
+        <View style={styles.field}>
+          <Text style={styles.sectionLabel}>YEAR</Text>
+          <AdaptiveGroupedSection>
+            <Picker
+              accessibilityLabel='Year'
+              itemStyle={styles.pickerItem}
+              onValueChange={onYearChange}
+              selectedValue={selectedYear}
+              style={styles.picker}
+            >
+              {availableYears.map((year) => (
+                <Picker.Item key={year} label={year.toString()} value={year} />
+              ))}
+            </Picker>
+          </AdaptiveGroupedSection>
         </View>
       </View>
-    </Modal>
+    </AdaptiveSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: mobileTheme.spacing.lg,
+    paddingTop: mobileTheme.spacing.xl,
   },
-  modalContent: {
-    backgroundColor: mobileTheme.colors.surface,
-    padding: mobileTheme.spacing.xl,
-    borderRadius: mobileTheme.radii.card,
-    width: '80%',
-    maxWidth: 400,
+  field: {
+    marginBottom: mobileTheme.spacing.xl,
   },
-  modalTitle: {
-    color: mobileTheme.colors.text,
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  dateSelectorsContainer: {
-    flexDirection: 'column',
-    marginBottom: 20,
-  },
-  pickerContainer: {
-    marginBottom: 10,
-  },
-  dateSelectorLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 5,
-    color: mobileTheme.colors.text,
+  sectionLabel: {
+    marginBottom: mobileTheme.spacing.sm,
+    marginLeft: mobileTheme.spacing.lg,
+    color: semanticColors.textMuted,
+    fontSize: 13,
   },
   picker: {
     height: 150,
-    borderWidth: 1,
-    borderColor: mobileTheme.colors.border,
-    borderRadius: 5,
+    color: semanticColors.text,
   },
   pickerItem: {
+    color: semanticColors.text,
     fontSize: 16,
     height: 150,
   },

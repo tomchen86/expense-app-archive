@@ -40,6 +40,7 @@ jest.mock('react-native', () => {
             ),
         ListFooterComponent,
       ),
+    KeyboardAvoidingView: host('KeyboardAvoidingView'),
     Modal: ({ children, visible, ...props }: any) =>
       visible ? React.createElement('Modal', props, children) : null,
     StyleSheet: {

@@ -27,11 +27,13 @@ jest.mock('react-native', () => {
           ),
         ),
       ),
+    KeyboardAvoidingView: host('View'),
     Modal: host('View'),
     SafeAreaView: host('View'),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
       flatten: (style: unknown) => style,
+      hairlineWidth: 1,
     },
     Text: host('Text'),
     TouchableOpacity: host('View', true),
