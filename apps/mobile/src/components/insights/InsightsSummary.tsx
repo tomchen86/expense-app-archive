@@ -45,15 +45,14 @@ const InsightsSummary: React.FC<InsightsSummaryProps> = ({
         const comparison = comparisonText(insight, priorPeriodText);
         return (
           <View
-            accessibilityLabel={`${insight.currency} total spent ${total}. ${comparison}`}
+            accessibilityLabel={`Total spent ${total}. ${comparison}`}
             accessible
             key={insight.currency}
             style={styles.card}
           >
-            <Text accessibilityRole='header' style={styles.currency}>
-              {insight.currency}
+            <Text accessibilityRole='header' style={styles.eyebrow}>
+              TOTAL SPENT
             </Text>
-            <Text style={styles.eyebrow}>TOTAL SPENT</Text>
             <Text style={styles.total}>{total}</Text>
             <Text style={styles.comparison}>{comparison}</Text>
           </View>
@@ -76,17 +75,11 @@ const styles = StyleSheet.create({
     padding: mobileTheme.spacing.lg,
     ...mobileTheme.shadows.card,
   },
-  currency: {
-    color: mobileTheme.colors.textMuted,
-    fontSize: 14,
-    fontWeight: '700',
-  },
   eyebrow: {
     color: mobileTheme.colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.8,
-    marginTop: mobileTheme.spacing.sm,
   },
   total: {
     color: mobileTheme.colors.text,

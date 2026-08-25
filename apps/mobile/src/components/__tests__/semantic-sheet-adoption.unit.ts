@@ -8,7 +8,6 @@ const activeSheetSources = [
   'TextInputModal.tsx',
   'GroupBalancesOverlay.tsx',
   'groups/GroupMembersModal.tsx',
-  'insights/DatePickerModal.tsx',
 ];
 
 describe('active modal semantic adapter contract', () => {
@@ -21,6 +20,17 @@ describe('active modal semantic adapter contract', () => {
       expect(source).not.toMatch(/<Modal\b/);
     },
   );
+
+  it('presents the Insights period chooser through AdaptivePopover', () => {
+    const source = readFileSync(
+      resolve(componentRoot, 'insights/DatePickerModal.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('ui/adaptive-popover');
+    expect(source).not.toContain('ui/adaptive-sheet');
+    expect(source).not.toMatch(/<Modal\b/);
+  });
 
   it.each(activeSheetSources)(
     '%s does not reintroduce legacy web colors',

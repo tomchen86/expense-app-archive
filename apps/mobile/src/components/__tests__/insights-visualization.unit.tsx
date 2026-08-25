@@ -8,11 +8,43 @@ jest.mock('react-native', () => {
       return React.createElement(name, props, children);
     };
   return {
+    Animated: {
+      Value: class AnimatedValue {
+        value: number;
+
+        constructor(value: number) {
+          this.value = value;
+        }
+
+        interpolate() {
+          return this;
+        }
+
+        setValue(value: number) {
+          this.value = value;
+        }
+      },
+      View: host('AnimatedView'),
+      parallel: (animations: Array<{ start: () => void }>) => ({
+        start: (callback?: () => void) => {
+          animations.forEach((animation) => animation.start());
+          callback?.();
+        },
+      }),
+      timing: (value: { setValue: (next: number) => void }, config: any) => ({
+        start: (callback?: () => void) => {
+          value.setValue(config.toValue);
+          callback?.();
+        },
+      }),
+    },
     PanResponder: {
       create: (handlers: any) => ({
         panHandlers: {
           onMoveShouldSetResponder: handlers.onMoveShouldSetPanResponder,
+          onResponderMove: handlers.onPanResponderMove,
           onResponderRelease: handlers.onPanResponderRelease,
+          onResponderTerminate: handlers.onPanResponderTerminate,
         },
       }),
     },
@@ -324,7 +356,7 @@ describe('Insights controls accessibility', () => {
     expect(onAggregationChange).toHaveBeenCalledWith('year');
   });
 
-  it('changes period with a deliberate horizontal swipe without capturing vertical scroll', () => {
+  it('changes period from the centered picker without competing with the navigation edge', () => {
     const onNextPeriod = jest.fn();
     const onPreviousPeriod = jest.fn();
     const screen = render(
@@ -339,21 +371,25 @@ describe('Insights controls accessibility', () => {
       />,
     );
     const navigator = screen.getByTestId('period-navigator');
+    const swipeTarget = screen.getByTestId('period-swipe-target');
 
+    expect(navigator.props.onMoveShouldSetResponder).toBeUndefined();
     expect(
-      navigator.props.onMoveShouldSetResponder(undefined, {
+      swipeTarget.props.onMoveShouldSetResponder(undefined, {
         dx: -56,
         dy: 5,
       }),
     ).toBe(true);
     expect(
-      navigator.props.onMoveShouldSetResponder(undefined, {
+      swipeTarget.props.onMoveShouldSetResponder(undefined, {
         dx: 5,
         dy: 56,
       }),
     ).toBe(false);
-    navigator.props.onResponderRelease(undefined, { dx: -56, dy: 5 });
-    navigator.props.onResponderRelease(undefined, { dx: 56, dy: 5 });
+    expect(screen.getByTestId('period-transition')).toBeTruthy();
+    swipeTarget.props.onResponderMove(undefined, { dx: -28, dy: 3 });
+    swipeTarget.props.onResponderRelease(undefined, { dx: -56, dy: 5 });
+    swipeTarget.props.onResponderRelease(undefined, { dx: 56, dy: 5 });
 
     expect(onNextPeriod).toHaveBeenCalledTimes(1);
     expect(onPreviousPeriod).toHaveBeenCalledTimes(1);
@@ -374,7 +410,7 @@ describe('Insights controls accessibility', () => {
     );
 
     screen
-      .getByTestId('period-navigator')
+      .getByTestId('period-swipe-target')
       .props.onResponderRelease(undefined, { dx: -80, dy: 4 });
 
     expect(onNextPeriod).not.toHaveBeenCalled();
@@ -389,6 +425,7 @@ describe('Insights period summary', () => {
     );
 
     expect(screen.getByText('TOTAL SPENT')).toBeTruthy();
+    expect(screen.queryByText('AUD')).toBeNull();
     expect(screen.getByText(formatMinorUnits(500, 'AUD'))).toBeTruthy();
     expect(screen.getByText('No spending in July 2026.')).toBeTruthy();
     expect(screen.queryByText(/Infinity/)).toBeNull();
@@ -407,7 +444,7 @@ describe('Insights period summary', () => {
 
     expect(
       screen.getByLabelText(
-        `AUD total spent ${formatMinorUnits(
+        `Total spent ${formatMinorUnits(
           1_200,
           'AUD',
         )}. ${formatMinorUnits(400, 'AUD')} more than July 2026, 50.0 percent.`,

@@ -5,7 +5,7 @@ import { Picker } from '@react-native-picker/picker';
 import { semanticColors } from '../../theme/semantic-colors';
 import { mobileTheme } from '../../theme/tokens';
 import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
-import { AdaptiveSheet } from '../ui/adaptive-sheet';
+import { AdaptivePopover } from '../ui/adaptive-popover';
 
 interface DatePickerModalProps {
   visible: boolean;
@@ -35,13 +35,18 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
   currentMonth,
 }) => {
   return (
-    <AdaptiveSheet
+    <AdaptivePopover
       onClose={onClose}
+      testID='period-popover'
       title='Select Period'
-      trailingAction={{ label: 'Done', onPress: onClose }}
       visible={visible}
     >
-      <View style={styles.content}>
+      <View
+        style={[
+          styles.content,
+          aggregation === 'year' && styles.yearOnlyContent,
+        ]}
+      >
         {aggregation === 'month' ? (
           <View style={styles.field}>
             <Text style={styles.sectionLabel}>MONTH</Text>
@@ -85,33 +90,37 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
           </AdaptiveGroupedSection>
         </View>
       </View>
-    </AdaptiveSheet>
+    </AdaptivePopover>
   );
 };
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
-    paddingHorizontal: mobileTheme.spacing.lg,
-    paddingTop: mobileTheme.spacing.xl,
+    flexDirection: 'row',
+    gap: mobileTheme.spacing.md,
+    padding: mobileTheme.spacing.lg,
+  },
+  yearOnlyContent: {
+    justifyContent: 'center',
   },
   field: {
-    marginBottom: mobileTheme.spacing.xl,
+    flex: 1,
+    maxWidth: 180,
   },
   sectionLabel: {
     marginBottom: mobileTheme.spacing.sm,
-    marginLeft: mobileTheme.spacing.lg,
+    marginLeft: mobileTheme.spacing.md,
     color: semanticColors.textMuted,
     fontSize: 13,
   },
   picker: {
-    height: 150,
+    height: 132,
     color: semanticColors.text,
   },
   pickerItem: {
     color: semanticColors.text,
     fontSize: 16,
-    height: 150,
+    height: 132,
   },
 });
 

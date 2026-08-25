@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
+  Animated,
   PanResponder,
   View,
   Text,
@@ -14,6 +15,8 @@ import PeriodAggregationControl from './period-aggregation-control';
 const SWIPE_CAPTURE_DISTANCE = 12;
 const SWIPE_COMMIT_DISTANCE = 44;
 const HORIZONTAL_INTENT_RATIO = 1.35;
+const MAX_DRAG_DISTANCE = 52;
+const PERIOD_EXIT_DISTANCE = 72;
 
 const isHorizontalPeriodSwipe = (dx: number, dy: number): boolean =>
   Math.abs(dx) >= SWIPE_CAPTURE_DISTANCE &&
@@ -38,26 +41,88 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
   onNextPeriod,
   isNextDisabled,
 }) => {
+  const periodDragX = useRef(new Animated.Value(0)).current;
+  const periodOpacity = periodDragX.interpolate({
+    inputRange: [-MAX_DRAG_DISTANCE, 0, MAX_DRAG_DISTANCE],
+    outputRange: [0.62, 1, 0.62],
+    extrapolate: 'clamp',
+  });
+
+  const resetPeriodDrag = useCallback(() => {
+    Animated.timing(periodDragX, {
+      duration: 150,
+      toValue: 0,
+      useNativeDriver: true,
+    }).start();
+  }, [periodDragX]);
+
+  const animatePeriodChange = useCallback(
+    (direction: 'previous' | 'next') => {
+      if (direction === 'next' && isNextDisabled) {
+        resetPeriodDrag();
+        return;
+      }
+
+      const exitDistance =
+        direction === 'previous' ? PERIOD_EXIT_DISTANCE : -PERIOD_EXIT_DISTANCE;
+      Animated.timing(periodDragX, {
+        duration: 120,
+        toValue: exitDistance,
+        useNativeDriver: true,
+      }).start(() => {
+        if (direction === 'previous') {
+          onPreviousPeriod();
+        } else {
+          onNextPeriod();
+        }
+
+        periodDragX.setValue(-exitDistance * 0.55);
+        Animated.timing(periodDragX, {
+          duration: 180,
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      });
+    },
+    [
+      isNextDisabled,
+      onNextPeriod,
+      onPreviousPeriod,
+      periodDragX,
+      resetPeriodDrag,
+    ],
+  );
+
   const periodPanResponder = useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_event, gestureState) =>
           isHorizontalPeriodSwipe(gestureState.dx, gestureState.dy),
+        onPanResponderMove: (_event, gestureState) => {
+          periodDragX.setValue(
+            Math.max(
+              -MAX_DRAG_DISTANCE,
+              Math.min(MAX_DRAG_DISTANCE, gestureState.dx),
+            ),
+          );
+        },
         onPanResponderRelease: (_event, gestureState) => {
           if (
             Math.abs(gestureState.dx) < SWIPE_COMMIT_DISTANCE ||
             !isHorizontalPeriodSwipe(gestureState.dx, gestureState.dy)
           ) {
+            resetPeriodDrag();
             return;
           }
           if (gestureState.dx > 0) {
-            onPreviousPeriod();
-          } else if (!isNextDisabled) {
-            onNextPeriod();
+            animatePeriodChange('previous');
+          } else {
+            animatePeriodChange('next');
           }
         },
+        onPanResponderTerminate: resetPeriodDrag,
       }),
-    [isNextDisabled, onNextPeriod, onPreviousPeriod],
+    [animatePeriodChange, periodDragX, resetPeriodDrag],
   );
 
   return (
@@ -67,11 +132,7 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
         onChange={onAggregationChange}
       />
 
-      <View
-        {...periodPanResponder.panHandlers}
-        style={styles.periodNavigatorContainer}
-        testID='period-navigator'
-      >
+      <View style={styles.periodNavigatorContainer} testID='period-navigator'>
         <AdaptiveActionSurface
           interactive
           style={styles.periodArrowSurface}
@@ -92,37 +153,52 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
             />
           </TouchableOpacity>
         </AdaptiveActionSurface>
-        <AdaptiveActionSurface
-          interactive
-          style={styles.periodPickerSurface}
-          testID='period-picker-surface'
+        <View
+          {...periodPanResponder.panHandlers}
+          style={styles.periodSwipeTarget}
+          testID='period-swipe-target'
         >
-          <TouchableOpacity
-            activeOpacity={0.72}
-            accessibilityLabel={`Choose period. ${displayPeriodText}`}
-            accessibilityHint='Opens the month and year picker'
-            accessibilityRole='button'
-            onPress={onPeriodPress}
-            style={styles.periodButton}
-            testID='period-picker-button'
+          <AdaptiveActionSurface
+            interactive
+            style={styles.periodPickerSurface}
+            testID='period-picker-surface'
           >
-            <View style={styles.periodPickerContent}>
-              <Text
-                ellipsizeMode='tail'
-                numberOfLines={1}
-                style={styles.periodDisplayText}
+            <TouchableOpacity
+              activeOpacity={0.72}
+              accessibilityLabel={`Choose period. ${displayPeriodText}`}
+              accessibilityHint='Opens the month and year picker'
+              accessibilityRole='button'
+              onPress={onPeriodPress}
+              style={styles.periodButton}
+              testID='period-picker-button'
+            >
+              <Animated.View
+                style={[
+                  styles.periodPickerContent,
+                  {
+                    opacity: periodOpacity,
+                    transform: [{ translateX: periodDragX }],
+                  },
+                ]}
+                testID='period-transition'
               >
-                {displayPeriodText}
-              </Text>
-              <Ionicons
-                color={mobileTheme.colors.textMuted}
-                name='chevron-down'
-                size={14}
-                testID='period-picker-chevron'
-              />
-            </View>
-          </TouchableOpacity>
-        </AdaptiveActionSurface>
+                <Text
+                  ellipsizeMode='tail'
+                  numberOfLines={1}
+                  style={styles.periodDisplayText}
+                >
+                  {displayPeriodText}
+                </Text>
+                <Ionicons
+                  color={mobileTheme.colors.textMuted}
+                  name='chevron-down'
+                  size={14}
+                  testID='period-picker-chevron'
+                />
+              </Animated.View>
+            </TouchableOpacity>
+          </AdaptiveActionSurface>
+        </View>
         <AdaptiveActionSurface
           interactive
           style={[
@@ -195,6 +271,10 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     justifyContent: 'center',
+    minWidth: 0,
+  },
+  periodSwipeTarget: {
+    flex: 1,
     minWidth: 0,
   },
   periodPickerSurface: {
