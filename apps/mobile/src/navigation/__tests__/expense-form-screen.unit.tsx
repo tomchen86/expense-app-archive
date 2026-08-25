@@ -24,6 +24,23 @@ jest.mock('react-native', () => {
 
   return {
     Alert: { alert: jest.fn() },
+    Animated: {
+      Value: class AnimatedValue {
+        value: number;
+
+        constructor(value: number) {
+          this.value = value;
+        }
+
+        setValue(value: number) {
+          this.value = value;
+        }
+      },
+      View: host('AnimatedView'),
+      timing: (value: { setValue: (next: number) => void }, config: any) => ({
+        start: () => value.setValue(config.toValue),
+      }),
+    },
     Button: ({ title, ...props }: any) =>
       React.createElement(
         'View',

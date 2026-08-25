@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   Modal,
@@ -10,6 +11,7 @@ import {
 
 import { semanticColors } from '../../theme/semantic-colors.ios';
 import { mobileTheme } from '../../theme/tokens';
+import { AdaptiveActionSurface } from './adaptive-action-surface';
 import type { AdaptivePopoverProps } from './adaptive-popover.types';
 
 export type { AdaptivePopoverProps } from './adaptive-popover.types';
@@ -35,21 +37,32 @@ export const AdaptivePopover = ({
         onPress={onClose}
         style={StyleSheet.absoluteFill}
       />
-      <View accessibilityViewIsModal style={styles.popover} testID={testID}>
-        <View style={styles.header}>
-          <Text accessibilityRole='header' style={styles.title}>
-            {title}
-          </Text>
-          <TouchableOpacity
-            accessibilityLabel={`Close ${title}`}
-            accessibilityRole='button'
-            onPress={onClose}
-            style={styles.doneButton}
-          >
-            <Text style={styles.doneText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.content}>{children}</View>
+      <View style={styles.popoverFrame}>
+        <AdaptiveActionSurface
+          accessibilityViewIsModal
+          style={styles.popover}
+          testID={testID}
+          tone='grouped'
+        >
+          <View style={styles.header}>
+            <Text accessibilityRole='header' style={styles.title}>
+              {title}
+            </Text>
+            <TouchableOpacity
+              accessibilityLabel={`Close ${title}`}
+              accessibilityRole='button'
+              onPress={onClose}
+              style={styles.closeButton}
+            >
+              <Ionicons
+                color={semanticColors.textMuted}
+                name='close'
+                size={20}
+              />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.content}>{children}</View>
+        </AdaptiveActionSurface>
       </View>
     </View>
   </Modal>
@@ -63,16 +76,17 @@ const styles = StyleSheet.create({
     paddingTop: 176,
     backgroundColor: semanticColors.dimOverlay,
   },
-  popover: {
-    overflow: 'hidden',
+  popoverFrame: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: semanticColors.surfaceElevated,
-    borderColor: semanticColors.separator,
     borderCurve: 'continuous',
     borderRadius: mobileTheme.radii.card,
-    borderWidth: StyleSheet.hairlineWidth,
     ...mobileTheme.shadows.action,
+  },
+  popover: {
+    width: '100%',
+    borderCurve: 'continuous',
+    borderRadius: mobileTheme.radii.card,
   },
   header: {
     minHeight: 50,
@@ -88,15 +102,11 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
   },
-  doneButton: {
-    minHeight: 44,
+  closeButton: {
+    alignItems: 'center',
+    height: 44,
     justifyContent: 'center',
-    paddingHorizontal: mobileTheme.spacing.lg,
-  },
-  doneText: {
-    color: semanticColors.primary,
-    fontSize: 16,
-    fontWeight: '600',
+    width: 44,
   },
   content: {
     backgroundColor: semanticColors.background,

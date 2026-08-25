@@ -32,6 +32,16 @@ describe('active modal semantic adapter contract', () => {
     expect(source).not.toMatch(/<Modal\b/);
   });
 
+  it('keeps iOS popover chrome on the Liquid Glass adapter without a redundant Done action', () => {
+    const source = readFileSync(
+      resolve(componentRoot, 'ui/adaptive-popover.ios.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('./adaptive-action-surface');
+    expect(source).not.toMatch(/>\s*Done\s*</);
+  });
+
   it.each(activeSheetSources)(
     '%s does not reintroduce legacy web colors',
     (path) => {

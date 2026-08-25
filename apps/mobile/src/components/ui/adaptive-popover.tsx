@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   Modal,
@@ -38,9 +39,9 @@ export const AdaptivePopover = ({
             accessibilityLabel={`Close ${title}`}
             accessibilityRole='button'
             onPress={onClose}
-            style={styles.doneButton}
+            style={styles.closeButton}
           >
-            <Text style={styles.doneText}>Done</Text>
+            <Ionicons color={semanticColors.textMuted} name='close' size={20} />
           </TouchableOpacity>
         </View>
         <View style={styles.content}>{children}</View>
@@ -80,15 +81,11 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
   },
-  doneButton: {
-    minHeight: 48,
+  closeButton: {
+    alignItems: 'center',
+    height: 48,
     justifyContent: 'center',
-    paddingHorizontal: mobileTheme.spacing.lg,
-  },
-  doneText: {
-    color: semanticColors.primary,
-    fontSize: 16,
-    fontWeight: '600',
+    width: 48,
   },
   content: {
     backgroundColor: semanticColors.background,
