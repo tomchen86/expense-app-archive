@@ -7,6 +7,8 @@ import {
   View,
 } from 'react-native';
 import DatePicker from '../DatePicker';
+import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
+import { semanticColors } from '../../theme/semantic-colors';
 import { mobileTheme } from '../../theme/tokens';
 import type { BasicInfoSectionProps } from './expense-form-section.types';
 
@@ -40,7 +42,7 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
           keyboardType='decimal-pad'
           onChangeText={onAmountChange}
           placeholder='0.00'
-          placeholderTextColor={mobileTheme.colors.textMuted}
+          placeholderTextColor={semanticColors.placeholder}
           returnKeyType='done'
           selectTextOnFocus
           style={styles.amountInput}
@@ -57,7 +59,7 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
       <Text accessibilityRole='header' style={styles.sectionLabel}>
         DETAILS
       </Text>
-      <View style={styles.section}>
+      <AdaptiveGroupedSection>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Title</Text>
           <TextInput
@@ -66,7 +68,7 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
             editable={!interactionDisabled}
             onChangeText={onTitleChange}
             placeholder='Dinner'
-            placeholderTextColor={mobileTheme.colors.textMuted}
+            placeholderTextColor={semanticColors.placeholder}
             returnKeyType='done'
             style={styles.rowInput}
             testID='expense-title-input'
@@ -97,25 +99,25 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
           onChange={onDateChange}
           testID='date-picker'
         />
-      </View>
+      </AdaptiveGroupedSection>
 
       <Text accessibilityRole='header' style={styles.sectionLabel}>
         NOTE
       </Text>
-      <View style={styles.noteSection}>
+      <AdaptiveGroupedSection style={styles.noteSection}>
         <TextInput
           accessibilityLabel='Expense note'
           editable={!interactionDisabled}
           multiline
           onChangeText={onCaptionChange}
           placeholder='Add a note…'
-          placeholderTextColor={mobileTheme.colors.textMuted}
+          placeholderTextColor={semanticColors.placeholder}
           style={styles.noteInput}
           testID='expense-caption-input'
           textAlignVertical='top'
           value={caption}
         />
-      </View>
+      </AdaptiveGroupedSection>
     </View>
   );
 };
@@ -127,14 +129,14 @@ const styles = StyleSheet.create({
     paddingTop: mobileTheme.spacing.lg,
   },
   currency: {
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.8,
   },
   amountInput: {
     minWidth: 180,
-    color: mobileTheme.colors.text,
+    color: semanticColors.text,
     fontSize: 44,
     fontWeight: '700',
     marginTop: mobileTheme.spacing.xs,
@@ -143,7 +145,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   financialNotice: {
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 13,
     lineHeight: 18,
     marginTop: mobileTheme.spacing.sm,
@@ -151,7 +153,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sectionLabel: {
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.7,
@@ -159,29 +161,22 @@ const styles = StyleSheet.create({
     marginLeft: mobileTheme.spacing.md,
     marginTop: mobileTheme.spacing.lg,
   },
-  section: {
-    overflow: 'hidden',
-    borderColor: mobileTheme.colors.border,
-    borderRadius: mobileTheme.radii.card,
-    borderWidth: 1,
-    backgroundColor: mobileTheme.colors.surface,
-  },
   row: {
     minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: mobileTheme.spacing.lg,
-    borderBottomColor: mobileTheme.colors.border,
+    borderBottomColor: semanticColors.separator,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
-    color: mobileTheme.colors.text,
+    color: semanticColors.text,
     fontSize: 16,
   },
   rowInput: {
     flex: 1,
-    color: mobileTheme.colors.text,
+    color: semanticColors.text,
     fontSize: 16,
     marginLeft: mobileTheme.spacing.lg,
     paddingVertical: mobileTheme.spacing.md,
@@ -195,25 +190,21 @@ const styles = StyleSheet.create({
   },
   rowValue: {
     flexShrink: 1,
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 16,
     textAlign: 'right',
   },
   chevron: {
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 24,
     marginLeft: mobileTheme.spacing.sm,
   },
   noteSection: {
     minHeight: 112,
-    borderColor: mobileTheme.colors.border,
-    borderRadius: mobileTheme.radii.card,
-    borderWidth: 1,
-    backgroundColor: mobileTheme.colors.surface,
   },
   noteInput: {
     minHeight: 110,
-    color: mobileTheme.colors.text,
+    color: semanticColors.text,
     fontSize: 16,
     lineHeight: 22,
     padding: mobileTheme.spacing.lg,

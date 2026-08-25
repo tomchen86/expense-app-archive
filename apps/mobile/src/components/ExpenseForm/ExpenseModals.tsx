@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, StyleSheet } from 'react-native';
+import { semanticColors } from '../../theme/semantic-colors';
 import { ExpenseCategory, ExpenseGroup, Participant } from '../../types';
 import SelectionModal from '../SelectionModal';
 
@@ -130,6 +131,7 @@ export const ExpenseModals: React.FC<ExpenseModalsProps> = ({
 
 const styles = StyleSheet.create({
   modalItemText: {
+    color: semanticColors.text,
     fontSize: 16,
     paddingVertical: 5,
   },

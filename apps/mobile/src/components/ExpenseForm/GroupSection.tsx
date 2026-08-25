@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
+import { semanticColors } from '../../theme/semantic-colors';
 import { mobileTheme } from '../../theme/tokens';
 import type { GroupSectionProps } from './expense-form-section.types';
 
@@ -30,7 +32,7 @@ export const GroupSection: React.FC<GroupSectionProps> = ({
       <Text accessibilityRole='header' style={styles.sectionLabel}>
         SHARING
       </Text>
-      <View style={styles.section}>
+      <AdaptiveGroupedSection>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Split with others</Text>
           <Switch
@@ -41,8 +43,8 @@ export const GroupSection: React.FC<GroupSectionProps> = ({
             onValueChange={onSharingChange}
             testID='sharing-toggle'
             trackColor={{
-              false: mobileTheme.colors.surfaceVariant,
-              true: mobileTheme.colors.primary,
+              false: semanticColors.fill,
+              true: semanticColors.primary,
             }}
             value={sharingEnabled}
           />
@@ -84,7 +86,7 @@ export const GroupSection: React.FC<GroupSectionProps> = ({
             ) : null}
           </>
         ) : null}
-      </View>
+      </AdaptiveGroupedSection>
     </View>
   );
 };
@@ -125,7 +127,7 @@ const SelectionRow = ({
 
 const styles = StyleSheet.create({
   sectionLabel: {
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.7,
@@ -133,24 +135,17 @@ const styles = StyleSheet.create({
     marginLeft: mobileTheme.spacing.md,
     marginTop: mobileTheme.spacing.xxl,
   },
-  section: {
-    overflow: 'hidden',
-    borderColor: mobileTheme.colors.border,
-    borderRadius: mobileTheme.radii.card,
-    borderWidth: 1,
-    backgroundColor: mobileTheme.colors.surface,
-  },
   row: {
     minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: mobileTheme.spacing.lg,
-    borderBottomColor: mobileTheme.colors.border,
+    borderBottomColor: semanticColors.separator,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowLabel: {
-    color: mobileTheme.colors.text,
+    color: semanticColors.text,
     fontSize: 16,
   },
   valueContainer: {
@@ -161,12 +156,12 @@ const styles = StyleSheet.create({
   },
   rowValue: {
     flexShrink: 1,
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 16,
     textAlign: 'right',
   },
   chevron: {
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 24,
     marginLeft: mobileTheme.spacing.sm,
   },

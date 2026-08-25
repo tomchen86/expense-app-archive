@@ -11,6 +11,7 @@ import {
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import { semanticColors } from '../theme/semantic-colors';
 import { mobileTheme } from '../theme/tokens';
 import { formatLocalDateForDisplay } from '../utils/dateFormat';
 
@@ -108,7 +109,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: mobileTheme.colors.surface,
+    backgroundColor: semanticColors.surface,
   },
   touchable: {
     minHeight: 54,
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: mobileTheme.spacing.lg,
   },
   label: {
-    color: mobileTheme.colors.text,
+    color: semanticColors.text,
     fontSize: 16,
   },
   valueContainer: {
@@ -128,15 +129,15 @@ const styles = StyleSheet.create({
   },
   valueText: {
     fontSize: 16,
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
   },
   chevron: {
-    color: mobileTheme.colors.textMuted,
+    color: semanticColors.textMuted,
     fontSize: 24,
     marginLeft: mobileTheme.spacing.sm,
   },
   pickerContainer: {
-    borderTopColor: mobileTheme.colors.border,
+    borderTopColor: semanticColors.separator,
     borderTopWidth: StyleSheet.hairlineWidth,
     padding: mobileTheme.spacing.md,
   },
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: mobileTheme.spacing.lg,
   },
   iosDoneButtonText: {
-    color: mobileTheme.colors.primary,
+    color: semanticColors.primary,
     fontWeight: '700',
   },
 });
