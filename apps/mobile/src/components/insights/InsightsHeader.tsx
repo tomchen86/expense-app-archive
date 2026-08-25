@@ -12,11 +12,12 @@ import { mobileTheme } from '../../theme/tokens';
 import { AdaptiveActionSurface } from '../ui/adaptive-action-surface';
 import PeriodAggregationControl from './period-aggregation-control';
 
-const SWIPE_CAPTURE_DISTANCE = 12;
-const SWIPE_COMMIT_DISTANCE = 44;
-const HORIZONTAL_INTENT_RATIO = 1.35;
+const SWIPE_CAPTURE_DISTANCE = 8;
+const SWIPE_COMMIT_DISTANCE = 30;
+const SWIPE_FLICK_VELOCITY = 0.55;
+const HORIZONTAL_INTENT_RATIO = 0.7;
 const MAX_DRAG_DISTANCE = 52;
-const PERIOD_EXIT_DISTANCE = 72;
+const PERIOD_ENTRY_DISTANCE = 36;
 
 const isHorizontalPeriodSwipe = (dx: number, dy: number): boolean =>
   Math.abs(dx) >= SWIPE_CAPTURE_DISTANCE &&
@@ -29,7 +30,9 @@ interface InsightsHeaderProps {
   onPeriodPress: () => void;
   onPreviousPeriod: () => void;
   onNextPeriod: () => void;
+  hasMultiplePeriods: boolean;
   isNextDisabled: boolean;
+  isPreviousDisabled: boolean;
 }
 
 const InsightsHeader: React.FC<InsightsHeaderProps> = ({
@@ -39,7 +42,9 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
   onPeriodPress,
   onPreviousPeriod,
   onNextPeriod,
+  hasMultiplePeriods,
   isNextDisabled,
+  isPreviousDisabled,
 }) => {
   const periodDragX = useRef(new Animated.Value(0)).current;
   const periodOpacity = periodDragX.interpolate({
@@ -58,34 +63,34 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
 
   const animatePeriodChange = useCallback(
     (direction: 'previous' | 'next') => {
-      if (direction === 'next' && isNextDisabled) {
+      if (
+        (direction === 'previous' && isPreviousDisabled) ||
+        (direction === 'next' && isNextDisabled)
+      ) {
         resetPeriodDrag();
         return;
       }
 
-      const exitDistance =
-        direction === 'previous' ? PERIOD_EXIT_DISTANCE : -PERIOD_EXIT_DISTANCE;
-      Animated.timing(periodDragX, {
-        duration: 120,
-        toValue: exitDistance,
-        useNativeDriver: true,
-      }).start(() => {
-        if (direction === 'previous') {
-          onPreviousPeriod();
-        } else {
-          onNextPeriod();
-        }
+      if (direction === 'previous') {
+        onPreviousPeriod();
+      } else {
+        onNextPeriod();
+      }
 
-        periodDragX.setValue(-exitDistance * 0.55);
-        Animated.timing(periodDragX, {
-          duration: 180,
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      });
+      periodDragX.setValue(
+        direction === 'previous'
+          ? -PERIOD_ENTRY_DISTANCE
+          : PERIOD_ENTRY_DISTANCE,
+      );
+      Animated.timing(periodDragX, {
+        duration: 180,
+        toValue: 0,
+        useNativeDriver: true,
+      }).start();
     },
     [
       isNextDisabled,
+      isPreviousDisabled,
       onNextPeriod,
       onPreviousPeriod,
       periodDragX,
@@ -97,6 +102,10 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_event, gestureState) =>
+          hasMultiplePeriods &&
+          isHorizontalPeriodSwipe(gestureState.dx, gestureState.dy),
+        onMoveShouldSetPanResponderCapture: (_event, gestureState) =>
+          hasMultiplePeriods &&
           isHorizontalPeriodSwipe(gestureState.dx, gestureState.dy),
         onPanResponderMove: (_event, gestureState) => {
           periodDragX.setValue(
@@ -107,10 +116,9 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
           );
         },
         onPanResponderRelease: (_event, gestureState) => {
-          if (
-            Math.abs(gestureState.dx) < SWIPE_COMMIT_DISTANCE ||
-            !isHorizontalPeriodSwipe(gestureState.dx, gestureState.dy)
-          ) {
+          const isFlick =
+            Math.abs(gestureState.vx ?? 0) >= SWIPE_FLICK_VELOCITY;
+          if (Math.abs(gestureState.dx) < SWIPE_COMMIT_DISTANCE && !isFlick) {
             resetPeriodDrag();
             return;
           }
@@ -120,9 +128,12 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
             animatePeriodChange('next');
           }
         },
-        onPanResponderTerminate: resetPeriodDrag,
+        onPanResponderTerminate: () => {
+          resetPeriodDrag();
+        },
+        onPanResponderTerminationRequest: () => false,
       }),
-    [animatePeriodChange, periodDragX, resetPeriodDrag],
+    [animatePeriodChange, hasMultiplePeriods, periodDragX, resetPeriodDrag],
   );
 
   return (
@@ -133,44 +144,92 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
       />
 
       <View style={styles.periodNavigatorContainer} testID='period-navigator'>
-        <AdaptiveActionSurface
-          interactive
-          style={styles.periodArrowSurface}
-          testID='previous-period-surface'
-        >
-          <TouchableOpacity
-            activeOpacity={0.72}
-            accessibilityLabel='Previous period'
-            accessibilityRole='button'
-            onPress={onPreviousPeriod}
-            style={[styles.periodArrowButton]}
-            testID='previous-period-button'
-          >
-            <Ionicons
-              color={mobileTheme.colors.primary}
-              name='chevron-back'
-              size={21}
-            />
-          </TouchableOpacity>
-        </AdaptiveActionSurface>
-        <View
-          {...periodPanResponder.panHandlers}
-          style={styles.periodSwipeTarget}
-          testID='period-swipe-target'
-        >
+        {hasMultiplePeriods ? (
           <AdaptiveActionSurface
             interactive
-            style={styles.periodPickerSurface}
-            testID='period-picker-surface'
+            style={[
+              styles.periodArrowSurface,
+              isPreviousDisabled && styles.disabledArrowButton,
+            ]}
+            testID='previous-period-surface'
           >
             <TouchableOpacity
               activeOpacity={0.72}
-              accessibilityLabel={`Choose period. ${displayPeriodText}`}
-              accessibilityHint='Opens the month and year picker'
+              accessibilityLabel='Previous period'
               accessibilityRole='button'
-              onPress={onPeriodPress}
+              accessibilityState={{ disabled: isPreviousDisabled }}
+              disabled={isPreviousDisabled}
+              onPress={() => animatePeriodChange('previous')}
+              style={styles.periodArrowButton}
+              testID='previous-period-button'
+            >
+              <Ionicons
+                color={
+                  isPreviousDisabled
+                    ? mobileTheme.colors.textMuted
+                    : mobileTheme.colors.primary
+                }
+                name='chevron-back'
+                size={21}
+              />
+            </TouchableOpacity>
+          </AdaptiveActionSurface>
+        ) : null}
+        {hasMultiplePeriods ? (
+          <View
+            {...periodPanResponder.panHandlers}
+            style={styles.periodSwipeTarget}
+            testID='period-swipe-target'
+          >
+            <AdaptiveActionSurface
+              interactive
+              style={styles.periodPickerSurface}
+              testID='period-picker-surface'
+            >
+              <TouchableOpacity
+                activeOpacity={0.72}
+                accessibilityLabel={`Choose period. ${displayPeriodText}`}
+                accessibilityHint='Opens periods that contain expenses'
+                accessibilityRole='button'
+                onPress={onPeriodPress}
+                style={styles.periodButton}
+                testID='period-picker-button'
+              >
+                <Animated.View
+                  style={[
+                    styles.periodPickerContent,
+                    {
+                      opacity: periodOpacity,
+                      transform: [{ translateX: periodDragX }],
+                    },
+                  ]}
+                  testID='period-transition'
+                >
+                  <Text
+                    ellipsizeMode='tail'
+                    numberOfLines={1}
+                    style={styles.periodDisplayText}
+                  >
+                    {displayPeriodText}
+                  </Text>
+                  <Ionicons
+                    color={mobileTheme.colors.textMuted}
+                    name='chevron-down'
+                    size={14}
+                    testID='period-picker-chevron'
+                  />
+                </Animated.View>
+              </TouchableOpacity>
+            </AdaptiveActionSurface>
+          </View>
+        ) : (
+          <AdaptiveActionSurface
+            style={styles.periodPickerSurface}
+            testID='period-picker-surface'
+          >
+            <View
+              accessibilityLabel={displayPeriodText}
               style={styles.periodButton}
-              testID='period-picker-button'
             >
               <Animated.View
                 style={[
@@ -189,45 +248,41 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
                 >
                   {displayPeriodText}
                 </Text>
-                <Ionicons
-                  color={mobileTheme.colors.textMuted}
-                  name='chevron-down'
-                  size={14}
-                  testID='period-picker-chevron'
-                />
               </Animated.View>
+            </View>
+          </AdaptiveActionSurface>
+        )}
+        {hasMultiplePeriods ? (
+          <AdaptiveActionSurface
+            interactive
+            style={[
+              styles.periodArrowSurface,
+              isNextDisabled && styles.disabledArrowButton,
+            ]}
+            testID='next-period-surface'
+          >
+            <TouchableOpacity
+              activeOpacity={0.72}
+              accessibilityLabel='Next period'
+              accessibilityRole='button'
+              accessibilityState={{ disabled: isNextDisabled }}
+              disabled={isNextDisabled}
+              onPress={() => animatePeriodChange('next')}
+              style={styles.periodArrowButton}
+              testID='next-period-button'
+            >
+              <Ionicons
+                color={
+                  isNextDisabled
+                    ? mobileTheme.colors.textMuted
+                    : mobileTheme.colors.primary
+                }
+                name='chevron-forward'
+                size={21}
+              />
             </TouchableOpacity>
           </AdaptiveActionSurface>
-        </View>
-        <AdaptiveActionSurface
-          interactive
-          style={[
-            styles.periodArrowSurface,
-            isNextDisabled && styles.disabledArrowButton,
-          ]}
-          testID='next-period-surface'
-        >
-          <TouchableOpacity
-            activeOpacity={0.72}
-            accessibilityLabel='Next period'
-            accessibilityRole='button'
-            accessibilityState={{ disabled: isNextDisabled }}
-            disabled={isNextDisabled}
-            onPress={onNextPeriod}
-            style={[styles.periodArrowButton]}
-            testID='next-period-button'
-          >
-            <Ionicons
-              color={
-                isNextDisabled
-                  ? mobileTheme.colors.textMuted
-                  : mobileTheme.colors.primary
-              }
-              name='chevron-forward'
-              size={21}
-            />
-          </TouchableOpacity>
-        </AdaptiveActionSurface>
+        ) : null}
       </View>
     </View>
   );

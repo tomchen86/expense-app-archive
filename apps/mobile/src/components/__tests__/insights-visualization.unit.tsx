@@ -41,10 +41,15 @@ jest.mock('react-native', () => {
     PanResponder: {
       create: (handlers: any) => ({
         panHandlers: {
+          onMoveShouldSetResponderCapture:
+            handlers.onMoveShouldSetPanResponderCapture,
           onMoveShouldSetResponder: handlers.onMoveShouldSetPanResponder,
+          onResponderGrant: handlers.onPanResponderGrant,
           onResponderMove: handlers.onPanResponderMove,
           onResponderRelease: handlers.onPanResponderRelease,
           onResponderTerminate: handlers.onPanResponderTerminate,
+          onResponderTerminationRequest:
+            handlers.onPanResponderTerminationRequest,
         },
       }),
     },
@@ -317,7 +322,9 @@ describe('Insights controls accessibility', () => {
       <InsightsHeader
         aggregation='month'
         displayPeriodText='August 2026'
+        hasMultiplePeriods
         isNextDisabled
+        isPreviousDisabled={false}
         onAggregationChange={onAggregationChange}
         onNextPeriod={jest.fn()}
         onPeriodPress={jest.fn()}
@@ -344,9 +351,7 @@ describe('Insights controls accessibility', () => {
       screen.getByLabelText('Next period').props.accessibilityState,
     ).toEqual({ disabled: true });
     expect(screen.getByLabelText('Previous period').props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ height: 44, width: 44 }),
-      ]),
+      expect.objectContaining({ height: 44, width: 44 }),
     );
     expect(screen.getByTestId('previous-period-surface')).toBeTruthy();
     expect(screen.getByTestId('period-picker-surface')).toBeTruthy();
@@ -364,7 +369,9 @@ describe('Insights controls accessibility', () => {
       <InsightsHeader
         aggregation='month'
         displayPeriodText='July 2026'
+        hasMultiplePeriods
         isNextDisabled={false}
+        isPreviousDisabled={false}
         onAggregationChange={jest.fn()}
         onNextPeriod={onNextPeriod}
         onPeriodPress={jest.fn()}
@@ -377,8 +384,8 @@ describe('Insights controls accessibility', () => {
     expect(navigator.props.onMoveShouldSetResponder).toBeUndefined();
     expect(
       swipeTarget.props.onMoveShouldSetResponder(undefined, {
-        dx: -56,
-        dy: 5,
+        dx: 32,
+        dy: 24,
       }),
     ).toBe(true);
     expect(
@@ -387,10 +394,19 @@ describe('Insights controls accessibility', () => {
         dy: 56,
       }),
     ).toBe(false);
+    expect(swipeTarget.props.onResponderTerminationRequest()).toBe(false);
     expect(screen.getByTestId('period-transition')).toBeTruthy();
-    swipeTarget.props.onResponderMove(undefined, { dx: -28, dy: 3 });
-    swipeTarget.props.onResponderRelease(undefined, { dx: -56, dy: 5 });
-    swipeTarget.props.onResponderRelease(undefined, { dx: 56, dy: 5 });
+    swipeTarget.props.onResponderMove(undefined, { dx: 32, dy: 80 });
+    swipeTarget.props.onResponderRelease(undefined, {
+      dx: 32,
+      dy: 80,
+      vx: 0.1,
+    });
+    swipeTarget.props.onResponderRelease(undefined, {
+      dx: -18,
+      dy: 4,
+      vx: -0.8,
+    });
 
     expect(onNextPeriod).toHaveBeenCalledTimes(1);
     expect(onPreviousPeriod).toHaveBeenCalledTimes(1);
@@ -402,7 +418,9 @@ describe('Insights controls accessibility', () => {
       <InsightsHeader
         aggregation='month'
         displayPeriodText='August 2026'
+        hasMultiplePeriods
         isNextDisabled
+        isPreviousDisabled={false}
         onAggregationChange={jest.fn()}
         onNextPeriod={onNextPeriod}
         onPeriodPress={jest.fn()}
@@ -412,9 +430,33 @@ describe('Insights controls accessibility', () => {
 
     screen
       .getByTestId('period-swipe-target')
-      .props.onResponderRelease(undefined, { dx: -80, dy: 4 });
+      .props.onResponderRelease(undefined, { dx: -80, dy: 4, vx: -0.8 });
 
     expect(onNextPeriod).not.toHaveBeenCalled();
+  });
+
+  it('hides navigation and picker affordances when only one period has data', () => {
+    const onPeriodPress = jest.fn();
+    const screen = render(
+      <InsightsHeader
+        aggregation='month'
+        displayPeriodText='August 2026'
+        hasMultiplePeriods={false}
+        isNextDisabled
+        isPreviousDisabled
+        onAggregationChange={jest.fn()}
+        onNextPeriod={jest.fn()}
+        onPeriodPress={onPeriodPress}
+        onPreviousPeriod={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText('Previous period')).toBeNull();
+    expect(screen.queryByLabelText('Next period')).toBeNull();
+    expect(screen.queryByTestId('period-picker-chevron')).toBeNull();
+    expect(screen.queryByTestId('period-swipe-target')).toBeNull();
+    expect(screen.getByText('August 2026')).toBeTruthy();
+    expect(onPeriodPress).not.toHaveBeenCalled();
   });
 });
 

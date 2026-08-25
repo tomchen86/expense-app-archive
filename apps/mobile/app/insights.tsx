@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ScrollView, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Stack } from 'expo-router';
 
@@ -24,46 +24,59 @@ const ExpenseInsightsScreen = () => {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ title: insightsData.screenTitle }} />
-      <InsightsChartHeaderAction
-        onChange={insightsData.setChartPreference}
-        preference={insightsData.chartPreference}
-      />
+      {insightsData.hasAvailablePeriods ? (
+        <InsightsChartHeaderAction
+          onChange={insightsData.setChartPreference}
+          preference={insightsData.chartPreference}
+        />
+      ) : null}
 
       <ScrollView
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior='automatic'
         style={styles.container}
       >
-        <InsightsHeader
-          aggregation={insightsData.aggregation}
-          onAggregationChange={insightsData.setAggregation}
-          displayPeriodText={insightsData.displayPeriodText}
-          onPeriodPress={() => insightsData.setShowDatePickers(true)}
-          onPreviousPeriod={insightsData.handlePreviousPeriod}
-          onNextPeriod={insightsData.handleNextPeriod}
-          isNextDisabled={insightsData.isNextDisabled}
-        />
+        {insightsData.hasAvailablePeriods ? (
+          <>
+            <InsightsHeader
+              aggregation={insightsData.aggregation}
+              onAggregationChange={insightsData.setAggregation}
+              displayPeriodText={insightsData.displayPeriodText}
+              hasMultiplePeriods={insightsData.hasMultiplePeriods}
+              onPeriodPress={() => insightsData.setShowDatePickers(true)}
+              onPreviousPeriod={insightsData.handlePreviousPeriod}
+              onNextPeriod={insightsData.handleNextPeriod}
+              isNextDisabled={insightsData.isNextDisabled}
+              isPreviousDisabled={insightsData.isPreviousDisabled}
+            />
 
-        <InsightsSummary
-          insights={insightsData.currencyInsights}
-          priorPeriodText={insightsData.previousPeriodText}
-        />
+            <InsightsSummary
+              insights={insightsData.currencyInsights}
+              priorPeriodText={insightsData.previousPeriodText}
+            />
 
-        <CategoryChart insights={insightsData.currencyInsights} />
+            <CategoryChart insights={insightsData.currencyInsights} />
 
-        <DatePickerModal
-          visible={insightsData.showDatePickers}
-          onClose={() => insightsData.setShowDatePickers(false)}
-          aggregation={insightsData.aggregation}
-          selectedYear={insightsData.selectedYear}
-          selectedMonth={insightsData.selectedMonth}
-          onYearChange={insightsData.setSelectedYear}
-          onMonthChange={insightsData.setSelectedMonth}
-          availableYears={insightsData.availableYears}
-          monthNames={insightsData.monthNames}
-          currentYear={insightsData.currentYear}
-          currentMonth={insightsData.currentMonth}
-        />
+            <DatePickerModal
+              visible={insightsData.showDatePickers}
+              onClose={() => insightsData.setShowDatePickers(false)}
+              aggregation={insightsData.aggregation}
+              selectedYear={insightsData.selectedYear}
+              selectedMonth={insightsData.selectedMonth}
+              onSelectPeriod={insightsData.selectPeriod}
+              availablePeriods={insightsData.availablePeriods}
+            />
+          </>
+        ) : (
+          <View accessibilityLiveRegion='polite' style={styles.emptyState}>
+            <Text accessibilityRole='header' style={styles.emptyTitle}>
+              No expenses yet
+            </Text>
+            <Text style={styles.emptyBody}>
+              Add an expense to see spending insights.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -79,6 +92,24 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: mobileTheme.spacing.lg,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingHorizontal: mobileTheme.spacing.xxl,
+    paddingTop: 120,
+  },
+  emptyTitle: {
+    color: mobileTheme.colors.text,
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  emptyBody: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 15,
+    lineHeight: 21,
+    marginTop: mobileTheme.spacing.sm,
+    textAlign: 'center',
   },
 });
 

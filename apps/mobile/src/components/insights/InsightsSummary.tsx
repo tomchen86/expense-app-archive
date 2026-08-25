@@ -7,13 +7,16 @@ import { mobileTheme } from '../../theme/tokens';
 
 interface InsightsSummaryProps {
   insights: CurrencyInsight[];
-  priorPeriodText: string;
+  priorPeriodText: string | null;
 }
 
 const comparisonText = (
   insight: CurrencyInsight,
-  priorPeriodText: string,
-): string => {
+  priorPeriodText: string | null,
+): string | null => {
+  if (!priorPeriodText) {
+    return null;
+  }
   if (insight.priorTotalMinor === 0) {
     return `No spending in ${priorPeriodText}.`;
   }
@@ -45,7 +48,11 @@ const InsightsSummary: React.FC<InsightsSummaryProps> = ({
         const comparison = comparisonText(insight, priorPeriodText);
         return (
           <View
-            accessibilityLabel={`Total spent ${total}. ${comparison}`}
+            accessibilityLabel={
+              comparison
+                ? `Total spent ${total}. ${comparison}`
+                : `Total spent ${total}.`
+            }
             accessible
             key={insight.currency}
             style={styles.card}
@@ -54,7 +61,9 @@ const InsightsSummary: React.FC<InsightsSummaryProps> = ({
               TOTAL SPENT
             </Text>
             <Text style={styles.total}>{total}</Text>
-            <Text style={styles.comparison}>{comparison}</Text>
+            {comparison ? (
+              <Text style={styles.comparison}>{comparison}</Text>
+            ) : null}
           </View>
         );
       })}
