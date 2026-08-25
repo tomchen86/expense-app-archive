@@ -12,6 +12,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "icon": "./assets/icon.icon",
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.mobile"
     },
