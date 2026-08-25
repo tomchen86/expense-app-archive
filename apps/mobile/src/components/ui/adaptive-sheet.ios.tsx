@@ -23,28 +23,37 @@ const HeaderAction = ({ action }: { action?: AdaptiveSheetAction }) => {
   }
 
   return (
-    <TouchableOpacity
-      accessibilityLabel={action.accessibilityLabel ?? action.label}
-      accessibilityRole='button'
-      accessibilityState={{
-        busy: action.busy,
-        disabled: action.disabled,
-      }}
-      disabled={action.disabled}
-      onPress={action.onPress}
-      style={styles.action}
-      testID={action.testID}
-    >
-      <Text
-        style={[
-          styles.actionText,
-          action.destructive && styles.destructiveActionText,
-          action.disabled && styles.disabledActionText,
-        ]}
+    <View style={styles.actionFrame}>
+      <AdaptiveActionSurface
+        interactive
+        style={styles.actionSurface}
+        testID='adaptive-sheet-glass-action'
+        tone='neutral'
       >
-        {action.label}
-      </Text>
-    </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityLabel={action.accessibilityLabel ?? action.label}
+          accessibilityRole='button'
+          accessibilityState={{
+            busy: action.busy,
+            disabled: action.disabled,
+          }}
+          disabled={action.disabled}
+          onPress={action.onPress}
+          style={styles.action}
+          testID={action.testID}
+        >
+          <Text
+            style={[
+              styles.actionText,
+              action.destructive && styles.destructiveActionText,
+              action.disabled && styles.disabledActionText,
+            ]}
+          >
+            {action.label}
+          </Text>
+        </TouchableOpacity>
+      </AdaptiveActionSurface>
+    </View>
   );
 };
 
@@ -73,17 +82,15 @@ export const AdaptiveSheet = ({
       }}
       snapPoints={fitsContent ? undefined : RESIZABLE_SNAP_POINTS}
     >
-      <BottomSheetView style={styles.host}>
+      <BottomSheetView
+        style={[styles.host, !fitsContent && styles.resizableHost]}
+      >
         <View
           accessibilityViewIsModal
           style={[styles.screen, !fitsContent && styles.resizableScreen]}
           testID={testID}
         >
-          <AdaptiveActionSurface
-            style={styles.header}
-            testID='adaptive-sheet-glass-header'
-            tone='neutral'
-          >
+          <View style={styles.header} testID='adaptive-sheet-header'>
             <HeaderAction action={leadingAction} />
             <Text
               accessibilityRole='header'
@@ -93,7 +100,7 @@ export const AdaptiveSheet = ({
               {title}
             </Text>
             <HeaderAction action={trailingAction} />
-          </AdaptiveActionSurface>
+          </View>
           <View
             style={[
               styles.content,
@@ -113,6 +120,9 @@ const styles = StyleSheet.create({
   host: {
     backgroundColor: semanticColors.background,
   },
+  resizableHost: {
+    flex: 1,
+  },
   screen: {
     backgroundColor: semanticColors.background,
   },
@@ -120,12 +130,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    minHeight: 52,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomColor: semanticColors.separator,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderWidth: 0,
+    paddingHorizontal: mobileTheme.spacing.sm,
+    paddingBottom: mobileTheme.spacing.xs,
   },
   title: {
     flex: 1,
@@ -135,13 +144,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   action: {
-    minHeight: 44,
+    alignItems: 'center',
+    height: 44,
     minWidth: 72,
     justifyContent: 'center',
-    paddingHorizontal: mobileTheme.spacing.lg,
+    paddingHorizontal: mobileTheme.spacing.md,
   },
   actionPlaceholder: {
+    height: 44,
     width: 72,
+  },
+  actionFrame: {
+    borderRadius: mobileTheme.radii.pill,
+    ...mobileTheme.shadows.action,
+  },
+  actionSurface: {
+    borderRadius: mobileTheme.radii.pill,
   },
   actionText: {
     color: semanticColors.primary,

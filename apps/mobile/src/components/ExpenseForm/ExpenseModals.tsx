@@ -67,7 +67,7 @@ export const ExpenseModals: React.FC<ExpenseModalsProps> = ({
       {/* Category Modal */}
       <SelectionModal<ExpenseCategory | string>
         visible={showCategoryModal}
-        title='Select Category'
+        title='Category'
         data={categoryModalData}
         renderItemContent={(item) => (
           <Text style={styles.modalItemText}>{item}</Text>

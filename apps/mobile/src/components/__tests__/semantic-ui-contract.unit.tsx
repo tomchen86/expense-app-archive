@@ -39,7 +39,7 @@ jest.mock('@expo/ui/community/bottom-sheet', () => {
     default: ({ children, ...props }: any) =>
       React.createElement('BottomSheet', props, children),
     BottomSheetView: ({ children, ...props }: any) =>
-      React.createElement('View', props, children),
+      React.createElement('BottomSheetView', props, children),
   };
 });
 
@@ -53,6 +53,8 @@ jest.mock('../ui/adaptive-action-surface', () => {
 
 const BottomSheetHost =
   'BottomSheet' as unknown as React.ComponentType<unknown>;
+const BottomSheetViewHost =
+  'BottomSheetView' as unknown as React.ComponentType<unknown>;
 
 describe('iOS semantic UI contract', () => {
   it('maps UI roles to adaptive iOS system colors', () => {
@@ -97,7 +99,10 @@ describe('iOS semantic UI contract', () => {
       'enablePanDownToClose',
       true,
     );
-    expect(screen.getByTestId('adaptive-sheet-glass-header')).toBeTruthy();
+    expect(screen.getByTestId('adaptive-sheet-header')).toBeTruthy();
+    expect(screen.getAllByTestId('adaptive-sheet-glass-action')).toHaveLength(
+      2,
+    );
     expect(screen.getByTestId('semantic-sheet')).toHaveStyle({
       backgroundColor: 'platform:systemGroupedBackgroundColor',
     });
@@ -106,6 +111,24 @@ describe('iOS semantic UI contract', () => {
     fireEvent.press(screen.getByLabelText('Add'));
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('fills the native snap point before laying out a resizable selection list', () => {
+    const screen = render(
+      <AdaptiveSheet
+        onClose={jest.fn()}
+        sizing='resizable'
+        title='Select Category'
+        visible
+      >
+        <Text>Food &amp; Dining</Text>
+      </AdaptiveSheet>,
+    );
+
+    const host = screen.UNSAFE_getByType(BottomSheetViewHost);
+    expect(StyleSheet.flatten(host.props.style)).toEqual(
+      expect.objectContaining({ flex: 1 }),
+    );
   });
 
   it('gives grouped screens and sections native semantic surfaces', () => {
