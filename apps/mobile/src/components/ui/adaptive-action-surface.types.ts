@@ -3,6 +3,6 @@ import type { ViewProps } from 'react-native';
 
 export interface AdaptiveActionSurfaceProps extends ViewProps {
   children: ReactNode;
-  tone?: 'primary' | 'neutral';
+  tone?: 'grouped' | 'primary' | 'neutral' | 'selection';
   interactive?: boolean;
 }

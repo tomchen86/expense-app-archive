@@ -99,7 +99,7 @@ export const useUserStore = create<UserState>()(
 
       // Default settings
       const defaultSettings: Settings = {
-        theme: 'light',
+        theme: 'system',
         currency: 'USD',
         dateFormat: 'MM/DD/YYYY',
         notifications: true,

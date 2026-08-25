@@ -70,7 +70,7 @@ const archivedGroup: ExpenseGroup = {
 const mockMobileState = {
   groups: [activeGroup, archivedGroup],
   restoreGroup: jest.fn(),
-  settings: { theme: 'light' as 'light' | 'dark' },
+  settings: { theme: 'light' as 'system' | 'light' | 'dark' },
   updateSettings: jest.fn(),
   updateUserSettings: jest.fn(),
   userSettings: { name: 'Alex' },
@@ -104,14 +104,12 @@ describe('Settings archived groups', () => {
     expect(router.push).toHaveBeenCalledWith('/settings/archived-groups');
   });
 
-  it('updates the persisted appearance preference from a native switch', () => {
+  it('updates the persisted appearance preference from three choices', () => {
     const screen = render(<SettingsScreen />);
 
-    fireEvent(
-      screen.getByRole('switch', { name: 'Dark mode' }),
-      'valueChange',
-      true,
-    );
+    expect(screen.getByRole('radio', { name: 'System' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Light' })).toBeTruthy();
+    fireEvent.press(screen.getByRole('radio', { name: 'Dark' }));
 
     expect(mockMobileState.updateSettings).toHaveBeenCalledWith({
       theme: 'dark',
@@ -124,9 +122,10 @@ describe('Settings archived groups', () => {
     expect(screen.getByText('APPEARANCE')).toHaveStyle({
       marginLeft: mobileTheme.spacing.lg,
     });
-    expect(screen.getByTestId('dark-mode-switch')).toHaveStyle({
-      alignSelf: 'center',
+    expect(screen.getByTestId('settings-appearance-section')).toHaveStyle({
+      backgroundColor: 'transparent',
     });
+    expect(screen.getByTestId('appearance-mode-control')).toBeTruthy();
     expect(
       screen.queryByText('Applies immediately throughout the app.'),
     ).toBeNull();

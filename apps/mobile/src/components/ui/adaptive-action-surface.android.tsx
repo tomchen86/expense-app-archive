@@ -17,7 +17,13 @@ export const AdaptiveActionSurface = ({
     {...viewProps}
     style={[
       styles.base,
-      tone === 'primary' ? styles.primary : styles.neutral,
+      tone === 'primary'
+        ? styles.primary
+        : tone === 'grouped'
+          ? styles.grouped
+          : tone === 'selection'
+            ? styles.selection
+            : styles.neutral,
       interactive && styles.interactive,
       style,
     ]}
@@ -38,6 +44,14 @@ const styles = StyleSheet.create({
   neutral: {
     backgroundColor: mobileTheme.colors.surfaceElevated,
     borderColor: mobileTheme.colors.border,
+  },
+  grouped: {
+    backgroundColor: mobileTheme.colors.surface,
+    borderColor: mobileTheme.colors.border,
+  },
+  selection: {
+    backgroundColor: mobileTheme.colors.surfaceVariant,
+    borderColor: 'transparent',
   },
   interactive: mobileTheme.shadows.action,
 });

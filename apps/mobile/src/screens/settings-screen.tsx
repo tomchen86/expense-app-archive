@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
-  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, type Href } from 'expo-router';
 
 import { AdaptiveGroupedSection } from '../components/ui/adaptive-grouped-list';
+import AppearanceModeControl from '../components/ui/appearance-mode-control';
 import { useExpenseStore } from '../store/expenseStore';
 import { semanticColors } from '../theme/semantic-colors';
 import { mobileTheme } from '../theme/tokens';
@@ -96,25 +96,15 @@ const SettingsScreen = () => {
         <Text style={[styles.sectionLabel, styles.spacedSectionLabel]}>
           APPEARANCE
         </Text>
-        <AdaptiveGroupedSection testID='settings-appearance-section'>
-          <View style={styles.settingsRow}>
-            <Text style={styles.rowLabel}>Dark Mode</Text>
-            <Switch
-              accessibilityLabel='Dark mode'
-              accessibilityRole='switch'
-              onValueChange={(enabled) =>
-                updateSettings({ theme: enabled ? 'dark' : 'light' })
-              }
-              trackColor={{
-                false: semanticColors.fill,
-                true: semanticColors.primary,
-              }}
-              style={styles.switchControl}
-              testID='dark-mode-switch'
-              value={settings.theme === 'dark'}
-            />
-          </View>
-        </AdaptiveGroupedSection>
+        <View
+          style={styles.appearanceSection}
+          testID='settings-appearance-section'
+        >
+          <AppearanceModeControl
+            onChange={(theme) => updateSettings({ theme })}
+            preference={settings.theme}
+          />
+        </View>
 
         <Text style={[styles.sectionLabel, styles.spacedSectionLabel]}>
           APP
@@ -215,8 +205,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: semanticColors.surface,
   },
-  switchControl: {
-    alignSelf: 'center',
+  appearanceSection: {
+    backgroundColor: 'transparent',
   },
   rowLabel: {
     color: semanticColors.text,

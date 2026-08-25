@@ -9,7 +9,7 @@ const initialIdentity = {
 };
 
 const defaultSettings = {
-  theme: 'light' as const,
+  theme: 'system' as const,
   currency: 'USD',
   dateFormat: 'MM/DD/YYYY',
   notifications: true,
@@ -67,7 +67,7 @@ describe('UserStore', () => {
 
     const { settings } = useUserStore.getState();
     expect(settings.currency).toBe('EUR');
-    expect(settings.theme).toBe('light');
+    expect(settings.theme).toBe('system');
   });
 
   it('persists the insights visualization preference with user settings', async () => {

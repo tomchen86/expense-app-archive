@@ -4,12 +4,16 @@ import { render } from '@testing-library/react-native';
 
 import RootLayout from '../../../app/_layout';
 
+let mockPreferredTheme: 'system' | 'light' | 'dark' = 'dark';
+let mockSystemColorScheme: 'light' | 'dark' = 'light';
+
 jest.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
   Appearance: { setColorScheme: jest.fn() },
   StyleSheet: {
     flatten: (style: unknown) => style,
   },
+  useColorScheme: () => mockSystemColorScheme,
   View: 'View',
 }));
 
@@ -29,7 +33,7 @@ jest.mock('../../store/hydration', () => ({
 
 jest.mock('../../store/expenseStore', () => ({
   useExpenseStore: (selector: (state: unknown) => unknown) =>
-    selector({ settings: { theme: 'dark' } }),
+    selector({ settings: { theme: mockPreferredTheme } }),
 }));
 
 jest.mock('../../components/feedback/expense-deletion-provider', () => ({
@@ -71,12 +75,24 @@ jest.mock('expo-router', () => {
 describe('RootLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPreferredTheme = 'dark';
+    mockSystemColorScheme = 'light';
   });
 
   it('applies the persisted color scheme after store hydration', () => {
     const screen = render(<RootLayout />);
 
     expect(Appearance.setColorScheme).toHaveBeenCalledWith('dark');
+    expect(screen.getByTestId('navigation-theme').props.value.dark).toBe(true);
+  });
+
+  it('releases the override and follows the device appearance in System mode', () => {
+    mockPreferredTheme = 'system';
+    mockSystemColorScheme = 'dark';
+
+    const screen = render(<RootLayout />);
+
+    expect(Appearance.setColorScheme).toHaveBeenCalledWith('unspecified');
     expect(screen.getByTestId('navigation-theme').props.value.dark).toBe(true);
   });
 

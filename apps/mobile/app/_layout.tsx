@@ -3,7 +3,12 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ActivityIndicator, Appearance, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Appearance,
+  useColorScheme,
+  View,
+} from 'react-native';
 import { useMobileStoresHydrated } from '../src/store/hydration';
 import { ExpenseDeletionProvider } from '../src/components/feedback/expense-deletion-provider';
 import { useExpenseStore } from '../src/store/expenseStore';
@@ -11,10 +16,15 @@ import { useExpenseStore } from '../src/store/expenseStore';
 export default function RootLayout() {
   const storesHydrated = useMobileStoresHydrated();
   const preferredTheme = useExpenseStore((state) => state.settings.theme);
+  const systemTheme = useColorScheme();
+  const resolvedTheme =
+    preferredTheme === 'system' ? (systemTheme ?? 'light') : preferredTheme;
 
   useEffect(() => {
     if (storesHydrated) {
-      Appearance.setColorScheme(preferredTheme);
+      Appearance.setColorScheme(
+        preferredTheme === 'system' ? 'unspecified' : preferredTheme,
+      );
     }
   }, [preferredTheme, storesHydrated]);
 
@@ -27,7 +37,7 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={preferredTheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ExpenseDeletionProvider>
           <Stack

@@ -12,7 +12,12 @@ import {
 } from 'react-native';
 
 import { resolvePlatformMaterial } from '../../theme/platform-material';
-import { iosPrimaryGlassTint, mobileTheme } from '../../theme/tokens.ios';
+import {
+  iosGroupedGlassTint,
+  iosPrimaryGlassTint,
+  iosSelectionGlassTint,
+  mobileTheme,
+} from '../../theme/tokens.ios';
 import type { AdaptiveActionSurfaceProps } from './adaptive-action-surface.types';
 
 export type { AdaptiveActionSurfaceProps } from './adaptive-action-surface.types';
@@ -67,6 +72,7 @@ export const AdaptiveActionSurface = ({
   }, []);
 
   const capabilities = getGlassCapabilities();
+  const appearance = colorScheme === 'dark' ? 'dark' : 'light';
   const useLiquidGlass =
     resolvePlatformMaterial({
       platform: 'ios',
@@ -84,8 +90,12 @@ export const AdaptiveActionSurface = ({
         style={[styles.base, style]}
         tintColor={
           tone === 'primary'
-            ? iosPrimaryGlassTint[colorScheme === 'dark' ? 'dark' : 'light']
-            : undefined
+            ? iosPrimaryGlassTint[appearance]
+            : tone === 'grouped'
+              ? iosGroupedGlassTint[appearance]
+              : tone === 'selection'
+                ? iosSelectionGlassTint[appearance]
+                : undefined
         }
       >
         {children}
@@ -98,7 +108,13 @@ export const AdaptiveActionSurface = ({
       {...viewProps}
       style={[
         styles.base,
-        tone === 'primary' ? styles.primary : styles.neutral,
+        tone === 'primary'
+          ? styles.primary
+          : tone === 'grouped'
+            ? styles.grouped
+            : tone === 'selection'
+              ? styles.selection
+              : styles.neutral,
         interactive && styles.interactive,
         style,
       ]}
@@ -121,6 +137,14 @@ const styles = StyleSheet.create({
     backgroundColor: mobileTheme.colors.surfaceElevated,
     borderColor: mobileTheme.colors.border,
     borderWidth: 1,
+  },
+  grouped: {
+    backgroundColor: mobileTheme.colors.surface,
+    borderColor: mobileTheme.colors.border,
+    borderWidth: 1,
+  },
+  selection: {
+    backgroundColor: mobileTheme.colors.surfaceVariant,
   },
   interactive: mobileTheme.shadows.action,
 });

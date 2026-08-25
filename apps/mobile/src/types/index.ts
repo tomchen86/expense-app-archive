@@ -122,8 +122,10 @@ export interface User {
 }
 
 // User Preferences (frequently changes)
+export type ThemePreference = 'system' | 'light' | 'dark';
+
 export interface Settings {
-  theme: 'light' | 'dark';
+  theme: ThemePreference;
   currency: string;
   dateFormat: string;
   notifications?: boolean;

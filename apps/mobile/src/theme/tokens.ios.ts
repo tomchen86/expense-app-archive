@@ -8,6 +8,16 @@ export const iosPrimaryGlassTint = {
   dark: 'rgba(10, 132, 255, 0.12)',
 } as const;
 
+export const iosGroupedGlassTint = {
+  light: 'rgba(255, 255, 255, 0.44)',
+  dark: 'rgba(44, 44, 46, 0.64)',
+} as const;
+
+export const iosSelectionGlassTint = {
+  light: 'rgba(120, 120, 128, 0.18)',
+  dark: 'rgba(255, 255, 255, 0.10)',
+} as const;
+
 export const mobileTheme = {
   colors: {
     background: dynamicColor('#F3F6FA', '#000000'),

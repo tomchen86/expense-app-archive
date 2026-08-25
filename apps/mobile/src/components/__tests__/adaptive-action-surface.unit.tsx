@@ -5,6 +5,8 @@ import { act, render, waitFor } from '@testing-library/react-native';
 import { AdaptiveActionSurface } from '../ui/adaptive-action-surface.ios';
 import { AdaptiveActionSurface as AdaptiveActionSurfaceAndroid } from '../ui/adaptive-action-surface.android';
 
+let mockColorScheme: 'dark' | 'light' = 'light';
+
 jest.mock('react-native', () => ({
   AccessibilityInfo: {
     addEventListener: jest.fn(() => ({ remove: jest.fn() })),
@@ -35,7 +37,7 @@ jest.mock('react-native', () => ({
     },
   },
   Text: 'Text',
-  useColorScheme: () => 'light',
+  useColorScheme: () => mockColorScheme,
   View: 'View',
 }));
 
@@ -67,6 +69,7 @@ const reduceTransparencyMock =
 
 describe('AdaptiveActionSurface', () => {
   beforeEach(() => {
+    mockColorScheme = 'light';
     glassEffectMock.GlassView.mockClear();
     glassEffectMock.isGlassEffectAPIAvailable.mockReset().mockReturnValue(true);
     glassEffectMock.isLiquidGlassAvailable.mockReset().mockReturnValue(true);
@@ -186,6 +189,44 @@ describe('AdaptiveActionSurface', () => {
       expect.objectContaining({
         isInteractive: true,
         tintColor: 'rgba(0, 122, 255, 0.10)',
+      }),
+    );
+  });
+
+  it('gives grouped iOS glass a field-matching grey tint in Dark Mode', async () => {
+    mockColorScheme = 'dark';
+
+    render(
+      <AdaptiveActionSurface tone='grouped'>
+        <Text>Grouped control</Text>
+      </AdaptiveActionSurface>,
+    );
+
+    await waitFor(() => {
+      expect(glassEffectMock.GlassView).toHaveBeenCalledTimes(1);
+    });
+
+    expect(glassEffectMock.GlassView.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        tintColor: 'rgba(44, 44, 46, 0.64)',
+      }),
+    );
+  });
+
+  it('keeps the moving selection thumb visible in Light Mode', async () => {
+    render(
+      <AdaptiveActionSurface tone='selection'>
+        <Text>Selection</Text>
+      </AdaptiveActionSurface>,
+    );
+
+    await waitFor(() => {
+      expect(glassEffectMock.GlassView).toHaveBeenCalledTimes(1);
+    });
+
+    expect(glassEffectMock.GlassView.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        tintColor: 'rgba(120, 120, 128, 0.18)',
       }),
     );
   });
