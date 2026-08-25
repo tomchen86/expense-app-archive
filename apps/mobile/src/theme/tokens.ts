@@ -16,6 +16,7 @@ export const mobileTheme = {
     onPrimary: '#FFFFFF',
     onPrimaryContainer: '#083B78',
     success: '#187A55',
+    destructive: '#C9362B',
     danger: '#C9362B',
     border: 'rgba(18, 32, 51, 0.12)',
     glassBorder: 'rgba(255, 255, 255, 0.58)',
