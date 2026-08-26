@@ -316,11 +316,17 @@ describe('Insights visualization', () => {
 });
 
 describe('Insights controls accessibility', () => {
+  const periods = [
+    { key: 'month:2026-6', label: 'July 2026', month: 6, year: 2026 },
+    { key: 'month:2026-7', label: 'August 2026', month: 7, year: 2026 },
+  ];
+
   it('exposes compact selected Month/Year controls and explicit disabled state', () => {
     const onAggregationChange = jest.fn();
     const screen = render(
       <InsightsHeader
         aggregation='month'
+        availablePeriods={periods}
         displayPeriodText='August 2026'
         hasMultiplePeriods
         isNextDisabled
@@ -328,7 +334,9 @@ describe('Insights controls accessibility', () => {
         onAggregationChange={onAggregationChange}
         onNextPeriod={jest.fn()}
         onPeriodPress={jest.fn()}
+        onPeriodSelect={jest.fn()}
         onPreviousPeriod={jest.fn()}
+        selectedPeriodKey={periods[1].key}
       />,
     );
 
@@ -368,6 +376,7 @@ describe('Insights controls accessibility', () => {
     const screen = render(
       <InsightsHeader
         aggregation='month'
+        availablePeriods={periods}
         displayPeriodText='July 2026'
         hasMultiplePeriods
         isNextDisabled={false}
@@ -375,7 +384,9 @@ describe('Insights controls accessibility', () => {
         onAggregationChange={jest.fn()}
         onNextPeriod={onNextPeriod}
         onPeriodPress={jest.fn()}
+        onPeriodSelect={jest.fn()}
         onPreviousPeriod={onPreviousPeriod}
+        selectedPeriodKey={periods[0].key}
       />,
     );
     const navigator = screen.getByTestId('period-navigator');
@@ -423,6 +434,7 @@ describe('Insights controls accessibility', () => {
     const screen = render(
       <InsightsHeader
         aggregation='month'
+        availablePeriods={periods}
         displayPeriodText='August 2026'
         hasMultiplePeriods
         isNextDisabled
@@ -430,7 +442,9 @@ describe('Insights controls accessibility', () => {
         onAggregationChange={jest.fn()}
         onNextPeriod={onNextPeriod}
         onPeriodPress={jest.fn()}
+        onPeriodSelect={jest.fn()}
         onPreviousPeriod={jest.fn()}
+        selectedPeriodKey={periods[1].key}
       />,
     );
 
@@ -446,6 +460,7 @@ describe('Insights controls accessibility', () => {
     const screen = render(
       <InsightsHeader
         aggregation='month'
+        availablePeriods={[periods[1]]}
         displayPeriodText='August 2026'
         hasMultiplePeriods={false}
         isNextDisabled
@@ -453,7 +468,9 @@ describe('Insights controls accessibility', () => {
         onAggregationChange={jest.fn()}
         onNextPeriod={jest.fn()}
         onPeriodPress={onPeriodPress}
+        onPeriodSelect={jest.fn()}
         onPreviousPeriod={jest.fn()}
+        selectedPeriodKey={periods[1].key}
       />,
     );
 

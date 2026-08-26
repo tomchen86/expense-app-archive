@@ -9,8 +9,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { mobileTheme } from '../../theme/tokens';
+import type { InsightPeriod } from '../../hooks/useInsightsData';
 import { AdaptiveActionSurface } from '../ui/adaptive-action-surface';
 import PeriodAggregationControl from './period-aggregation-control';
+import PeriodPickerControl from './period-picker-control';
 
 const SWIPE_CAPTURE_DISTANCE = 2;
 const SWIPE_COMMIT_DISTANCE = 3;
@@ -27,24 +29,30 @@ interface InsightsHeaderProps {
   aggregation: 'month' | 'year';
   onAggregationChange: (aggregation: 'month' | 'year') => void;
   displayPeriodText: string;
+  availablePeriods: InsightPeriod[];
   onPeriodPress: () => void;
+  onPeriodSelect: (period: InsightPeriod) => void;
   onPreviousPeriod: () => void;
   onNextPeriod: () => void;
   hasMultiplePeriods: boolean;
   isNextDisabled: boolean;
   isPreviousDisabled: boolean;
+  selectedPeriodKey: string | null;
 }
 
 const InsightsHeader: React.FC<InsightsHeaderProps> = ({
   aggregation,
+  availablePeriods,
   onAggregationChange,
   displayPeriodText,
   onPeriodPress,
+  onPeriodSelect,
   onPreviousPeriod,
   onNextPeriod,
   hasMultiplePeriods,
   isNextDisabled,
   isPreviousDisabled,
+  selectedPeriodKey,
 }) => {
   const periodDragX = useRef(new Animated.Value(0)).current;
   const periodOpacity = periodDragX.interpolate({
@@ -186,40 +194,24 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
               style={styles.periodPickerSurface}
               testID='period-picker-surface'
             >
-              <TouchableOpacity
-                activeOpacity={0.72}
-                accessibilityLabel={`Choose period. ${displayPeriodText}`}
-                accessibilityHint='Opens periods that contain expenses'
-                accessibilityRole='button'
-                onPress={onPeriodPress}
-                style={styles.periodButton}
-                testID='period-picker-button'
+              <Animated.View
+                style={[
+                  styles.periodTransition,
+                  {
+                    opacity: periodOpacity,
+                    transform: [{ translateX: periodDragX }],
+                  },
+                ]}
+                testID='period-transition'
               >
-                <Animated.View
-                  style={[
-                    styles.periodPickerContent,
-                    {
-                      opacity: periodOpacity,
-                      transform: [{ translateX: periodDragX }],
-                    },
-                  ]}
-                  testID='period-transition'
-                >
-                  <Text
-                    ellipsizeMode='tail'
-                    numberOfLines={1}
-                    style={styles.periodDisplayText}
-                  >
-                    {displayPeriodText}
-                  </Text>
-                  <Ionicons
-                    color={mobileTheme.colors.textMuted}
-                    name='chevron-down'
-                    size={14}
-                    testID='period-picker-chevron'
-                  />
-                </Animated.View>
-              </TouchableOpacity>
+                <PeriodPickerControl
+                  availablePeriods={availablePeriods}
+                  displayPeriodText={displayPeriodText}
+                  onOpen={onPeriodPress}
+                  onSelectPeriod={onPeriodSelect}
+                  selectedPeriodKey={selectedPeriodKey}
+                />
+              </Animated.View>
             </AdaptiveActionSurface>
           </View>
         ) : (
@@ -345,6 +337,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     paddingHorizontal: mobileTheme.spacing.lg,
+  },
+  periodTransition: {
+    flex: 1,
+    width: '100%',
   },
   periodDisplayText: {
     color: mobileTheme.colors.text,

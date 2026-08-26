@@ -42,6 +42,7 @@ interface UseInsightsDataReturn {
   selectedYear: number;
   selectedMonth: number;
   displayPeriodText: string;
+  selectedPeriodKey: string | null;
   hasAvailablePeriods: boolean;
   hasMultiplePeriods: boolean;
   isNextDisabled: boolean;
@@ -423,6 +424,7 @@ export const useInsightsData = ({
     selectedYear,
     selectedMonth,
     displayPeriodText,
+    selectedPeriodKey: selectedPeriod?.key ?? null,
     hasAvailablePeriods,
     hasMultiplePeriods,
     isNextDisabled,

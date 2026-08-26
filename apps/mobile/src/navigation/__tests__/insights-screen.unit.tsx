@@ -48,6 +48,7 @@ const baseInsightsData = {
   previousPeriodText: 'December 2024' as string | null,
   screenTitle: 'Insights',
   selectedMonth: 0,
+  selectedPeriodKey: 'month:2025-0' as string | null,
   selectedYear: 2025,
   setAggregation: jest.fn(),
   setChartPreference: jest.fn(),
@@ -113,9 +114,19 @@ describe('InsightsScreen', () => {
       screen.queryByTestId('persistent-chart-preference-control'),
     ).toBeNull();
     expect(screen.getByLabelText(/Chart visualization/)).toBeTruthy();
-    expect(screen.getByTestId('insights-header')).toBeTruthy();
+    expect(screen.getByTestId('insights-header')).toHaveProp(
+      'selectedPeriodKey',
+      'month:2025-0',
+    );
+    expect(screen.getByTestId('insights-header')).toHaveProp(
+      'availablePeriods',
+      baseInsightsData.availablePeriods,
+    );
     expect(screen.getByTestId('category-chart')).toBeTruthy();
-    expect(screen.getByTestId('period-picker-sheet')).toBeTruthy();
+    expect(screen.getByTestId('period-picker-sheet')).toHaveProp(
+      'selectedPeriodKey',
+      'month:2025-0',
+    );
   });
 
   it('hides period controls, chart controls, and charts when there is no data', () => {

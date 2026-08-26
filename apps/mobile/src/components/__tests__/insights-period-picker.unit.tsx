@@ -68,6 +68,7 @@ describe('Insights period picker', () => {
         onClose={onClose}
         onSelectPeriod={onSelectPeriod}
         selectedMonth={7}
+        selectedPeriodKey={periods[2].key}
         selectedYear={2026}
         visible
       />,
@@ -102,6 +103,7 @@ describe('Insights period picker', () => {
         onClose={jest.fn()}
         onSelectPeriod={jest.fn()}
         selectedMonth={7}
+        selectedPeriodKey={periods[2].key}
         selectedYear={2026}
         visible
       />,

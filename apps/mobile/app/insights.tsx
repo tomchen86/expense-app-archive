@@ -40,14 +40,17 @@ const ExpenseInsightsScreen = () => {
           <>
             <InsightsHeader
               aggregation={insightsData.aggregation}
+              availablePeriods={insightsData.availablePeriods}
               onAggregationChange={insightsData.setAggregation}
               displayPeriodText={insightsData.displayPeriodText}
               hasMultiplePeriods={insightsData.hasMultiplePeriods}
               onPeriodPress={() => insightsData.setShowDatePickers(true)}
+              onPeriodSelect={insightsData.selectPeriod}
               onPreviousPeriod={insightsData.handlePreviousPeriod}
               onNextPeriod={insightsData.handleNextPeriod}
               isNextDisabled={insightsData.isNextDisabled}
               isPreviousDisabled={insightsData.isPreviousDisabled}
+              selectedPeriodKey={insightsData.selectedPeriodKey}
             />
 
             <InsightsSummary
@@ -63,6 +66,7 @@ const ExpenseInsightsScreen = () => {
               aggregation={insightsData.aggregation}
               selectedYear={insightsData.selectedYear}
               selectedMonth={insightsData.selectedMonth}
+              selectedPeriodKey={insightsData.selectedPeriodKey}
               onSelectPeriod={insightsData.selectPeriod}
               availablePeriods={insightsData.availablePeriods}
             />

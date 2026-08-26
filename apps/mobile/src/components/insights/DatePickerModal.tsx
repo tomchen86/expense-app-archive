@@ -13,16 +13,7 @@ import { semanticColors } from '../../theme/semantic-colors';
 import { mobileTheme } from '../../theme/tokens';
 import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
 import { AdaptivePopover } from '../ui/adaptive-popover';
-
-interface DatePickerModalProps {
-  visible: boolean;
-  onClose: () => void;
-  aggregation: 'month' | 'year';
-  selectedYear: number;
-  selectedMonth: number;
-  onSelectPeriod: (period: InsightPeriod) => void;
-  availablePeriods: InsightPeriod[];
-}
+import type { DatePickerModalProps } from './date-picker-modal.types';
 
 const MONTH_NAMES = [
   'January',

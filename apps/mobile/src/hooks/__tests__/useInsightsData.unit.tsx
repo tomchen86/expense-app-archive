@@ -133,6 +133,7 @@ describe('useInsightsData', () => {
     expect(chartCategories).toContain('Transportation');
     expect(ref.current!.screenTitle).toBe('Insights');
     expect(ref.current!.displayPeriodText).toBe('January 2025');
+    expect(ref.current!.selectedPeriodKey).toBe('month:2025-0');
     expect(ref.current!.availablePeriods.map((period) => period.label)).toEqual(
       ['December 2024', 'January 2025'],
     );
@@ -146,6 +147,7 @@ describe('useInsightsData', () => {
     });
     expect(ref.current!.selectedMonth).toBe(11); // December
     expect(ref.current!.selectedYear).toBe(2024);
+    expect(ref.current!.selectedPeriodKey).toBe('month:2024-11');
 
     act(() => {
       ref.current!.handleNextPeriod();
