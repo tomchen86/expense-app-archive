@@ -13,6 +13,10 @@ import {
   restoreExpenseGroup,
 } from '../../utils/groupDomain';
 import { createUuid } from '../../utils/ids';
+import {
+  createVersionedMigrator,
+  MOBILE_PERSISTENCE_SCHEMAS,
+} from '../persistence/versioned-migration';
 
 let pendingGroupWrite: { name: string; value: string } | null = null;
 let groupWritePromise: Promise<void> | null = null;
@@ -386,10 +390,14 @@ export const useGroupStore = create<GroupState>()(
       },
     }),
     {
-      name: 'expense-mobile-groups-v2',
-      version: 2,
+      name: MOBILE_PERSISTENCE_SCHEMAS.groups.storageKey,
+      version: MOBILE_PERSISTENCE_SCHEMAS.groups.currentVersion,
       storage: createJSONStorage(() => groupStateStorage),
       partialize: (state) => ({ groups: state.groups }),
+      migrate: createVersionedMigrator<GroupState>(
+        MOBILE_PERSISTENCE_SCHEMAS.groups,
+        {},
+      ),
     },
   ),
 );

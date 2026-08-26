@@ -9,7 +9,7 @@ import {
 } from './expenseDomain';
 
 interface ResolvePersonalParticipantIdsOptions {
-  internalUserId: string | null | undefined;
+  userId: string | null | undefined;
   participants: Participant[];
   personalParticipantId: string | null | undefined;
 }
@@ -27,18 +27,17 @@ const uniqueNonEmptyIds = (ids: Array<string | null | undefined>): string[] =>
   );
 
 export const resolvePersonalParticipantIds = ({
-  internalUserId,
+  userId,
   participants,
   personalParticipantId,
 }: ResolvePersonalParticipantIdsOptions): string[] =>
   uniqueNonEmptyIds([
     personalParticipantId,
-    ...(internalUserId
+    ...(userId
       ? participants
-          .filter((participant) => participant.userId === internalUserId)
+          .filter((participant) => participant.userId === userId)
           .map((participant) => participant.id)
       : []),
-    internalUserId,
   ]);
 
 const hasCandidateAllocation = (

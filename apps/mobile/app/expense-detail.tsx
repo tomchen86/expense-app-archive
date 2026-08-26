@@ -25,6 +25,7 @@ import { formatLocalDateForDisplay } from '../src/utils/dateFormat';
 import { mobileTheme } from '../src/theme/tokens';
 import { ExpenseDetailHeaderActions } from '../src/components/navigation/expense-detail-header-actions';
 import { resolveExpenseCategoryPresentation } from '../src/utils/categoryDomain';
+import { AdaptiveCardSurface } from '../src/components/ui/adaptive-card-surface';
 
 const ExpenseDetailScreen = () => {
   const params = useLocalSearchParams<{ expenseId?: RouteParam }>();
@@ -33,7 +34,7 @@ const ExpenseDetailScreen = () => {
   const groups = useExpenseStore((state) => state.groups);
   const categories = useExpenseStore((state) => state.categories);
   const participants = useExpenseStore((state) => state.participants);
-  const internalUserId = useExpenseStore((state) => state.internalUserId);
+  const currentUserId = useExpenseStore((state) => state.user?.id ?? null);
   const personalParticipantId = useExpenseStore(
     (state) => state.personalParticipantId,
   );
@@ -61,13 +62,13 @@ const ExpenseDetailScreen = () => {
   const currentParticipantIds = useMemo(
     () =>
       resolvePersonalParticipantIds({
-        internalUserId,
+        userId: currentUserId,
         participants: group
           ? [...participants, ...group.participants]
           : participants,
         personalParticipantId,
       }),
-    [group, internalUserId, participants, personalParticipantId],
+    [currentUserId, group, participants, personalParticipantId],
   );
   const projection = useMemo(
     () =>
@@ -139,19 +140,19 @@ const ExpenseDetailScreen = () => {
         </Text>
 
         {isHistoricalSharedExpense ? (
-          <View style={styles.historyNotice}>
+          <AdaptiveCardSurface style={styles.historyNotice} tone='muted'>
             <Text style={styles.historyNoticeTitle}>Shared history</Text>
             <Text style={styles.historyNoticeText}>
               Payments and shares are preserved as read-only history. Restore
               this group before editing.
             </Text>
-          </View>
+          </AdaptiveCardSurface>
         ) : null}
 
         {isSharedExpense ? (
           <>
             <Text style={styles.sectionLabel}>YOUR POSITION</Text>
-            <View style={styles.section}>
+            <AdaptiveCardSurface style={styles.section}>
               <DetailRow
                 label='You paid'
                 value={formatAmount(projection.myPaidMinor)}
@@ -165,7 +166,7 @@ const ExpenseDetailScreen = () => {
                 label={netLabel}
                 value={formatAmount(Math.abs(projection.myBalanceMinor))}
               />
-            </View>
+            </AdaptiveCardSurface>
 
             <AllocationSection
               currency={projection.currency}
@@ -183,7 +184,7 @@ const ExpenseDetailScreen = () => {
         ) : null}
 
         <Text style={styles.sectionLabel}>DETAILS</Text>
-        <View style={styles.section}>
+        <AdaptiveCardSurface style={styles.section}>
           {isSharedExpense ? (
             <DetailRow label='Group' value={group?.name ?? 'Archived group'} />
           ) : null}
@@ -195,14 +196,14 @@ const ExpenseDetailScreen = () => {
             label='Date'
             value={formatLocalDateForDisplay(expense.date)}
           />
-        </View>
+        </AdaptiveCardSurface>
 
         {expense.caption ? (
           <>
             <Text style={styles.sectionLabel}>NOTE</Text>
-            <View style={styles.noteSection}>
+            <AdaptiveCardSurface style={styles.noteSection}>
               <Text style={styles.note}>{expense.caption}</Text>
-            </View>
+            </AdaptiveCardSurface>
           </>
         ) : null}
       </ScrollView>
@@ -223,7 +224,7 @@ const AllocationSection = ({
 }) => (
   <>
     <Text style={styles.sectionLabel}>{label}</Text>
-    <View style={styles.section}>
+    <AdaptiveCardSurface style={styles.section}>
       {rows.length > 0 ? (
         rows.map((row) => (
           <DetailRow
@@ -238,7 +239,7 @@ const AllocationSection = ({
       ) : (
         <DetailRow label={emptyLabel} value='—' />
       )}
-    </View>
+    </AdaptiveCardSurface>
   </>
 );
 
@@ -288,8 +289,6 @@ const styles = StyleSheet.create({
   historyNotice: {
     padding: mobileTheme.spacing.lg,
     marginBottom: mobileTheme.spacing.xl,
-    borderRadius: mobileTheme.radii.card,
-    backgroundColor: mobileTheme.colors.surfaceVariant,
   },
   historyNoticeTitle: {
     color: mobileTheme.colors.text,
@@ -311,12 +310,7 @@ const styles = StyleSheet.create({
     marginLeft: mobileTheme.spacing.md,
   },
   section: {
-    overflow: 'hidden',
     marginBottom: mobileTheme.spacing.xl,
-    borderRadius: mobileTheme.radii.card,
-    borderColor: mobileTheme.colors.border,
-    borderWidth: 1,
-    backgroundColor: mobileTheme.colors.surface,
   },
   row: {
     minHeight: 52,
@@ -345,10 +339,6 @@ const styles = StyleSheet.create({
   noteSection: {
     minHeight: 96,
     padding: mobileTheme.spacing.lg,
-    borderRadius: mobileTheme.radii.card,
-    borderColor: mobileTheme.colors.border,
-    borderWidth: 1,
-    backgroundColor: mobileTheme.colors.surface,
   },
   note: {
     color: mobileTheme.colors.text,

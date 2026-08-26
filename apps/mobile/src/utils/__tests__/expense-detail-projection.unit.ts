@@ -148,21 +148,27 @@ describe('expense detail projection', () => {
     ).toBe('Tom at the time');
   });
 
-  it('keeps legacy paidBy and equal split compatibility', () => {
-    const legacyExpense: Expense = {
-      id: 'legacy-expense',
-      title: 'Legacy dinner',
-      amount: 60,
+  it('projects canonical payment and share allocations', () => {
+    const canonicalExpense: Expense = {
+      id: 'canonical-expense',
+      title: 'Dinner',
+      amountMinor: 6000,
+      currency: 'USD',
       date: '2026-08-24',
       category: 'Food & Dining',
-      groupId: group.id,
-      paidBy: 'tom',
-      splitBetween: ['tom', 'sharon', 'alex'],
+      spaceId: group.id,
+      spaceKind: 'shared',
+      payments: [{ participantId: 'tom', amountMinor: 6000 }],
+      shares: [
+        { participantId: 'tom', amountMinor: 2000 },
+        { participantId: 'sharon', amountMinor: 2000 },
+        { participantId: 'alex', amountMinor: 2000 },
+      ],
     };
 
     const projection = buildExpenseDetailProjection({
       currentParticipantIds: ['tom'],
-      expense: legacyExpense,
+      expense: canonicalExpense,
       group,
       participants,
     });

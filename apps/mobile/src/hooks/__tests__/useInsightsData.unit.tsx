@@ -12,6 +12,12 @@ const defaultSettings = {
   notifications: true,
 };
 
+const createUser = (id: string) => ({
+  id,
+  displayName: id === 'user-1' ? 'Alice' : 'Account user',
+  personalSpaceId: 'personal-space',
+});
+
 type HookHandle = ReturnType<typeof useInsightsData>;
 
 type HarnessProps = Parameters<typeof useInsightsData>[0];
@@ -41,30 +47,36 @@ const personalExpenses: Expense[] = [
     spaceId: 'personal-space',
     spaceKind: 'personal',
     title: 'Coffee',
-    amount: 5,
+    amountMinor: 500,
+    currency: 'USD',
     date: '2025-01-02',
     category: 'Food & Dining',
-    paidBy: 'user-1',
+    payments: [{ participantId: 'user-1', amountMinor: 500 }],
+    shares: [{ participantId: 'user-1', amountMinor: 500 }],
   },
   {
     id: 'exp-2',
     spaceId: 'personal-space',
     spaceKind: 'personal',
     title: 'Metro',
-    amount: 8,
+    amountMinor: 800,
+    currency: 'USD',
     date: '2025-01-15',
     category: 'Transportation',
-    paidBy: 'user-1',
+    payments: [{ participantId: 'user-1', amountMinor: 800 }],
+    shares: [{ participantId: 'user-1', amountMinor: 800 }],
   },
   {
     id: 'exp-3',
     spaceId: 'personal-space',
     spaceKind: 'personal',
     title: 'Dinner',
-    amount: 20,
+    amountMinor: 2000,
+    currency: 'USD',
     date: '2024-12-31',
     category: 'Food & Dining',
-    paidBy: 'user-1',
+    payments: [{ participantId: 'user-1', amountMinor: 2000 }],
+    shares: [{ participantId: 'user-1', amountMinor: 2000 }],
   },
 ];
 
@@ -72,13 +84,17 @@ const groupExpenses: Expense[] = [
   {
     id: 'exp-4',
     title: 'Snacks',
-    amount: 30,
+    amountMinor: 3000,
+    currency: 'USD',
     date: '2025-01-10',
     category: 'Food & Dining',
-    groupId: 'group-1',
-    paidBy: 'user-2',
-    splitBetween: ['user-1', 'user-2'],
-    participants,
+    spaceId: 'group-1',
+    spaceKind: 'shared',
+    payments: [{ participantId: 'user-2', amountMinor: 3000 }],
+    shares: [
+      { participantId: 'user-1', amountMinor: 1500 },
+      { participantId: 'user-2', amountMinor: 1500 },
+    ],
   },
 ];
 
@@ -88,11 +104,12 @@ const resetStore = () => {
     groups: [],
     participants: [],
     categories: DEFAULT_CATEGORIES.map((category) => ({ ...category })),
-    user: null,
+    user: {
+      id: 'current-user',
+      displayName: 'Current User',
+      personalSpaceId: 'personal-space',
+    },
     settings: { ...defaultSettings },
-    userSettings: null,
-    internalUserId: null,
-    personalSpaceId: 'personal-space',
     personalParticipantId: 'personal-participant',
   });
 };
@@ -110,7 +127,7 @@ describe('useInsightsData', () => {
     useExpenseStore.setState((state) => ({
       ...state,
       expenses: personalExpenses,
-      internalUserId: 'user-1',
+      user: createUser('user-1'),
     }));
 
     const ref = createRef<HookHandle>();
@@ -188,7 +205,7 @@ describe('useInsightsData', () => {
       expenses: [...personalExpenses, ...groupExpenses],
       groups: [group],
       participants,
-      internalUserId: 'user-1',
+      user: createUser('user-1'),
     }));
 
     const ref = createRef<HookHandle>();
@@ -209,10 +226,15 @@ describe('useInsightsData', () => {
     expect(ref.current!.chartData[0].absoluteValue).toBe(30);
   });
 
-  it('uses the bare legacy user identity for personal shared-expense insights', () => {
-    const legacySharedExpense: Expense = {
-      id: 'legacy-shared-expense',
-      title: 'Legacy shared lunch',
+  it('uses a participant linked to the canonical user for personal shared-expense insights', () => {
+    const linkedParticipant: Participant = {
+      id: 'linked-account-participant',
+      name: 'Account user',
+      userId: 'account-user',
+    };
+    const sharedExpense: Expense = {
+      id: 'archived-shared-expense',
+      title: 'Archived shared lunch',
       amountMinor: 500,
       currency: 'AUD',
       date: '2025-01-10',
@@ -220,13 +242,13 @@ describe('useInsightsData', () => {
       spaceId: 'archived-shared-space',
       spaceKind: 'shared',
       payments: [{ participantId: 'other-user', amountMinor: 500 }],
-      shares: [{ participantId: 'legacy-user', amountMinor: 500 }],
+      shares: [{ participantId: linkedParticipant.id, amountMinor: 500 }],
     };
     useExpenseStore.setState((state) => ({
       ...state,
-      expenses: [legacySharedExpense],
-      internalUserId: 'legacy-user',
-      participants: [],
+      expenses: [sharedExpense],
+      user: createUser('account-user'),
+      participants: [linkedParticipant],
       personalParticipantId: 'canonical-personal-participant',
     }));
 
@@ -236,7 +258,7 @@ describe('useInsightsData', () => {
         <InsightsHarness
           ref={ref}
           contextType='personal'
-          contextId='legacy-user'
+          contextId='account-user'
           initialDate={new Date('2025-01-01')}
         />,
       );
@@ -281,7 +303,7 @@ describe('useInsightsData', () => {
     useExpenseStore.setState((state) => ({
       ...state,
       expenses: [current, prior],
-      internalUserId: 'user-1',
+      user: createUser('user-1'),
       personalParticipantId: 'user-1',
     }));
 
@@ -350,7 +372,7 @@ describe('useInsightsData', () => {
         { ...personalExpenses[0], id: 'may-2026', date: '2026-05-03' },
         { ...personalExpenses[1], id: 'august-2026', date: '2026-08-12' },
       ],
-      internalUserId: 'user-1',
+      user: createUser('user-1'),
     }));
     const ref = createRef<HookHandle>();
     act(() => {
@@ -383,7 +405,7 @@ describe('useInsightsData', () => {
         { ...personalExpenses[1], id: 'may-2026', date: '2026-05-12' },
         { ...personalExpenses[2], id: 'august-2026', date: '2026-08-21' },
       ],
-      internalUserId: 'user-1',
+      user: createUser('user-1'),
     }));
     const ref = createRef<HookHandle>();
     act(() => {
@@ -406,7 +428,7 @@ describe('useInsightsData', () => {
     useExpenseStore.setState((state) => ({
       ...state,
       expenses: [{ ...personalExpenses[0], date: '2026-08-03' }],
-      internalUserId: 'user-1',
+      user: createUser('user-1'),
     }));
     const ref = createRef<HookHandle>();
     act(() => {
@@ -435,12 +457,13 @@ describe('useInsightsData', () => {
           ...groupExpenses[0],
           id: 'unrelated-group',
           date: '2005-02-01',
-          paidBy: 'unrelated-user',
-          splitBetween: ['unrelated-user'],
-          participants: [{ id: 'unrelated-user', name: 'Other' }],
+          payments: [
+            { participantId: 'unrelated-user', amountMinor: 3000 },
+          ],
+          shares: [{ participantId: 'unrelated-user', amountMinor: 3000 }],
         },
       ],
-      internalUserId: 'user-1',
+      user: createUser('user-1'),
     }));
     const ref = createRef<HookHandle>();
     act(() => {

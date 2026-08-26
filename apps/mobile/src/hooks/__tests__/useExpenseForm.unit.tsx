@@ -44,15 +44,11 @@ const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 import { router } from 'expo-router';
 
 const resetAllStores = () => {
-  const { internalUserId, personalSpaceId, personalParticipantId } =
-    useUserStore.getState();
+  const { user, personalParticipantId } = useUserStore.getState();
 
   useUserStore.setState({
-    user: null,
+    user: { ...user },
     settings: { ...defaultSettings },
-    userSettings: null,
-    internalUserId,
-    personalSpaceId,
     personalParticipantId,
   });
   useParticipantStore.setState({ participants: [] });
@@ -67,11 +63,8 @@ const resetAllStores = () => {
     groups: [],
     participants: [],
     categories: DEFAULT_CATEGORIES.map((category) => ({ ...category })),
-    user: null,
+    user: { ...user },
     settings: { ...defaultSettings },
-    userSettings: null,
-    internalUserId,
-    personalSpaceId,
     personalParticipantId,
   });
 };
@@ -334,8 +327,9 @@ describe('useExpenseForm', () => {
       );
     });
 
-    const { personalParticipantId, personalSpaceId } =
+    const { personalParticipantId, user } =
       useComposedExpenseStore.getState();
+    const personalSpaceId = user.personalSpaceId;
 
     act(() => {
       ref.current!.handleUpdateFormState('title', 'Coffee run');
@@ -534,12 +528,14 @@ describe('useExpenseForm', () => {
     const existingExpense: Expense = {
       id: 'expense-1',
       title: 'Snacks',
-      amount: 15,
+      amountMinor: 1500,
+      currency: 'USD',
       date: '2025-03-01',
       category: DEFAULT_CATEGORIES[0].name,
-      groupId: group.id,
-      paidBy: participant.id,
-      splitBetween: [participant.id],
+      spaceId: group.id,
+      spaceKind: 'shared',
+      payments: [{ participantId: participant.id, amountMinor: 1500 }],
+      shares: [{ participantId: participant.id, amountMinor: 1500 }],
       caption: 'Team ride snacks',
     };
 

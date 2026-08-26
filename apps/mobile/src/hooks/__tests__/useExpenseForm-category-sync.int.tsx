@@ -36,8 +36,11 @@ describe('useExpenseForm - Category Sync Integration', () => {
       groups: [],
       participants: [],
       categories: TEST_CATEGORIES,
-      userSettings: { name: 'Test User' },
-      internalUserId: 'test-user-id',
+      user: {
+        ...initialState.user,
+        id: 'test-user-id',
+        displayName: 'Test User',
+      },
     });
   });
 
@@ -164,11 +167,16 @@ describe('useExpenseForm - Category Sync Integration', () => {
     const mockExpense = {
       id: 'exp-1',
       title: 'Test Expense',
-      amount: 50,
+      amountMinor: 5000,
+      currency: 'USD',
       date: '2025-09-30',
       category: 'Transport',
       caption: '',
-    };
+      spaceId: 'personal-space',
+      spaceKind: 'personal' as const,
+      payments: [{ participantId: 'test-user-id', amountMinor: 5000 }],
+      shares: [{ participantId: 'test-user-id', amountMinor: 5000 }],
+    } satisfies Expense;
 
     const { result, rerender } = renderHook<
       ReturnType<typeof useExpenseForm>,
@@ -195,11 +203,16 @@ describe('useExpenseForm - Category Sync Integration', () => {
     const mockExpense = {
       id: 'exp-1',
       title: 'Test Expense',
-      amount: 50,
+      amountMinor: 5000,
+      currency: 'USD',
       date: '2025-09-30',
       category: 'Transport',
       caption: '',
-    };
+      spaceId: 'personal-space',
+      spaceKind: 'personal' as const,
+      payments: [{ participantId: 'test-user-id', amountMinor: 5000 }],
+      shares: [{ participantId: 'test-user-id', amountMinor: 5000 }],
+    } satisfies Expense;
 
     const { result } = renderHook(() =>
       useExpenseForm({

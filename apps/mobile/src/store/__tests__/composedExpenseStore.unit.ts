@@ -16,9 +16,8 @@ import { flushUserPersistence, useUserStore } from '../features/userStore';
 
 const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 const initialIdentity = {
-  internalUserId: useUserStore.getState().internalUserId,
+  user: useUserStore.getState().user,
   personalParticipantId: useUserStore.getState().personalParticipantId,
-  personalSpaceId: useUserStore.getState().personalSpaceId,
 };
 
 const defaultSettings = {
@@ -49,15 +48,11 @@ const waitForCondition = async (condition: () => boolean) => {
 };
 
 const resetAllStores = () => {
-  const { internalUserId, personalSpaceId, personalParticipantId } =
-    initialIdentity;
+  const { user, personalParticipantId } = initialIdentity;
 
   useUserStore.setState({
-    user: null,
+    user: { ...user },
     settings: { ...defaultSettings },
-    userSettings: null,
-    internalUserId,
-    personalSpaceId,
     personalParticipantId,
   });
   useParticipantStore.setState({ participants: [] });
@@ -72,11 +67,8 @@ const resetAllStores = () => {
     groups: [],
     participants: [],
     categories: DEFAULT_CATEGORIES.map((category) => ({ ...category })),
-    user: null,
+    user: { ...user },
     settings: { ...defaultSettings },
-    userSettings: null,
-    internalUserId,
-    personalSpaceId,
     personalParticipantId,
   });
 };
@@ -87,7 +79,7 @@ const seedDurableMembership = async () => {
   storage.setItem.mockImplementation(async (key, value) => {
     durableStorage.set(key, value);
   });
-  const currentUserId = useUserStore.getState().internalUserId!;
+  const currentUserId = useUserStore.getState().user.id;
   const owner: Participant = {
     id: 'durable-owner',
     name: 'Owner',
@@ -122,8 +114,7 @@ const persistedGroups = (durableStorage: Map<string, string>) =>
 
 const persistedUserProfile = (durableStorage: Map<string, string>) =>
   JSON.parse(durableStorage.get('expense-mobile-user-v2')!).state as {
-    user: { id: string; displayName: string } | null;
-    userSettings: { name: string } | null;
+    user: { id: string; displayName: string; personalSpaceId: string };
   };
 
 const seedDurableProfileProjection = async () => {
@@ -132,16 +123,14 @@ const seedDurableProfileProjection = async () => {
   storage.setItem.mockImplementation(async (key, value) => {
     durableStorage.set(key, value);
   });
-  const personalSpaceId = useUserStore.getState().personalSpaceId;
+  const personalSpaceId = useUserStore.getState().user.personalSpaceId;
   const personalParticipantId = useUserStore.getState().personalParticipantId;
   useUserStore.setState({
-    internalUserId: 'legacy-profile-id',
     user: {
       id: 'canonical-profile-id',
       displayName: 'Before',
       personalSpaceId,
     },
-    userSettings: { name: 'Before' },
   });
   const personal: Participant = {
     id: personalParticipantId,
@@ -188,7 +177,7 @@ describe('ComposedExpenseStore', () => {
 
     await updateUser({ displayName: 'Jamie' });
 
-    const { user, participants, personalParticipantId, personalSpaceId } =
+    const { user, participants, personalParticipantId } =
       useComposedExpenseStore.getState();
     const syncedParticipant = useParticipantStore
       .getState()
@@ -198,148 +187,110 @@ describe('ComposedExpenseStore', () => {
     expect(syncedParticipant).toEqual({
       id: personalParticipantId,
       name: 'Jamie',
-      userId: user!.id,
-      spaceId: personalSpaceId,
+      userId: user.id,
+      spaceId: user.personalSpaceId,
     });
     expect(participants).toContainEqual(syncedParticipant);
   });
 
-  it.each([
-    [
-      'canonical profile',
-      () =>
-        useComposedExpenseStore
-          .getState()
-          .updateUser({ displayName: 'Renamed' }),
-    ],
-    [
-      'legacy settings',
-      () =>
-        useComposedExpenseStore
-          .getState()
-          .updateUserSettings({ name: 'Renamed' }),
-    ],
-  ])(
-    'propagates a %s name change to every active participant snapshot for that user',
-    async (_source, renameUser) => {
-      const personalSpaceId = useUserStore.getState().personalSpaceId;
-      const personalParticipantId =
-        useUserStore.getState().personalParticipantId;
-      useUserStore.setState({
-        internalUserId: 'legacy-user-id',
-        user: {
-          id: 'canonical-user-id',
-          displayName: 'Before',
-          personalSpaceId,
-        },
-        userSettings: { name: 'Before' },
-      });
-      const participants: Participant[] = [
+  it('propagates a canonical name change to every active participant snapshot for that user', async () => {
+    const personalSpaceId = useUserStore.getState().user.personalSpaceId;
+    const personalParticipantId =
+      useUserStore.getState().personalParticipantId;
+    useUserStore.setState({
+      user: {
+        id: 'canonical-user-id',
+        displayName: 'Before',
+        personalSpaceId,
+      },
+    });
+    const participants: Participant[] = [
+      {
+        id: personalParticipantId,
+        name: 'Before',
+        userId: 'canonical-user-id',
+        spaceId: personalSpaceId,
+      },
+      {
+        id: 'active-canonical-member',
+        name: 'Before',
+        userId: 'canonical-user-id',
+        spaceId: 'active-group',
+      },
+      {
+        id: 'inactive-member',
+        name: 'Historical name',
+        userId: 'canonical-user-id',
+        spaceId: 'old-group',
+        active: false,
+      },
+      {
+        id: 'someone-else',
+        name: 'Someone Else',
+        userId: 'other-user-id',
+        spaceId: 'active-group',
+      },
+    ];
+    const activeGroup: ExpenseGroup = {
+      id: 'active-group',
+      name: 'Active',
+      participants: [participants[1], participants[3]],
+      createdAt: '2026-08-24T00:00:00.000Z',
+    };
+    const archivedGroup: ExpenseGroup = {
+      id: 'old-group',
+      name: 'Archived history',
+      participants: [
         {
-          id: personalParticipantId,
-          name: 'Before',
-          userId: 'canonical-user-id',
-          spaceId: personalSpaceId,
-        },
-        {
-          id: 'active-canonical-member',
-          name: 'Before',
-          userId: 'canonical-user-id',
-          spaceId: 'active-group',
-        },
-        {
-          id: 'active-legacy-member',
-          name: 'Before legacy',
-          userId: 'legacy-user-id',
-          spaceId: 'legacy-group',
-        },
-        {
-          id: 'inactive-member',
+          id: 'archived-member',
           name: 'Historical name',
           userId: 'canonical-user-id',
           spaceId: 'old-group',
-          active: false,
         },
-        {
-          id: 'someone-else',
-          name: 'Someone Else',
-          userId: 'other-user-id',
-          spaceId: 'active-group',
-        },
-      ];
-      const activeGroup: ExpenseGroup = {
-        id: 'active-group',
-        name: 'Active',
-        participants: [participants[1], participants[4]],
-        createdAt: '2026-08-24T00:00:00.000Z',
-      };
-      const legacyGroup: ExpenseGroup = {
-        id: 'legacy-group',
-        name: 'Legacy identity',
-        participants: [participants[2]],
-        createdAt: '2026-08-24T00:00:00.000Z',
-      };
-      const archivedGroup: ExpenseGroup = {
-        id: 'old-group',
-        name: 'Archived history',
-        participants: [
-          {
-            id: 'archived-member',
-            name: 'Historical name',
-            userId: 'canonical-user-id',
-            spaceId: 'old-group',
-          },
-        ],
-        createdAt: '2026-08-20T00:00:00.000Z',
-        archivedAt: '2026-08-23T00:00:00.000Z',
-      };
-      useParticipantStore.setState({ participants });
-      useGroupStore.setState({
-        groups: [activeGroup, legacyGroup, archivedGroup],
-      });
+      ],
+      createdAt: '2026-08-20T00:00:00.000Z',
+      archivedAt: '2026-08-23T00:00:00.000Z',
+    };
+    useParticipantStore.setState({ participants });
+    useGroupStore.setState({ groups: [activeGroup, archivedGroup] });
 
-      await renameUser();
+    await useComposedExpenseStore
+      .getState()
+      .updateUser({ displayName: 'Renamed' });
 
-      const participantState = useParticipantStore.getState().participants;
-      expect(
-        participantState
-          .filter(
-            (participant) =>
-              participant.active !== false &&
-              ['canonical-user-id', 'legacy-user-id'].includes(
-                participant.userId ?? '',
-              ),
-          )
-          .map((participant) => participant.name),
-      ).toEqual(['Renamed', 'Renamed', 'Renamed']);
-      expect(
-        participantState.find(
-          (participant) => participant.id === 'inactive-member',
+    const participantState = useParticipantStore.getState().participants;
+    expect(
+      participantState
+        .filter(
+          (participant) =>
+            participant.active !== false &&
+            participant.userId === 'canonical-user-id',
+        )
+        .map((participant) => participant.name),
+    ).toEqual(['Renamed', 'Renamed']);
+    expect(
+      participantState.find(
+        (participant) => participant.id === 'inactive-member',
+      )?.name,
+    ).toBe('Historical name');
+    expect(
+      participantState.find(
+        (participant) => participant.id === 'someone-else',
+      )?.name,
+    ).toBe('Someone Else');
+    expect(
+      useGroupStore
+        .getState()
+        .getGroupById(activeGroup.id)
+        ?.participants.find(
+          (participant) => participant.id === 'active-canonical-member',
         )?.name,
-      ).toBe('Historical name');
-      expect(
-        participantState.find(
-          (participant) => participant.id === 'someone-else',
-        )?.name,
-      ).toBe('Someone Else');
-      expect(
-        useGroupStore
-          .getState()
-          .getGroupById(activeGroup.id)
-          ?.participants.find(
-            (participant) => participant.id === 'active-canonical-member',
-          )?.name,
-      ).toBe('Renamed');
-      expect(
-        useGroupStore.getState().getGroupById(legacyGroup.id)?.participants[0]
-          .name,
-      ).toBe('Renamed');
-      expect(
-        useGroupStore.getState().getGroupById(archivedGroup.id)?.participants[0]
-          .name,
-      ).toBe('Historical name');
-    },
-  );
+    ).toBe('Renamed');
+    expect(
+      useGroupStore.getState().getGroupById(archivedGroup.id)?.participants[0]
+        .name,
+    ).toBe('Historical name');
+  });
 
   it('uses the latest user name when it changes during durable group creation', async () => {
     await prepareDurableGroupTest();
@@ -516,7 +467,7 @@ describe('ComposedExpenseStore', () => {
   });
 
   it('deactivates a safely removable participant while retaining expense allocations', async () => {
-    const currentUserId = useUserStore.getState().internalUserId!;
+    const currentUserId = useUserStore.getState().user.id;
     const group: ExpenseGroup = {
       id: 'group-2',
       name: 'Roommates',
@@ -529,12 +480,17 @@ describe('ComposedExpenseStore', () => {
     const expense: Expense = {
       id: 'expense-2',
       title: 'Utilities',
-      amount: 120,
+      amountMinor: 12000,
+      currency: 'USD',
       date: '2025-02-20',
       category: 'Bills & Utilities',
-      groupId: 'group-2',
-      paidBy: 'p1',
-      splitBetween: ['p1', 'p2'],
+      spaceId: 'group-2',
+      spaceKind: 'shared',
+      payments: [{ participantId: 'p1', amountMinor: 12000 }],
+      shares: [
+        { participantId: 'p1', amountMinor: 6000 },
+        { participantId: 'p2', amountMinor: 6000 },
+      ],
     };
 
     useParticipantStore.setState({
@@ -567,8 +523,8 @@ describe('ComposedExpenseStore', () => {
     const updatedExpense = useExpenseFeatureStore
       .getState()
       .expenses.find((item) => item.id === 'expense-2');
-    expect(updatedExpense?.paidBy).toBe('p1');
-    expect(updatedExpense?.splitBetween).toEqual(['p1', 'p2']);
+    expect(updatedExpense?.payments).toEqual(expense.payments);
+    expect(updatedExpense?.shares).toEqual(expense.shares);
 
     const composedParticipants =
       useComposedExpenseStore.getState().participants;
@@ -579,7 +535,7 @@ describe('ComposedExpenseStore', () => {
   });
 
   it('refuses public participant deletion for self, unresolved identity, and archived membership', async () => {
-    const currentUserId = useUserStore.getState().internalUserId!;
+    const currentUserId = useUserStore.getState().user.id;
     const currentParticipant: Participant = {
       id: 'participant-current',
       name: 'Current',
@@ -610,7 +566,9 @@ describe('ComposedExpenseStore', () => {
         ?.active,
     ).not.toBe(false);
 
-    useUserStore.setState({ internalUserId: null, user: null });
+    useUserStore.setState((state) => ({
+      user: { ...state.user, id: '' },
+    }));
     await store.deleteParticipant(otherParticipant.id);
     expect(
       useGroupStore.getState().getGroupById(group.id)?.participants,
@@ -620,7 +578,9 @@ describe('ComposedExpenseStore', () => {
         ?.active,
     ).not.toBe(false);
 
-    useUserStore.setState({ internalUserId: currentUserId });
+    useUserStore.setState((state) => ({
+      user: { ...state.user, id: currentUserId },
+    }));
     useGroupStore.setState({
       groups: [
         group,
@@ -642,7 +602,7 @@ describe('ComposedExpenseStore', () => {
   });
 
   it('refuses deletion of the current identity even outside a group', async () => {
-    const currentUserId = useUserStore.getState().internalUserId!;
+    const currentUserId = useUserStore.getState().user.id;
     const currentParticipant: Participant = {
       id: 'standalone-current-participant',
       name: 'Current',
@@ -661,7 +621,7 @@ describe('ComposedExpenseStore', () => {
   });
 
   it('atomically rejects named member creation after archive or identity loss', async () => {
-    const currentUserId = useUserStore.getState().internalUserId!;
+    const currentUserId = useUserStore.getState().user.id;
     const currentParticipant: Participant = {
       id: 'participant-current',
       name: 'Current',
@@ -686,7 +646,9 @@ describe('ComposedExpenseStore', () => {
     ]);
 
     useGroupStore.getState().restoreGroup(group.id);
-    useUserStore.setState({ internalUserId: null, user: null });
+    useUserStore.setState((state) => ({
+      user: { ...state.user, id: '' },
+    }));
     await expect(
       store.addParticipantToGroupByName(group.id, 'Identity orphan'),
     ).resolves.toBeNull();
@@ -699,7 +661,7 @@ describe('ComposedExpenseStore', () => {
   });
 
   it('adds a named member to the group and participant stores through one guarded action', async () => {
-    const currentUserId = useUserStore.getState().internalUserId!;
+    const currentUserId = useUserStore.getState().user.id;
     const currentParticipant: Participant = {
       id: 'participant-current',
       name: 'Current',
@@ -735,13 +697,7 @@ describe('ComposedExpenseStore', () => {
     });
   });
 
-  it('does not write a group while repaired identity persistence is pending', async () => {
-    await flushUserPersistence();
-    useUserStore.setState({
-      internalUserId: null,
-      user: null,
-      userSettings: { name: 'Awaited Owner' },
-    });
+  it('does not write a group while canonical identity persistence is pending', async () => {
     await flushUserPersistence();
     storage.setItem.mockClear();
     let releaseIdentityWrite: (() => void) | undefined;
@@ -751,6 +707,7 @@ describe('ComposedExpenseStore', () => {
           releaseIdentityWrite = resolve;
         }),
     );
+    useUserStore.getState().updateUser({ displayName: 'Awaited Owner' });
 
     let creationSettled = false;
     const groupCreation = useComposedExpenseStore
@@ -771,51 +728,23 @@ describe('ComposedExpenseStore', () => {
     expect(useGroupStore.getState().groups).toHaveLength(1);
   });
 
-  it('repairs and persists a null legacy identity before creating an owned group', async () => {
-    await flushUserPersistence();
-    useUserStore.setState({
-      internalUserId: null,
-      user: null,
-      userSettings: { name: 'Legacy Owner' },
-    });
-    await flushUserPersistence();
-    storage.setItem.mockClear();
+  it('rejects an incomplete canonical identity instead of repairing it', async () => {
+    useUserStore.setState((state) => ({
+      user: { ...state.user, id: '' },
+    }));
 
-    const groupId = await useComposedExpenseStore
-      .getState()
-      .addGroup('Durable owner');
-
-    const identity = useUserStore.getState().internalUserId;
-    const group = useGroupStore.getState().getGroupById(groupId);
-    expect(identity).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
-    expect(group?.participants).toEqual([
-      expect.objectContaining({
-        name: 'Legacy Owner',
-        spaceId: groupId,
-        userId: identity,
-      }),
-    ]);
-    const persistedKeys = storage.setItem.mock.calls.map(([key]) => key);
-    expect(
-      persistedKeys.indexOf('expense-mobile-user-v2'),
-    ).toBeGreaterThanOrEqual(0);
-    expect(persistedKeys.indexOf('expense-mobile-groups-v2')).toBeGreaterThan(
-      persistedKeys.indexOf('expense-mobile-user-v2'),
-    );
+    await expect(
+      useComposedExpenseStore.getState().addGroup('Must not exist'),
+    ).rejects.toThrow('Canonical local identity is incomplete.');
+    expect(useGroupStore.getState().groups).toEqual([]);
+    expect(useParticipantStore.getState().participants).toEqual([]);
   });
 
-  it('does not create a group when repaired identity persistence fails', async () => {
-    await flushUserPersistence();
-    useUserStore.setState({
-      internalUserId: null,
-      user: null,
-      userSettings: { name: 'Unpersisted Owner' },
-    });
+  it('does not create a group when canonical identity persistence fails', async () => {
     await flushUserPersistence();
     storage.setItem.mockClear();
     storage.setItem.mockRejectedValueOnce(new Error('identity unavailable'));
+    useUserStore.getState().updateUser({ displayName: 'Unpersisted Owner' });
 
     await expect(
       useComposedExpenseStore.getState().addGroup('Must not exist'),
@@ -1079,9 +1008,14 @@ describe('ComposedExpenseStore', () => {
     const baseExpense: Expense = {
       id: 'expense-3',
       title: 'Dinner',
-      amount: 60,
+      amountMinor: 6000,
+      currency: 'USD',
       date: '2025-02-01',
       category: 'Food & Dining',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'user-1', amountMinor: 6000 }],
+      shares: [{ participantId: 'user-1', amountMinor: 6000 }],
     };
 
     useExpenseFeatureStore.setState({ expenses: [baseExpense] });
@@ -1091,8 +1025,13 @@ describe('ComposedExpenseStore', () => {
     const fetched = store.getExpenseById('expense-3');
     expect(fetched).toMatchObject({ title: 'Dinner' });
 
-    store.updateExpense({ ...baseExpense, amount: 75 });
-    expect(store.getExpenseById('expense-3')?.amount).toBe(75);
+    store.updateExpense({
+      ...baseExpense,
+      amountMinor: 7500,
+      payments: [{ participantId: 'user-1', amountMinor: 7500 }],
+      shares: [{ participantId: 'user-1', amountMinor: 7500 }],
+    });
+    expect(store.getExpenseById('expense-3')?.amountMinor).toBe(7500);
   });
 
   it('handles user settings updates and creation flows', async () => {
@@ -1113,7 +1052,7 @@ describe('ComposedExpenseStore', () => {
     const participant: Participant = {
       id: 'p10',
       name: 'Jamie',
-      userId: useUserStore.getState().internalUserId ?? undefined,
+      userId: useUserStore.getState().user.id,
     };
     useParticipantStore.setState({ participants: [participant] });
 
@@ -1330,7 +1269,9 @@ describe('ComposedExpenseStore', () => {
       .getState()
       .addParticipantToGroupByName(group.id, 'Identity race');
     await waitForCondition(() => releaseParticipantWrite !== undefined);
-    useUserStore.setState({ internalUserId: null, user: null });
+    useUserStore.setState((state) => ({
+      user: { ...state.user, id: '' },
+    }));
     releaseParticipantWrite!();
 
     await expect(addition).resolves.toBeNull();
@@ -1684,7 +1625,7 @@ describe('ComposedExpenseStore', () => {
     ).toEqual(member);
   });
 
-  it('rolls back profile projections when a settings rename cannot persist its group snapshot', async () => {
+  it('rolls back profile projections when a profile rename cannot persist its group snapshot', async () => {
     const { durableStorage, group, member, personal } =
       await seedDurableProfileProjection();
     let failGroupWrite = true;
@@ -1697,10 +1638,9 @@ describe('ComposedExpenseStore', () => {
     });
 
     await expect(
-      useComposedExpenseStore.getState().updateUserSettings({ name: 'After' }),
+      useComposedExpenseStore.getState().updateUser({ displayName: 'After' }),
     ).rejects.toThrow('profile group projection unavailable');
-    expect(useUserStore.getState().user?.displayName).toBe('Before');
-    expect(useUserStore.getState().userSettings?.name).toBe('Before');
+    expect(useUserStore.getState().user.displayName).toBe('Before');
     expect(useParticipantStore.getState().participants).toEqual([
       personal,
       member,

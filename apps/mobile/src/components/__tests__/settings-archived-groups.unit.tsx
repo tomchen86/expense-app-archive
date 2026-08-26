@@ -72,8 +72,12 @@ const mockMobileState = {
   restoreGroup: jest.fn(),
   settings: { theme: 'light' as 'system' | 'light' | 'dark' },
   updateSettings: jest.fn(),
-  updateUserSettings: jest.fn(),
-  userSettings: { name: 'Alex' },
+  updateUser: jest.fn(),
+  user: {
+    id: 'user-alex',
+    displayName: 'Alex',
+    personalSpaceId: 'personal-alex',
+  },
 };
 
 jest.mock('../../store/expenseStore', () => ({
@@ -85,7 +89,7 @@ describe('Settings archived groups', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMobileState.restoreGroup.mockResolvedValue(true);
-    mockMobileState.updateUserSettings.mockResolvedValue(true);
+    mockMobileState.updateUser.mockResolvedValue(true);
   });
 
   it('provides a persistent Settings entry with the archived count', () => {
@@ -172,48 +176,52 @@ describe('Settings archived groups', () => {
     }
   });
 
-  it('waits for durable profile persistence and prevents duplicate saves', async () => {
+  it('waits for durable profile persistence and prevents duplicate auto-saves', async () => {
     let resolveSave: ((saved: boolean) => void) | undefined;
-    mockMobileState.updateUserSettings.mockImplementationOnce(
+    mockMobileState.updateUser.mockImplementationOnce(
       () =>
         new Promise<boolean>((resolve) => {
           resolveSave = resolve;
         }),
     );
     const screen = render(<SettingsScreen />);
-    const saveButton = screen.getByRole('button', { name: 'Save settings' });
+    const nameInput = screen.getByTestId('username-input');
 
-    fireEvent.press(saveButton);
-    fireEvent.press(saveButton);
+    fireEvent.changeText(nameInput, ' Taylor ');
+    fireEvent(nameInput, 'blur');
+    fireEvent(nameInput, 'submitEditing');
 
     await waitFor(() =>
-      expect(saveButton).toHaveProp(
-        'accessibilityState',
-        expect.objectContaining({ disabled: true }),
+      expect(screen.getByTestId('username-input')).toHaveProp(
+        'editable',
+        false,
       ),
     );
-    expect(
-      screen.getByRole('button', { name: 'Save settings' }).props.children,
-    ).toBe('Saving…');
-    expect(mockMobileState.updateUserSettings).toHaveBeenCalledTimes(1);
+    expect(mockMobileState.updateUser).toHaveBeenCalledTimes(1);
+    expect(mockMobileState.updateUser).toHaveBeenCalledWith({
+      displayName: 'Taylor',
+    });
     expect(Alert.alert).not.toHaveBeenCalledWith('Success', expect.anything());
 
     act(() => resolveSave?.(true));
     await waitFor(() =>
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Success',
-        'Settings saved successfully',
+      expect(screen.getByTestId('username-input')).toHaveProp(
+        'value',
+        'Taylor',
       ),
     );
+    expect(Alert.alert).not.toHaveBeenCalledWith('Success', expect.anything());
   });
 
   it('does not report success when profile persistence rejects', async () => {
-    mockMobileState.updateUserSettings.mockRejectedValueOnce(
+    mockMobileState.updateUser.mockRejectedValueOnce(
       new Error('profile write failed'),
     );
     const screen = render(<SettingsScreen />);
+    const nameInput = screen.getByTestId('username-input');
 
-    fireEvent.press(screen.getByRole('button', { name: 'Save settings' }));
+    fireEvent.changeText(nameInput, 'Taylor');
+    fireEvent(nameInput, 'blur');
 
     await waitFor(() =>
       expect(Alert.alert).toHaveBeenCalledWith(

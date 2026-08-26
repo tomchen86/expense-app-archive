@@ -3,9 +3,8 @@ import { flushUserPersistence, useUserStore } from '../features/userStore';
 
 const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 const initialIdentity = {
-  internalUserId: useUserStore.getState().internalUserId,
+  user: useUserStore.getState().user,
   personalParticipantId: useUserStore.getState().personalParticipantId,
-  personalSpaceId: useUserStore.getState().personalSpaceId,
 };
 
 const defaultSettings = {
@@ -16,15 +15,11 @@ const defaultSettings = {
 };
 
 const resetUserStore = () => {
-  const { internalUserId, personalSpaceId, personalParticipantId } =
-    initialIdentity;
+  const { user, personalParticipantId } = initialIdentity;
 
   useUserStore.setState({
-    user: null,
+    user: { ...user },
     settings: { ...defaultSettings },
-    userSettings: null,
-    internalUserId,
-    personalSpaceId,
     personalParticipantId,
   });
 };
@@ -38,24 +33,23 @@ describe('UserStore', () => {
     resetUserStore();
   });
 
-  it('updates the user profile while preserving the internal identifier', () => {
-    const { internalUserId } = useUserStore.getState();
+  it('updates the user profile while preserving the account identifier', () => {
+    const { id } = useUserStore.getState().user;
 
     useUserStore.getState().updateUser({ displayName: 'Jamie' });
 
     const state = useUserStore.getState();
     expect(state.user).toMatchObject({
-      id: internalUserId,
+      id,
       displayName: 'Jamie',
     });
   });
 
-  it('creates a new user and returns the generated identifier', () => {
+  it('names the local user and returns its stable identifier', () => {
+    const existingId = useUserStore.getState().user.id;
     const id = useUserStore.getState().createUser('Morgan');
 
-    expect(id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
+    expect(id).toBe(existingId);
     expect(useUserStore.getState().user).toMatchObject({
       id,
       displayName: 'Morgan',
@@ -86,75 +80,33 @@ describe('UserStore', () => {
     );
   });
 
-  it('syncs legacy user settings into the new structure', () => {
-    const { internalUserId } = useUserStore.getState();
-
-    useUserStore.getState().updateUserSettings({ name: 'Riley' });
-
-    const state = useUserStore.getState();
-    expect(state.userSettings).toEqual({ name: 'Riley' });
-    expect(state.user).toMatchObject({
-      id: internalUserId,
-      displayName: 'Riley',
-    });
-  });
-
-  it('repairs a missing legacy internal identity when Settings saves a name', () => {
-    useUserStore.setState({
-      internalUserId: null,
-      user: null,
-      userSettings: null,
-    });
-
-    useUserStore.getState().updateUserSettings({ name: 'Legacy Riley' });
-
-    const state = useUserStore.getState();
-    expect(state.internalUserId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
-    expect(state.user).toMatchObject({
-      id: state.internalUserId,
-      displayName: 'Legacy Riley',
-    });
-  });
-
-  it('preserves distinct canonical and legacy identities across the durability barrier', async () => {
-    useUserStore.setState({
-      internalUserId: 'legacy-account-id',
-      user: {
-        id: 'canonical-account-id',
-        displayName: 'Canonical User',
-        personalSpaceId: useUserStore.getState().personalSpaceId,
-      },
-    });
+  it('persists the canonical local identity without synthesizing aliases', async () => {
+    await flushUserPersistence();
+    storage.setItem.mockClear();
+    const before = useUserStore.getState().user;
 
     await useUserStore.getState().ensureLocalIdentityPersisted();
 
-    expect(useUserStore.getState()).toMatchObject({
-      internalUserId: 'legacy-account-id',
-      user: { id: 'canonical-account-id' },
+    expect(useUserStore.getState().user).toBe(before);
+    const serialized = storage.setItem.mock.calls.find(
+      ([key]) => key === 'expense-mobile-user-v2',
+    )?.[1];
+    expect(serialized).toBeDefined();
+    const persisted = JSON.parse(serialized!) as {
+      state: Record<string, unknown>;
+    };
+    expect(persisted.state).toMatchObject({
+      user: before,
+      personalParticipantId: initialIdentity.personalParticipantId,
     });
-  });
-
-  it('prefers the active user identifier when retrieving the internal ID', () => {
-    const userId = useUserStore.getState().createUser('Taylor');
-
-    expect(useUserStore.getState().getInternalUserId()).toBe(userId);
-  });
-
-  it('falls back to generated internal identifier when user not created', () => {
-    resetUserStore();
-    const fallbackId = useUserStore.getState().getInternalUserId();
-
-    expect(fallbackId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
+    expect(persisted.state).not.toHaveProperty('userSettings');
+    expect(persisted.state).not.toHaveProperty('internalUserId');
+    expect(persisted.state).not.toHaveProperty('personalSpaceId');
   });
 
   it('keeps distinct UUID identities for the user, personal space, and participant', () => {
-    const { internalUserId, personalSpaceId, personalParticipantId } =
-      useUserStore.getState();
-    const identities = [internalUserId, personalSpaceId, personalParticipantId];
+    const { user, personalParticipantId } = useUserStore.getState();
+    const identities = [user.id, user.personalSpaceId, personalParticipantId];
 
     expect(new Set(identities).size).toBe(3);
     identities.forEach((id) =>

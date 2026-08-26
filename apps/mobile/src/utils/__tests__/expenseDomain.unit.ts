@@ -24,7 +24,8 @@ const canonicalExpense: Expense = {
   ],
   sync: {
     mutationId: 'mutation-1',
-    version: 1,
+    serverVersion: 0,
+    localRevision: 1,
     status: 'pending',
     updatedAt: '2026-08-13T00:00:00.000Z',
   },
@@ -88,18 +89,14 @@ describe('canonical expense projections', () => {
     );
   });
 
-  it('reads legacy major-unit expenses without changing the stored record', () => {
-    const legacy: Expense = {
-      id: 'legacy-1',
-      title: 'Coffee',
-      amount: 4.5,
-      date: '2025-01-01',
-      category: 'Food & Dining',
-      paidBy: 'alice',
-    };
+  it('does not fabricate money from a record missing canonical minor units', () => {
+    const invalidPersistedRecord = {
+      ...canonicalExpense,
+      amountMinor: undefined,
+    } as unknown as Expense;
 
-    expect(getExpenseAmountMinor(legacy)).toBe(450);
-    expect(legacy).not.toHaveProperty('amountMinor');
+    expect(getExpenseAmountMinor(invalidPersistedRecord)).toBe(0);
+    expect(validateCanonicalExpense(invalidPersistedRecord)).toBe(false);
   });
 
   it('preserves a zero-cent share in a balanced canonical expense', () => {

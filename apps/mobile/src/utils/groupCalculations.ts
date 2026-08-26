@@ -16,25 +16,16 @@ export interface CurrencyTotal {
 
 export const resolveGroupParticipantIdForUser = (
   group: ExpenseGroup | undefined,
-  internalUserId: string | null,
-  canonicalUserId?: string | null,
+  userId: string | null,
 ): string | null => {
-  if (!group) {
+  if (!group || !userId) {
     return null;
   }
 
-  const identityIds = [...new Set([canonicalUserId, internalUserId])].filter(
-    (identityId): identityId is string => Boolean(identityId),
+  return (
+    group.participants.find((candidate) => candidate.userId === userId)?.id ??
+    null
   );
-  for (const identityId of identityIds) {
-    const participant =
-      group.participants.find((candidate) => candidate.userId === identityId) ??
-      group.participants.find((candidate) => candidate.id === identityId);
-    if (participant) {
-      return participant.id;
-    }
-  }
-  return null;
 };
 
 export const calculateGroupTotalsByCurrency = (
@@ -59,16 +50,6 @@ export const calculateGroupTotalsByCurrency = (
     amountMinor,
   }));
 };
-
-// Legacy major-unit facade retained for older callers and persisted records.
-export const calculateGroupTotal = (
-  expenses: Expense[],
-  groupId: string,
-): number =>
-  calculateGroupTotalsByCurrency(expenses, groupId).reduce(
-    (sum, total) => sum + minorUnitsToMajor(total.amountMinor, total.currency),
-    0,
-  );
 
 export const calculateUserTotalContributionMinorInGroup = (
   userId: string,
@@ -95,16 +76,6 @@ export const calculateUserTotalContributionMinorInGroup = (
     amountMinor,
   }));
 };
-
-export const calculateUserTotalContributionInGroup = (
-  userId: string,
-  expenses: Expense[],
-  groupId: string,
-): number =>
-  calculateUserTotalContributionMinorInGroup(userId, expenses, groupId).reduce(
-    (sum, total) => sum + minorUnitsToMajor(total.amountMinor, total.currency),
-    0,
-  );
 
 export interface MemberBalanceDetails {
   memberId: string;
@@ -143,12 +114,6 @@ export const calculateAllMemberBalancesInGroup = (
   [...allParticipants, ...groupMembers].forEach((participant) =>
     names.set(participant.id, participant.name),
   );
-  activeExpenses.forEach((expense) =>
-    expense.participants?.forEach((participant) =>
-      names.set(participant.id, participant.name),
-    ),
-  );
-
   const balances = new Map<
     string,
     { memberId: string; currency: string; paid: number; share: number }
@@ -195,14 +160,9 @@ export const calculateAllMemberBalancesInGroup = (
 export const calculateCurrentUserGroupSummaryByCurrency = (
   group: ExpenseGroup,
   expenses: Expense[],
-  internalUserId: string | null,
-  canonicalUserId?: string | null,
+  userId: string | null,
 ): CurrentUserGroupCurrencySummary[] | null => {
-  const participantId = resolveGroupParticipantIdForUser(
-    group,
-    internalUserId,
-    canonicalUserId,
-  );
+  const participantId = resolveGroupParticipantIdForUser(group, userId);
   if (!participantId) {
     return null;
   }

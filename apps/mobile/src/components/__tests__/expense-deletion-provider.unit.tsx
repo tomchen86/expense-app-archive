@@ -54,12 +54,9 @@ const mockDeleteExpense = jest.fn();
 const mockFlushExpensePersistence = jest.fn(() => Promise.resolve());
 
 jest.mock('../../store/expenseStore', () => ({
+  flushExpensePersistence: () => mockFlushExpensePersistence(),
   useExpenseStore: (selector: (state: unknown) => unknown) =>
     selector({ deleteExpense: mockDeleteExpense }),
-}));
-
-jest.mock('../../store/features/expenseStore', () => ({
-  flushExpensePersistence: () => mockFlushExpensePersistence(),
 }));
 
 const Harness = () => {

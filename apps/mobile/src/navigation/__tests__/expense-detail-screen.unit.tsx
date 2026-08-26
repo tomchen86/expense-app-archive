@@ -80,7 +80,11 @@ jest.mock('../../store/expenseStore', () => ({
       groups: [mockGroup],
       participants: mockParticipants,
       categories: [mockCategory],
-      internalUserId: 'user-tom',
+      user: {
+        id: 'user-tom',
+        displayName: 'Tom',
+        personalSpaceId: 'personal-space-tom',
+      },
       personalParticipantId: 'personal-participant',
     }),
 }));

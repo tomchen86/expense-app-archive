@@ -7,6 +7,10 @@ import { normalizeCategoryColor } from '../../theme/category-palette';
 import { isReservedUncategorizedCategory } from '../../utils/categoryDomain';
 import { createUuid } from '../../utils/ids';
 import { useExpenseStore } from './expenseStore';
+import {
+  createVersionedMigrator,
+  MOBILE_PERSISTENCE_SCHEMAS,
+} from '../persistence/versioned-migration';
 
 const findColorConflict = (
   categories: Category[],
@@ -175,56 +179,14 @@ export const useCategoryStore = create<CategoryState>()(
         get().categories.find((category) => category.name === name),
     }),
     {
-      name: 'expense-mobile-categories-v2',
-      version: 3,
+      name: MOBILE_PERSISTENCE_SCHEMAS.categories.storageKey,
+      version: MOBILE_PERSISTENCE_SCHEMAS.categories.currentVersion,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ categories: state.categories }),
-      migrate: (persistedState) => {
-        const state = (persistedState ?? {}) as Partial<CategoryState>;
-        const existingCategories = state.categories ?? [];
-        const defaultById = new Map(
-          DEFAULT_CATEGORIES.map((category) => [category.id, category]),
-        );
-        const legacyDefaultColors = new Map([
-          ['Food & Dining', '#FF6384'],
-          ['Transportation', '#36A2EB'],
-          ['Shopping', '#FFCE56'],
-          ['Entertainment', '#4BC0C0'],
-          ['Bills & Utilities', '#9966FF'],
-          ['Health', '#FF9F40'],
-          ['Travel', '#C9CBCF'],
-          ['Other', '#61C0BF'],
-        ]);
-        const migratedCategories: Category[] = existingCategories.map(
-          (category) => {
-            const systemDefault = defaultById.get(category.id);
-            if (!systemDefault) {
-              return {
-                ...category,
-                scopeKind: category.scopeKind ?? ('personal' as const),
-              };
-            }
-            const shouldRefreshColor =
-              normalizeCategoryColor(category.color) ===
-              normalizeCategoryColor(
-                legacyDefaultColors.get(category.id) ?? category.color,
-              );
-            return {
-              ...category,
-              color: shouldRefreshColor ? systemDefault.color : category.color,
-              isDefault: true,
-              isSystem: true,
-              scopeKind: 'system' as const,
-            };
-          },
-        );
-        DEFAULT_CATEGORIES.forEach((category) => {
-          if (!migratedCategories.some(({ id }) => id === category.id)) {
-            migratedCategories.push({ ...category });
-          }
-        });
-        return { ...state, categories: migratedCategories } as CategoryState;
-      },
+      migrate: createVersionedMigrator<CategoryState>(
+        MOBILE_PERSISTENCE_SCHEMAS.categories,
+        {},
+      ),
     },
   ),
 );

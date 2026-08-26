@@ -3,7 +3,6 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import GroupListItem from '../GroupListItem';
 import type { ExpenseGroup } from '../../types';
-import { mobileTheme } from '../../theme/tokens';
 import { formatMinorUnits } from '../../utils/money';
 
 jest.mock('react-native', () => {
@@ -25,6 +24,14 @@ jest.mock('react-native', () => {
     Text: host('Text'),
     TouchableOpacity: host('View', true),
     View: host('View'),
+  };
+});
+
+jest.mock('../ui/adaptive-card-surface', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    AdaptiveCardSurface: ({ children, ...props }: any) =>
+      React.createElement('View', props, children),
   };
 });
 
@@ -75,13 +82,13 @@ describe('GroupListItem production behavior', () => {
     expect(screen.queryByText('Participants:')).toBeNull();
     expect(screen.queryByText('Alex')).toBeNull();
     expect(screen.queryByText('Blake')).toBeNull();
-    expect(card.props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          backgroundColor: mobileTheme.colors.sharedSurface,
-          borderColor: mobileTheme.colors.sharedBorder,
-        }),
-      ]),
+    expect(screen.getByTestId(`group-card-surface-${group.id}`)).toHaveProp(
+      'tone',
+      'shared',
+    );
+    expect(screen.getByTestId(`group-card-surface-${group.id}`)).toHaveProp(
+      'interactive',
+      true,
     );
     const swipeable = screen.getByTestId(`group-swipeable-${group.id}`);
     expect(swipeable.props.containerStyle).toEqual(

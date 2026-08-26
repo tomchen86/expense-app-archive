@@ -85,11 +85,14 @@ const mockMobileState = {
   deleteExpense: jest.fn(),
   expenses: [],
   groups: [activeGroup, archivedGroup],
-  internalUserId: null,
   participants: [],
   removeParticipantFromGroup: jest.fn(),
   restoreGroup: jest.fn(),
-  userSettings: { name: 'Alex' },
+  user: {
+    id: 'account-alex',
+    displayName: 'Alex',
+    personalSpaceId: 'personal-space-alex',
+  },
 };
 
 jest.mock('../../store/expenseStore', () => ({

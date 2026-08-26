@@ -8,6 +8,7 @@ import type { CurrentUserGroupCurrencySummary } from '../utils/groupCalculations
 import { formatMinorUnits } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
 import { isExpenseGroupArchived } from '../utils/groupDomain';
+import { AdaptiveCardSurface } from './ui/adaptive-card-surface';
 import { AdaptiveSwipeAction } from './ui/adaptive-swipe-action';
 
 interface GroupListItemProps {
@@ -61,50 +62,60 @@ const GroupListItem: React.FC<GroupListItemProps> = ({
   const isArchived = isExpenseGroupArchived(group);
 
   const card = (
-    <TouchableOpacity
-      accessibilityActions={
-        isArchived || isLifecyclePending
-          ? undefined
-          : [{ label: 'Archive group', name: 'archive' }]
-      }
-      accessibilityHint={
-        isArchived
-          ? 'Opens archived group details'
-          : 'Opens group details. Swipe left for Archive.'
-      }
-      accessibilityLabel={`Open ${group.name}`}
-      accessibilityRole='button'
-      accessibilityValue={{
-        text: getSummaryAccessibilityText(isArchived, summary),
-      }}
-      activeOpacity={0.82}
-      onAccessibilityAction={(event) => {
-        if (!isLifecyclePending && event.nativeEvent.actionName === 'archive') {
-          void onArchiveGroup(group.id);
-        }
-      }}
-      onPress={() => onPress(group.id)}
-      style={[styles.groupCard, styles.sharedGroupCard]}
-      testID={`group-card-${group.id}`}
+    <AdaptiveCardSurface
+      interactive
+      style={styles.groupCardSurface}
+      testID={`group-card-surface-${group.id}`}
+      tone='shared'
     >
-      <Text style={styles.groupName}>{group.name}</Text>
-      {isArchived ? (
-        <Text style={styles.archivedStatus}>Archived group</Text>
-      ) : summary === null ? (
-        <Text style={styles.emptySummary}>Your balance is unavailable</Text>
-      ) : summary.length === 0 ? (
-        <Text style={styles.emptySummary}>No spending yet</Text>
-      ) : (
-        summary.map((item) => (
-          <View key={item.currency} style={styles.summaryRow}>
-            <Text style={styles.shareText}>
-              Your share: {formatMinorUnits(item.myShareMinor, item.currency)}
-            </Text>
-            <Text style={styles.balanceText}>{getBalanceCopy(item)}</Text>
-          </View>
-        ))
-      )}
-    </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityActions={
+          isArchived || isLifecyclePending
+            ? undefined
+            : [{ label: 'Archive group', name: 'archive' }]
+        }
+        accessibilityHint={
+          isArchived
+            ? 'Opens archived group details'
+            : 'Opens group details. Swipe left for Archive.'
+        }
+        accessibilityLabel={`Open ${group.name}`}
+        accessibilityRole='button'
+        accessibilityValue={{
+          text: getSummaryAccessibilityText(isArchived, summary),
+        }}
+        activeOpacity={0.82}
+        onAccessibilityAction={(event) => {
+          if (
+            !isLifecyclePending &&
+            event.nativeEvent.actionName === 'archive'
+          ) {
+            void onArchiveGroup(group.id);
+          }
+        }}
+        onPress={() => onPress(group.id)}
+        style={styles.groupCard}
+        testID={`group-card-${group.id}`}
+      >
+        <Text style={styles.groupName}>{group.name}</Text>
+        {isArchived ? (
+          <Text style={styles.archivedStatus}>Archived group</Text>
+        ) : summary === null ? (
+          <Text style={styles.emptySummary}>Your balance is unavailable</Text>
+        ) : summary.length === 0 ? (
+          <Text style={styles.emptySummary}>No spending yet</Text>
+        ) : (
+          summary.map((item) => (
+            <View key={item.currency} style={styles.summaryRow}>
+              <Text style={styles.shareText}>
+                Your share: {formatMinorUnits(item.myShareMinor, item.currency)}
+              </Text>
+              <Text style={styles.balanceText}>{getBalanceCopy(item)}</Text>
+            </View>
+          ))
+        )}
+      </TouchableOpacity>
+    </AdaptiveCardSurface>
   );
 
   if (isArchived) {
@@ -169,16 +180,11 @@ const styles = StyleSheet.create({
   swipeableOverflow: {
     overflow: 'visible',
   },
+  groupCardSurface: {
+    marginBottom: mobileTheme.spacing.lg,
+  },
   groupCard: {
     padding: mobileTheme.spacing.lg,
-    borderRadius: mobileTheme.radii.card,
-    borderWidth: 1,
-    marginBottom: mobileTheme.spacing.lg,
-    ...mobileTheme.shadows.card,
-  },
-  sharedGroupCard: {
-    backgroundColor: mobileTheme.colors.sharedSurface,
-    borderColor: mobileTheme.colors.sharedBorder,
   },
   groupName: {
     fontSize: 20,

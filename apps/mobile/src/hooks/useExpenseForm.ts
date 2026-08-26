@@ -10,12 +10,12 @@ import {
 import { Platform as _Platform, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useExpenseStore } from '../store/expenseStore';
 import {
+  ensureLocalIdentityPersisted,
   flushExpensePersistence,
   getExpenseMutationVersion,
-} from '../store/features/expenseStore';
-import { useUserStore as useUserFeatureStore } from '../store/features/userStore';
+  useExpenseStore,
+} from '../store/expenseStore';
 import {
   Expense,
   Participant,
@@ -170,11 +170,9 @@ export const useExpenseForm = ({
   const allGroups = useExpenseStore((state) => state.groups);
   const participants = useExpenseStore((state) => state.participants);
   const categories = useExpenseStore((state) => state.categories);
-  const userSettings = useExpenseStore((state) => state.userSettings);
-  const internalUserId = useExpenseStore((state) => state.internalUserId); // Get internalUserId
   const user = useExpenseStore((state) => state.user);
   const settings = useExpenseStore((state) => state.settings);
-  const personalSpaceId = useExpenseStore((state) => state.personalSpaceId);
+  const personalSpaceId = user?.personalSpaceId ?? '';
   const personalParticipantId = useExpenseStore(
     (state) => state.personalParticipantId,
   );
@@ -192,13 +190,6 @@ export const useExpenseForm = ({
   const defaultCategory =
     categories.find((category) => !category.archivedAt)?.name ??
     'Uncategorized';
-
-  // Find the current user's participant entry
-  const _currentUserParticipant = useMemo(() => {
-    return userSettings?.name
-      ? participants.find((p) => p.name === userSettings.name)
-      : null;
-  }, [userSettings, participants]);
 
   // Initialize state with default values
   const financialEditIntent = useRef<FinancialEditIntent>({
@@ -452,8 +443,11 @@ export const useExpenseForm = ({
     };
   }, [submissionContextKey]);
 
-  // Generic handler to update any form field
-  const handleUpdateFormState = (field: keyof FormState, value: any) => {
+  // Preserve the value type associated with each form field.
+  const handleUpdateFormState = <Field extends keyof FormState>(
+    field: Field,
+    value: FormState[Field],
+  ) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -703,8 +697,8 @@ export const useExpenseForm = ({
       return;
     }
 
-    const currentUserId = user?.id ?? internalUserId;
-    if (!currentUserId || !personalParticipantId) {
+    const currentUserId = user?.id;
+    if (!currentUserId || !personalParticipantId || !personalSpaceId) {
       Alert.alert('Validation Error', 'A local user identity is required.');
       return;
     }
@@ -863,7 +857,7 @@ export const useExpenseForm = ({
     });
     let nextSubmission = preparedSubmission;
     try {
-      await useUserFeatureStore.getState().ensureLocalIdentityPersisted();
+      await ensureLocalIdentityPersisted();
       if (submissionContextGeneration.current !== contextGeneration) {
         return;
       }

@@ -59,10 +59,9 @@ export const useCategoryManager = ({
   const deleteCategoryFromStore = useExpenseStore(
     (state) => state.deleteCategory,
   );
-  const personalSpaceId = useExpenseStore((state) => state.personalSpaceId);
-  const currentUserId = useExpenseStore(
-    (state) => state.user?.id ?? state.internalUserId,
-  );
+  const user = useExpenseStore((state) => state.user);
+  const personalSpaceId = user?.personalSpaceId;
+  const currentUserId = user?.id;
 
   // Local state for modal management
   const [modalVisible, setModalVisible] = useState(false);

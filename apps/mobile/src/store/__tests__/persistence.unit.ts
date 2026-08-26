@@ -41,22 +41,31 @@ describe('durable mobile store hydration', () => {
     expect(useCategoryStore.persist.getOptions().name).toBe(
       'expense-mobile-categories-v2',
     );
+
+    [
+      useExpenseFeatureStore,
+      useUserStore,
+      useGroupStore,
+      useParticipantStore,
+      useCategoryStore,
+    ].forEach((store) => {
+      expect(store.persist.getOptions().migrate).toEqual(expect.any(Function));
+    });
   });
 
   it('persists the anonymous local identity before it owns ledger data', async () => {
-    const { internalUserId, personalParticipantId, personalSpaceId } =
-      useUserStore.getState();
+    const { user, personalParticipantId } = useUserStore.getState();
     storage.setItem.mockClear();
 
     await useUserStore.getState().ensureLocalIdentityPersisted();
 
     expect(storage.setItem).toHaveBeenCalledWith(
       'expense-mobile-user-v2',
-      expect.stringContaining(internalUserId!),
+      expect.stringContaining(user.id),
     );
     expect(storage.setItem).toHaveBeenCalledWith(
       'expense-mobile-user-v2',
-      expect.stringContaining(personalSpaceId),
+      expect.stringContaining(user.personalSpaceId),
     );
     expect(storage.setItem).toHaveBeenCalledWith(
       'expense-mobile-user-v2',
@@ -486,43 +495,21 @@ describe('durable mobile store hydration', () => {
             displayName: 'Morgan',
             personalSpaceId: 'personal-stable',
           },
-          internalUserId: 'user-stable',
-          personalSpaceId: 'personal-stable',
+          personalParticipantId: 'participant-stable',
         },
-        version: 2,
+        version: 3,
       }),
     );
 
     await useUserStore.persist.rehydrate();
 
     expect(useUserStore.getState()).toMatchObject({
-      internalUserId: 'user-stable',
-      personalSpaceId: 'personal-stable',
-      personalParticipantId: expect.stringMatching(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-      ),
+      user: {
+        id: 'user-stable',
+        displayName: 'Morgan',
+        personalSpaceId: 'personal-stable',
+      },
+      personalParticipantId: 'participant-stable',
     });
-  });
-
-  it('preserves legacy identity and space values while backfilling participant identity', async () => {
-    storage.getItem.mockResolvedValueOnce(
-      JSON.stringify({
-        state: {
-          internalUserId: 'user_legacy',
-          personalSpaceId: 'personal_legacy',
-          userSettings: { name: 'Legacy' },
-        },
-        version: 2,
-      }),
-    );
-
-    await useUserStore.persist.rehydrate();
-
-    const state = useUserStore.getState();
-    expect(state.internalUserId).toBe('user_legacy');
-    expect(state.personalSpaceId).toBe('personal_legacy');
-    expect(state.personalParticipantId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
   });
 });

@@ -1,5 +1,6 @@
 import { useCategoryStore } from '../features/categoryStore';
 import { useExpenseStore } from '../features/expenseStore';
+import { createMockExpense } from '../../__tests__/fixtures';
 import { DEFAULT_CATEGORIES } from '../../constants/expenses';
 
 describe('CategoryStore', () => {
@@ -120,13 +121,13 @@ describe('CategoryStore', () => {
 
   it('archives a used default category while preserving its expense', () => {
     const defaultCategory = useCategoryStore.getState().categories[0];
-    const expense = {
+    const expense = createMockExpense({
       id: 'expense-default-category',
       title: 'Dinner',
       date: '2026-08-25',
       category: defaultCategory.name,
       categoryId: defaultCategory.id,
-    };
+    });
     useExpenseStore.setState({ expenses: [expense] });
 
     useCategoryStore.getState().archiveCategory(defaultCategory.id);
@@ -195,13 +196,13 @@ describe('CategoryStore', () => {
       .addCategory({ name: 'Fitness', color: '#111111' });
     useExpenseStore.setState({
       expenses: [
-        {
+        createMockExpense({
           id: 'expense-1',
           title: 'Gym',
           date: '2026-08-13',
           category: category.name,
           categoryId: category.id,
-        },
+        }),
       ],
     });
 
@@ -217,13 +218,13 @@ describe('CategoryStore', () => {
     const category = useCategoryStore
       .getState()
       .addCategory({ name: 'Coffee', color: '#111111' });
-    const expense = {
+    const expense = createMockExpense({
       id: 'expense-coffee',
       title: 'Flat white',
       date: '2026-08-25',
       category: category.name,
       categoryId: category.id,
-    };
+    });
     useExpenseStore.setState({ expenses: [expense] });
 
     useCategoryStore.getState().archiveCategory(category.id);

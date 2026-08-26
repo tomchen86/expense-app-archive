@@ -18,10 +18,8 @@ export const GROUP_ARCHIVE_NOTICE_DURATION_MS = 4_500;
 const GroupsScreen = () => {
   const groups = useExpenseStore((state) => state.groups);
   const expenses = useExpenseStore((state) => state.expenses);
-  const userSettings = useExpenseStore((state) => state.userSettings);
-  const internalUserId = useExpenseStore((state) => state.internalUserId);
   const user = useExpenseStore((state) => state.user);
-  const canonicalUserId = user?.id ?? null;
+  const currentUserId = user?.id ?? null;
   const { pendingExpenseDeletionIds } = useExpenseDeletion();
 
   const visibleExpenses = useMemo(() => {
@@ -89,7 +87,7 @@ const GroupsScreen = () => {
   };
 
   const openNewGroup = () => {
-    if (!(user?.displayName?.trim() || userSettings?.name?.trim())) {
+    if (!user?.displayName?.trim()) {
       Alert.alert(
         'Username Required',
         'Please set your username in Settings before creating a group.',
@@ -117,8 +115,7 @@ const GroupsScreen = () => {
     const summary = calculateCurrentUserGroupSummaryByCurrency(
       group,
       visibleExpenses,
-      internalUserId,
-      canonicalUserId,
+      currentUserId,
     );
 
     return (

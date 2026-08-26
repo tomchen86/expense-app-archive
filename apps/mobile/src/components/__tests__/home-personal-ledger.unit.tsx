@@ -50,8 +50,8 @@ jest.mock('react-native-safe-area-context', () => {
 
 const linkedParticipant: Participant = {
   id: 'linked-participant',
-  name: 'Legacy account member',
-  userId: 'legacy-user',
+  name: 'Account member',
+  userId: 'account-user',
 };
 const archivedGroup: ExpenseGroup = {
   id: 'archived-space',
@@ -62,15 +62,15 @@ const archivedGroup: ExpenseGroup = {
 };
 const expenses: Expense[] = [
   {
-    id: 'paid-only-legacy',
-    title: 'Legacy paid-only expense',
+    id: 'paid-only-linked',
+    title: 'Linked paid-only expense',
     amountMinor: 100,
     currency: 'AUD',
     date: '2026-08-24',
     category: 'Other',
     spaceId: archivedGroup.id,
     spaceKind: 'shared',
-    payments: [{ participantId: 'legacy-user', amountMinor: 100 }],
+    payments: [{ participantId: linkedParticipant.id, amountMinor: 100 }],
     shares: [{ participantId: 'other', amountMinor: 100 }],
   },
   {
@@ -106,11 +106,13 @@ const mockMobileState = {
   deleteExpense: jest.fn(),
   expenses,
   groups: [archivedGroup],
-  internalUserId: 'legacy-user',
   participants: [linkedParticipant],
   personalParticipantId: 'personal-participant',
-  personalSpaceId: 'personal-space',
-  userSettings: { name: 'Legacy account member' },
+  user: {
+    id: 'account-user',
+    displayName: 'Account member',
+    personalSpaceId: 'personal-space',
+  },
 };
 
 jest.mock('../../store/expenseStore', () => ({
@@ -132,11 +134,11 @@ describe('Expenses personal ledger projection', () => {
   it('renders the user share on shared cards and totals the same ledger amounts', () => {
     const screen = render(<ExpensesScreen />);
 
-    expect(screen.getByTestId('expense-paid-only-legacy')).toBeTruthy();
+    expect(screen.getByTestId('expense-paid-only-linked')).toBeTruthy();
     expect(screen.getByTestId('expense-linked-share')).toBeTruthy();
     expect(screen.queryByTestId('expense-unrelated')).toBeNull();
     expect(
-      screen.getByTestId('expense-paid-only-legacy').props.displayAmountMinor,
+      screen.getByTestId('expense-paid-only-linked').props.displayAmountMinor,
     ).toBe(0);
     expect(
       screen.getByTestId('expense-linked-share').props.displayAmountMinor,

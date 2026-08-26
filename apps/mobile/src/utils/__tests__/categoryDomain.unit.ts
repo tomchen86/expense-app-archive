@@ -4,8 +4,14 @@ import { resolveExpenseCategoryPresentation } from '../categoryDomain';
 const expense: Expense = {
   id: 'expense-1',
   title: 'Coffee',
+  amountMinor: 450,
+  currency: 'USD',
   date: '2026-08-25',
   category: 'Legacy name',
+  spaceId: 'personal-space',
+  spaceKind: 'personal',
+  payments: [{ participantId: 'user-1', amountMinor: 450 }],
+  shares: [{ participantId: 'user-1', amountMinor: 450 }],
   categoryId: 'category-1',
   categorySnapshot: { name: 'Snapshot name', color: '#123456' },
 };

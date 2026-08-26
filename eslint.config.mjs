@@ -100,8 +100,72 @@ export default [
       },
     },
     rules: {
-      // Allow more flexible patterns for test files
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+
+  // Platform APIs and native material packages stay behind mobile adapters.
+  {
+    files: ['apps/mobile/{app,src}/**/*.{js,jsx,ts,tsx}'],
+    ignores: [
+      'apps/mobile/src/**/__tests__/**',
+      'apps/mobile/src/**/*.test.{js,jsx,ts,tsx}',
+      'apps/mobile/src/components/ui/*.ios.{js,jsx,ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'expo-blur',
+              message: 'Import Expo Blur only from an iOS semantic UI adapter.',
+            },
+            {
+              name: 'expo-glass-effect',
+              message:
+                'Import Liquid Glass only from an iOS semantic UI adapter.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.name='Platform'][property.name='OS']",
+          message:
+            'Use platform-specific files or a semantic adapter instead of Platform.OS.',
+        },
+      ],
+    },
+  },
+
+  // Screens, components, and hooks consume the application facade, not slices.
+  {
+    files: [
+      'apps/mobile/app/**/*.{js,jsx,ts,tsx}',
+      'apps/mobile/src/components/**/*.{js,jsx,ts,tsx}',
+      'apps/mobile/src/hooks/**/*.{js,jsx,ts,tsx}',
+      'apps/mobile/src/screens/**/*.{js,jsx,ts,tsx}',
+    ],
+    ignores: [
+      'apps/mobile/src/**/__tests__/**',
+      'apps/mobile/src/**/*.test.{js,jsx,ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/store/features/*'],
+              message:
+                'Use the mobile application store facade or a feature query/command.',
+            },
+          ],
+        },
+      ],
     },
   },
 

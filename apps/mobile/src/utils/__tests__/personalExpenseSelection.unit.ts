@@ -37,11 +37,11 @@ describe('personal ledger expense selection', () => {
 
     expect(
       resolvePersonalParticipantIds({
-        internalUserId: 'legacy-user',
+        userId: 'legacy-user',
         participants,
         personalParticipantId: 'personal-participant',
       }),
-    ).toEqual(['personal-participant', 'linked-participant', 'legacy-user']);
+    ).toEqual(['personal-participant', 'linked-participant']);
   });
 
   it('selects personal-space, paid-only, share-only, and zero-share expenses', () => {
@@ -89,6 +89,8 @@ describe('personal ledger expense selection', () => {
       shares: [{ participantId: 'personal-participant', amountMinor: 100 }],
       sync: {
         mutationId: 'delete-mutation',
+        serverVersion: 0,
+        localRevision: 1,
         status: 'pending',
         updatedAt: '2026-08-24T00:00:00.000Z',
         deletedAt: '2026-08-24T00:00:00.000Z',

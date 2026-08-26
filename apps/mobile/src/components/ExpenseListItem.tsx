@@ -11,6 +11,7 @@ import {
 import { formatMinorUnits, minorUnitsToDecimalString } from '../utils/money';
 import { mobileTheme } from '../theme/tokens';
 import { formatLocalDateForDisplay } from '../utils/dateFormat';
+import { AdaptiveCardSurface } from './ui/adaptive-card-surface';
 import { AdaptiveSwipeAction } from './ui/adaptive-swipe-action';
 
 interface ExpenseListItemProps {
@@ -68,87 +69,89 @@ const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
       rightThreshold={40}
       testID={`expense-swipeable-${item.id}`}
     >
-      <TouchableOpacity
-        accessibilityActions={
-          isHistoricalSharedExpense
-            ? undefined
-            : [{ name: 'delete', label: 'Delete expense' }]
-        }
-        accessibilityHint={
-          isHistoricalSharedExpense
-            ? 'Opens read-only expense details.'
-            : 'Opens expense details. Swipe left for Delete.'
-        }
-        accessibilityLabel={`Open ${item.title} expense`}
-        accessibilityRole='button'
-        activeOpacity={0.82}
-        onAccessibilityAction={(event) => {
-          if (
-            !isHistoricalSharedExpense &&
-            event.nativeEvent.actionName === 'delete'
-          ) {
-            onDelete(item);
-          }
-        }}
-        onPress={() => onPress(item)}
-        style={[
-          styles.expenseItem,
-          isSharedExpense
-            ? styles.sharedExpenseItem
-            : styles.personalExpenseItem,
-        ]}
-        testID={`expense-card-${item.id}`}
+      <AdaptiveCardSurface
+        interactive
+        style={styles.expenseItemSurface}
+        testID={`expense-card-surface-${item.id}`}
+        tone={isSharedExpense ? 'shared' : 'neutral'}
       >
-        <View style={styles.expenseContent}>
-          <View style={styles.expenseMain}>
-            <Text
-              ellipsizeMode='tail'
-              numberOfLines={1}
-              style={styles.expenseTitle}
-            >
-              {item.title}
-            </Text>
-            <Text
-              accessibilityLabel={`Expense amount ${currency ?? getExpenseCurrency(item)} ${minorUnitsToDecimalString(
-                displayAmountMinor,
-                currency ?? getExpenseCurrency(item),
-              )}`}
-              style={styles.expenseAmount}
-            >
-              {formatMinorUnits(
-                displayAmountMinor,
-                currency ?? getExpenseCurrency(item),
-              )}
-            </Text>
-          </View>
-          <View style={styles.expenseMetadata}>
-            <Text
-              ellipsizeMode='tail'
-              numberOfLines={1}
-              style={styles.expenseCategory}
-            >
-              {categoryLabel ?? item.category}
-            </Text>
-            {isSharedExpense ? (
-              <View
-                style={styles.groupBadge}
-                testID={`expense-group-badge-${item.id}`}
+        <TouchableOpacity
+          accessibilityActions={
+            isHistoricalSharedExpense
+              ? undefined
+              : [{ name: 'delete', label: 'Delete expense' }]
+          }
+          accessibilityHint={
+            isHistoricalSharedExpense
+              ? 'Opens read-only expense details.'
+              : 'Opens expense details. Swipe left for Delete.'
+          }
+          accessibilityLabel={`Open ${item.title} expense`}
+          accessibilityRole='button'
+          activeOpacity={0.82}
+          onAccessibilityAction={(event) => {
+            if (
+              !isHistoricalSharedExpense &&
+              event.nativeEvent.actionName === 'delete'
+            ) {
+              onDelete(item);
+            }
+          }}
+          onPress={() => onPress(item)}
+          style={styles.expenseItem}
+          testID={`expense-card-${item.id}`}
+        >
+          <View style={styles.expenseContent}>
+            <View style={styles.expenseMain}>
+              <Text
+                ellipsizeMode='tail'
+                numberOfLines={1}
+                style={styles.expenseTitle}
               >
-                <Text
-                  ellipsizeMode='tail'
-                  numberOfLines={1}
-                  style={styles.groupBadgeText}
+                {item.title}
+              </Text>
+              <Text
+                accessibilityLabel={`Expense amount ${currency ?? getExpenseCurrency(item)} ${minorUnitsToDecimalString(
+                  displayAmountMinor,
+                  currency ?? getExpenseCurrency(item),
+                )}`}
+                style={styles.expenseAmount}
+              >
+                {formatMinorUnits(
+                  displayAmountMinor,
+                  currency ?? getExpenseCurrency(item),
+                )}
+              </Text>
+            </View>
+            <View style={styles.expenseMetadata}>
+              <Text
+                ellipsizeMode='tail'
+                numberOfLines={1}
+                style={styles.expenseCategory}
+              >
+                {categoryLabel ?? item.category}
+              </Text>
+              {isSharedExpense ? (
+                <View
+                  style={styles.groupBadge}
+                  testID={`expense-group-badge-${item.id}`}
                 >
-                  {groupBadgeLabel}
-                </Text>
-              </View>
-            ) : null}
+                  <Text
+                    ellipsizeMode='tail'
+                    numberOfLines={1}
+                    style={styles.groupBadgeText}
+                  >
+                    {groupBadgeLabel}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.expenseDate}>
+              {formatLocalDateForDisplay(item.date)}
+            </Text>
           </View>
-          <Text style={styles.expenseDate}>
-            {formatLocalDateForDisplay(item.date)}
-          </Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </AdaptiveCardSurface>
     </ReanimatedSwipeable>
   );
 };
@@ -157,21 +160,14 @@ const styles = StyleSheet.create({
   swipeableOverflow: {
     overflow: 'visible',
   },
-  expenseItem: {
-    padding: mobileTheme.spacing.lg,
-    borderRadius: mobileTheme.radii.card,
-    borderWidth: 1,
+  expenseItemSurface: {
     marginBottom: mobileTheme.spacing.md,
     minHeight: 112,
-    ...mobileTheme.shadows.card,
   },
-  personalExpenseItem: {
-    backgroundColor: mobileTheme.colors.surface,
-    borderColor: mobileTheme.colors.border,
-  },
-  sharedExpenseItem: {
-    backgroundColor: mobileTheme.colors.sharedSurface,
-    borderColor: mobileTheme.colors.sharedBorder,
+  expenseItem: {
+    flex: 1,
+    minHeight: 112,
+    padding: mobileTheme.spacing.lg,
   },
   expenseContent: {
     flex: 1,
@@ -215,7 +211,7 @@ const styles = StyleSheet.create({
     marginTop: mobileTheme.spacing.xs,
   },
   groupBadge: {
-    backgroundColor: mobileTheme.colors.sharedBadge,
+    backgroundColor: mobileTheme.colors.surface,
     borderRadius: mobileTheme.radii.pill,
     flexShrink: 1,
     maxWidth: '48%',
@@ -223,7 +219,7 @@ const styles = StyleSheet.create({
     paddingVertical: mobileTheme.spacing.xs,
   },
   groupBadgeText: {
-    color: mobileTheme.colors.sharedBadgeText,
+    color: mobileTheme.colors.text,
     fontSize: 12,
     fontWeight: '600',
   },

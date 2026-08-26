@@ -44,31 +44,6 @@ interface BuildCurrencyInsightsOptions {
   defaultColor?: string;
 }
 
-export interface CategoryTotals {
-  [key: string]: number;
-}
-
-/**
- * Calculate category totals from a list of expenses
- */
-export const calculateCategoryTotals = (
-  expenses: Expense[],
-): { totals: CategoryTotals; total: number } => {
-  const totals: CategoryTotals = {};
-  let totalAmount = 0;
-
-  expenses.forEach((expense) => {
-    const amount = minorUnitsToMajor(
-      getExpenseAmountMinor(expense),
-      getExpenseCurrency(expense),
-    );
-    totals[expense.category] = (totals[expense.category] || 0) + amount;
-    totalAmount += amount;
-  });
-
-  return { totals, total: totalAmount };
-};
-
 /**
  * Generate chart data for category visualization
  */
@@ -305,11 +280,11 @@ export const getRelevantExpenses = (
   allExpenses: Expense[],
   contextType: 'personal' | 'group',
   contextId: string,
-  internalUserId: string | null,
+  userId: string | null,
   personalSpaceId?: string,
-  participantIds: string[] = internalUserId ? [internalUserId] : [],
+  participantIds: string[] = [],
 ): Expense[] => {
-  if (contextType === 'personal' && internalUserId) {
+  if (contextType === 'personal' && userId) {
     return allExpenses.filter(
       (expense) =>
         !isExpenseDeleted(expense) &&

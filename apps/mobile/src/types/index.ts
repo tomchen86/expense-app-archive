@@ -54,10 +54,8 @@ export type ExpenseSyncStatus =
 
 export interface ExpenseSyncMetadata {
   mutationId: string;
-  serverVersion?: number;
-  localRevision?: number;
-  /** @deprecated Legacy mobile-local counter retained for hydration only. */
-  version?: number;
+  serverVersion: number;
+  localRevision: number;
   status: ExpenseSyncStatus;
   updatedAt: string;
   deletedAt?: string;
@@ -97,28 +95,20 @@ export interface Expense {
   categoryId?: string;
   categorySnapshot?: CategorySnapshot;
 
-  // Canonical V2 fields. All newly-created expenses populate these fields.
-  amountMinor?: number;
-  currency?: string;
-  spaceId?: string;
-  spaceKind?: ExpenseSpaceKind;
-  payments?: MoneyAllocation[];
-  shares?: MoneyAllocation[];
+  amountMinor: number;
+  currency: string;
+  spaceId: string;
+  spaceKind: ExpenseSpaceKind;
+  payments: MoneyAllocation[];
+  shares: MoneyAllocation[];
   sync?: ExpenseSyncMetadata;
-
-  // Legacy read compatibility. New writes must not populate these fields.
-  amount?: number;
-  groupId?: string;
-  paidBy?: string;
-  splitBetween?: string[];
-  participants?: Participant[];
 }
 
 // User Identity (rarely changes)
 export interface User {
-  id: string; // Internal unique ID (replaces internalUserId)
+  id: string;
   displayName: string; // Human-readable name for all purposes
-  personalSpaceId?: string;
+  personalSpaceId: string;
 }
 
 // User Preferences (frequently changes)
@@ -132,11 +122,6 @@ export interface Settings {
   insightsChartPreference?: 'auto' | 'donut' | 'bar';
 }
 
-// Legacy interface - will be removed after refactor
-export interface UserSettings {
-  name: string;
-}
-
 // Interface defining the shape of the Zustand store state and actions
 export interface ExpenseState {
   expenses: Expense[];
@@ -144,14 +129,8 @@ export interface ExpenseState {
   participants: Participant[];
   categories: Category[];
 
-  // New user structure
-  user: User | null;
+  user: User;
   settings: Settings;
-
-  // Legacy structure (temporary - will be removed)
-  userSettings: UserSettings | null;
-  internalUserId: string | null;
-  personalSpaceId: string;
   personalParticipantId: string;
 
   // Expense management
@@ -177,13 +156,9 @@ export interface ExpenseState {
   ) => ExpenseRollbackResult;
   getExpenseById: (id: string) => Expense | undefined;
 
-  // New user management
   updateUser: (userData: Partial<User>) => Promise<boolean>;
   updateSettings: (settingsData: Partial<Settings>) => void;
   createUser: (displayName: string) => string; // Returns user ID
-
-  // Legacy user management (temporary)
-  updateUserSettings: (settings: UserSettings) => Promise<boolean>;
 
   // Group management
   addGroup: (name: string) => Promise<string>; // Resolves after identity, participant, and group durability

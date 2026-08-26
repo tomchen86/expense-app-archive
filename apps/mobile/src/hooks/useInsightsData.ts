@@ -83,11 +83,12 @@ export const useInsightsData = ({
   initialDate,
 }: UseInsightsDataProps): UseInsightsDataReturn => {
   const allExpenses = useExpenseStore((state) => state.expenses);
-  const internalUserId = useExpenseStore((state) => state.internalUserId);
+  const user = useExpenseStore((state) => state.user);
+  const currentUserId = user?.id ?? null;
+  const personalSpaceId = user?.personalSpaceId ?? null;
   const personalParticipantId = useExpenseStore(
     (state) => state.personalParticipantId,
   );
-  const personalSpaceId = useExpenseStore((state) => state.personalSpaceId);
   const participants = useExpenseStore((state) => state.participants);
   const appCategories = useExpenseStore((state) => state.categories);
   const settings = useExpenseStore((state) => state.settings);
@@ -123,11 +124,11 @@ export const useInsightsData = ({
   const personalParticipantIds = useMemo(
     () =>
       resolvePersonalParticipantIds({
-        internalUserId,
+        userId: currentUserId,
         participants,
         personalParticipantId,
       }),
-    [internalUserId, participants, personalParticipantId],
+    [currentUserId, participants, personalParticipantId],
   );
 
   const relevantExpenses = useMemo(() => {
@@ -140,15 +141,15 @@ export const useInsightsData = ({
           visibleExpenses,
           contextType,
           contextId,
-          personalParticipantId,
-          personalSpaceId,
+          currentUserId,
+          personalSpaceId ?? undefined,
           personalParticipantIds,
         );
   }, [
     visibleExpenses,
     contextType,
     contextId,
-    personalParticipantId,
+    currentUserId,
     personalSpaceId,
     personalParticipantIds,
   ]);

@@ -50,7 +50,7 @@ describe('ExpenseStore', () => {
     it('should add expense with generated ID', () => {
       const expense = createMockExpense({
         title: 'Test Expense',
-        amount: 25.5,
+        amountMinor: 2550,
         date: '2025-09-19',
       });
 
@@ -107,10 +107,14 @@ describe('ExpenseStore', () => {
     it('should handle group expenses', () => {
       const groupExpense = createMockExpense({
         title: 'Group Lunch',
-        amount: 50.0,
-        groupId: 'group-1',
-        paidBy: 'user-1',
-        splitBetween: ['user-1', 'user-2'],
+        amountMinor: 5000,
+        spaceId: 'group-1',
+        spaceKind: 'shared',
+        payments: [{ participantId: 'user-1', amountMinor: 5000 }],
+        shares: [
+          { participantId: 'user-1', amountMinor: 2500 },
+          { participantId: 'user-2', amountMinor: 2500 },
+        ],
       });
 
       useExpenseStore.getState().addExpense(groupExpense);
@@ -122,9 +126,14 @@ describe('ExpenseStore', () => {
         ...expectedGroupFields,
         id: expect.any(String),
       });
-      expect(expenses[0].groupId).toBe('group-1');
-      expect(expenses[0].paidBy).toBe('user-1');
-      expect(expenses[0].splitBetween).toEqual(['user-1', 'user-2']);
+      expect(expenses[0].spaceId).toBe('group-1');
+      expect(expenses[0].payments).toEqual([
+        { participantId: 'user-1', amountMinor: 5000 },
+      ]);
+      expect(expenses[0].shares).toEqual([
+        { participantId: 'user-1', amountMinor: 2500 },
+        { participantId: 'user-2', amountMinor: 2500 },
+      ]);
     });
   });
 
@@ -187,7 +196,7 @@ describe('ExpenseStore', () => {
     it('should update existing expense', () => {
       const expense = createMockExpense({
         title: 'Original Title',
-        amount: 25.0,
+        amountMinor: 2500,
       });
 
       useExpenseStore.getState().addExpense(expense);
@@ -196,7 +205,9 @@ describe('ExpenseStore', () => {
       const updatedExpense = {
         ...addedExpense,
         title: 'Updated Title',
-        amount: 30.0,
+        amountMinor: 3000,
+        payments: [{ participantId: 'user-1', amountMinor: 3000 }],
+        shares: [{ participantId: 'user-1', amountMinor: 3000 }],
       };
 
       useExpenseStore.getState().updateExpense(updatedExpense);
@@ -204,7 +215,7 @@ describe('ExpenseStore', () => {
 
       expect(expenses).toHaveLength(1);
       expect(expenses[0].title).toBe('Updated Title');
-      expect(expenses[0].amount).toBe(30.0);
+      expect(expenses[0].amountMinor).toBe(3000);
       expect(expenses[0].id).toBe(addedExpense.id);
     });
 
@@ -586,159 +597,4 @@ describe('ExpenseStore', () => {
     });
   });
 
-  describe('migrateOrphanedExpenses', () => {
-    it('should migrate orphaned personal expenses without a fake group ID', () => {
-      const orphanedExpense = createMockExpense({
-        title: 'Orphaned',
-        groupId: undefined,
-        paidBy: undefined,
-      });
-      const normalExpense = createMockExpense({
-        title: 'Normal',
-        groupId: 'group-1',
-        paidBy: 'user-1',
-      });
-
-      useExpenseStore.getState().addExpense(orphanedExpense);
-      useExpenseStore.getState().addExpense(normalExpense);
-
-      useExpenseStore.getState().migrateOrphanedExpenses('internal-user-1');
-      const expenses = useExpenseStore.getState().expenses;
-
-      const migratedExpense = expenses.find((e) => e.title === 'Orphaned');
-      const untouchedExpense = expenses.find((e) => e.title === 'Normal');
-
-      expect(migratedExpense).toMatchObject({
-        amountMinor: 2500,
-        currency: 'USD',
-        spaceId: 'personal_internal-user-1',
-        spaceKind: 'personal',
-        payments: [{ participantId: 'internal-user-1', amountMinor: 2500 }],
-        shares: [{ participantId: 'internal-user-1', amountMinor: 2500 }],
-      });
-      expect(migratedExpense!.groupId).toBeUndefined();
-      expect(untouchedExpense!.groupId).toBe('group-1');
-      expect(untouchedExpense!.paidBy).toBe('user-1');
-    });
-
-    it('should not migrate expenses with existing groupId or paidBy', () => {
-      const expenseWithGroup = createMockExpense({
-        title: 'Has Group',
-        groupId: 'group-1',
-        paidBy: undefined,
-      });
-      const expenseWithPaidBy = createMockExpense({
-        title: 'Has PaidBy',
-        groupId: undefined,
-        paidBy: 'user-1',
-      });
-
-      useExpenseStore.getState().addExpense(expenseWithGroup);
-      useExpenseStore.getState().addExpense(expenseWithPaidBy);
-
-      useExpenseStore.getState().migrateOrphanedExpenses('internal-user-1');
-      const expenses = useExpenseStore.getState().expenses;
-
-      const groupExpense = expenses.find((e) => e.title === 'Has Group');
-      const paidByExpense = expenses.find((e) => e.title === 'Has PaidBy');
-
-      expect(groupExpense!.groupId).toBe('group-1');
-      expect(groupExpense!.paidBy).toBeUndefined();
-      expect(paidByExpense!.groupId).toBeUndefined();
-      expect(paidByExpense!.paidBy).toBe('user-1');
-    });
-  });
-
-  describe('removeExpensesForGroup', () => {
-    it('should retain historical space references when a group is removed', () => {
-      const groupExpense1 = createMockExpense({
-        title: 'Group Expense 1',
-        groupId: 'group-1',
-      });
-      const groupExpense2 = createMockExpense({
-        title: 'Group Expense 2',
-        groupId: 'group-1',
-      });
-      const otherExpense = createMockExpense({
-        title: 'Other Group',
-        groupId: 'group-2',
-      });
-
-      useExpenseStore.getState().addExpense(groupExpense1);
-      useExpenseStore.getState().addExpense(groupExpense2);
-      useExpenseStore.getState().addExpense(otherExpense);
-
-      useExpenseStore.getState().removeExpensesForGroup('group-1');
-      const expenses = useExpenseStore.getState().expenses;
-
-      const updatedExpense1 = expenses.find(
-        (e) => e.title === 'Group Expense 1',
-      );
-      const updatedExpense2 = expenses.find(
-        (e) => e.title === 'Group Expense 2',
-      );
-      const untouchedExpense = expenses.find((e) => e.title === 'Other Group');
-
-      expect(updatedExpense1!.groupId).toBe('group-1');
-      expect(updatedExpense2!.groupId).toBe('group-1');
-      expect(untouchedExpense!.groupId).toBe('group-2');
-    });
-  });
-
-  describe('updateExpensesForParticipantRemoval', () => {
-    it('should retain historical allocations when a participant is removed', () => {
-      const expense = createMockExpense({
-        title: 'Participant Expense',
-        paidBy: 'user-1',
-        splitBetween: ['user-1', 'user-2', 'user-3'],
-      });
-
-      useExpenseStore.getState().addExpense(expense);
-      useExpenseStore.getState().updateExpensesForParticipantRemoval('user-1');
-
-      const expenses = useExpenseStore.getState().expenses;
-      const updatedExpense = expenses[0];
-
-      expect(updatedExpense.paidBy).toBe('user-1');
-      expect(updatedExpense.splitBetween).toEqual([
-        'user-1',
-        'user-2',
-        'user-3',
-      ]);
-    });
-
-    it('should handle undefined splitBetween gracefully', () => {
-      const expense = createMockExpense({
-        title: 'No Split',
-        paidBy: 'user-1',
-        splitBetween: undefined,
-      });
-
-      useExpenseStore.getState().addExpense(expense);
-      useExpenseStore.getState().updateExpensesForParticipantRemoval('user-1');
-
-      const expenses = useExpenseStore.getState().expenses;
-      const updatedExpense = expenses[0];
-
-      expect(updatedExpense.paidBy).toBe('user-1');
-      expect(updatedExpense.splitBetween).toBeUndefined();
-    });
-
-    it('should not affect expenses where participant is not involved', () => {
-      const expense = createMockExpense({
-        title: 'Unrelated',
-        paidBy: 'user-2',
-        splitBetween: ['user-2', 'user-3'],
-      });
-
-      useExpenseStore.getState().addExpense(expense);
-      useExpenseStore.getState().updateExpensesForParticipantRemoval('user-1');
-
-      const expenses = useExpenseStore.getState().expenses;
-      const unchangedExpense = expenses[0];
-
-      expect(unchangedExpense.paidBy).toBe('user-2');
-      expect(unchangedExpense.splitBetween).toEqual(['user-2', 'user-3']);
-    });
-  });
 });

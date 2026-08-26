@@ -12,24 +12,18 @@ import type {
   ExpenseRollbackResult,
   ExpenseVersionMatchResult,
 } from '../../types';
-import {
-  getExpenseAmountMinor,
-  getExpenseCurrency,
-  getExpensePayments,
-  getExpenseShares,
-  getExpenseSpaceKind,
-} from '../../utils/expenseDomain';
+import { getExpenseSpaceKind } from '../../utils/expenseDomain';
 import { createUuid } from '../../utils/ids';
+import {
+  createVersionedMigrator,
+  MOBILE_PERSISTENCE_SCHEMAS,
+} from '../persistence/versioned-migration';
 
-const legacyServerVersion = (expense: Expense): number =>
-  expense.sync?.serverVersion ??
-  (expense.sync?.status === 'synced' ? (expense.sync.version ?? 0) : 0);
+const currentServerVersion = (expense: Expense): number =>
+  expense.sync?.serverVersion ?? 0;
 
-const legacyLocalRevision = (expense: Expense): number =>
-  expense.sync?.localRevision ??
-  (expense.sync?.status === 'synced'
-    ? 0
-    : Math.max(1, expense.sync?.version ?? 1));
+const currentLocalRevision = (expense: Expense): number =>
+  expense.sync?.localRevision ?? 0;
 
 export const getExpenseMutationVersion = (
   expense: Expense,
@@ -39,8 +33,8 @@ export const getExpenseMutationVersion = (
   }
   return {
     mutationId: expense.sync.mutationId,
-    serverVersion: legacyServerVersion(expense),
-    localRevision: legacyLocalRevision(expense),
+    serverVersion: currentServerVersion(expense),
+    localRevision: currentLocalRevision(expense),
     status: expense.sync.status,
     updatedAt: expense.sync.updatedAt,
     ...(expense.sync.deletedAt ? { deletedAt: expense.sync.deletedAt } : {}),
@@ -98,8 +92,8 @@ const buildUpdatedExpense = (
     ...canonical,
     sync: {
       mutationId: createUuid(),
-      serverVersion: legacyServerVersion(expense),
-      localRevision: legacyLocalRevision(expense) + 1,
+      serverVersion: currentServerVersion(expense),
+      localRevision: currentLocalRevision(expense) + 1,
       status: canonical.spaceKind === 'shared' ? 'pending' : 'local_only',
       updatedAt: new Date().toISOString(),
     },
@@ -186,13 +180,6 @@ export interface ExpenseStoreState {
   ) => ExpenseRollbackResult;
   getExpenseById: (id: string) => Expense | undefined;
 
-  // Data migration helpers
-  migrateOrphanedExpenses: (
-    internalUserId: string,
-    personalSpaceId?: string,
-  ) => void;
-  removeExpensesForGroup: (groupId: string) => void;
-  updateExpensesForParticipantRemoval: (participantId: string) => void;
 }
 
 export const useExpenseStore = create<ExpenseStoreState>()(
@@ -307,8 +294,8 @@ export const useExpenseStore = create<ExpenseStoreState>()(
                 ...expense,
                 sync: {
                   mutationId: createUuid(),
-                  serverVersion: legacyServerVersion(expense),
-                  localRevision: legacyLocalRevision(expense) + 1,
+                  serverVersion: currentServerVersion(expense),
+                  localRevision: currentLocalRevision(expense) + 1,
                   status: 'pending' as const,
                   updatedAt: now,
                   deletedAt: now,
@@ -377,71 +364,17 @@ export const useExpenseStore = create<ExpenseStoreState>()(
       getExpenseById: (id) =>
         get().expenses.find((expense) => expense.id === id),
 
-      migrateOrphanedExpenses: (
-        internalUserId: string,
-        personalSpaceId = `personal_${internalUserId}`,
-      ) => {
-        set((state) => ({
-          expenses: state.expenses.map((expense) => {
-            if (expense.spaceId || expense.groupId) {
-              return expense;
-            }
-
-            const amountMinor = getExpenseAmountMinor(expense);
-            const currency = getExpenseCurrency(expense);
-            const payments =
-              getExpensePayments(expense).length > 0
-                ? getExpensePayments(expense)
-                : [{ participantId: internalUserId, amountMinor }];
-            const shares =
-              getExpenseShares(expense).length > 0
-                ? getExpenseShares(expense)
-                : [{ participantId: internalUserId, amountMinor }];
-
-            return {
-              ...expense,
-              amountMinor,
-              currency,
-              spaceId: personalSpaceId,
-              spaceKind: 'personal',
-              payments,
-              shares,
-            };
-          }),
-        }));
-      },
-
       // Kept for the legacy facade. Historical expenses retain their space ID.
-      removeExpensesForGroup: (_groupId: string) => undefined,
-
-      // Membership changes must not rewrite historical payment/share allocations.
-      updateExpensesForParticipantRemoval: (_participantId: string) =>
-        undefined,
     }),
     {
-      name: 'expense-mobile-expenses-v2',
-      version: 3,
+      name: MOBILE_PERSISTENCE_SCHEMAS.expenses.storageKey,
+      version: MOBILE_PERSISTENCE_SCHEMAS.expenses.currentVersion,
       storage: createJSONStorage(() => expenseStateStorage),
       partialize: (state) => ({ expenses: state.expenses }),
-      migrate: (persistedState) => {
-        const state = (persistedState ?? {}) as { expenses?: Expense[] };
-        return {
-          expenses: (state.expenses ?? []).map((expense) => {
-            if (!expense.sync) {
-              return expense;
-            }
-            const { version: _version, ...sync } = expense.sync;
-            return {
-              ...expense,
-              sync: {
-                ...sync,
-                serverVersion: legacyServerVersion(expense),
-                localRevision: legacyLocalRevision(expense),
-              },
-            };
-          }),
-        };
-      },
+      migrate: createVersionedMigrator<ExpenseStoreState>(
+        MOBILE_PERSISTENCE_SCHEMAS.expenses,
+        {},
+      ),
     },
   ),
 );

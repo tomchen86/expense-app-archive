@@ -9,8 +9,8 @@ import {
   type MemberBalanceDetails,
 } from '../utils/groupCalculations';
 import { formatMinorUnits } from '../utils/money';
-import { AdaptiveGroupedSection } from './ui/adaptive-grouped-list';
 import { AdaptiveSheet } from './ui/adaptive-sheet';
+import { AdaptiveSheetSection } from './ui/adaptive-sheet-section';
 
 interface GroupBalancesOverlayProps {
   visible: boolean;
@@ -73,13 +73,13 @@ const GroupBalancesOverlay: React.FC<GroupBalancesOverlayProps> = ({
 
   return (
     <AdaptiveSheet
+      leadingAction={{ label: 'Close', onPress: onClose, variant: 'plain' }}
       onClose={onClose}
       title='Balances'
-      trailingAction={{ label: 'Done', onPress: onClose }}
       visible={visible}
     >
       <View style={styles.content}>
-        <AdaptiveGroupedSection style={styles.listSection}>
+        <AdaptiveSheetSection style={styles.listSection}>
           <FlatList
             data={memberBalanceDetails}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -89,7 +89,7 @@ const GroupBalancesOverlay: React.FC<GroupBalancesOverlayProps> = ({
             }
             renderItem={renderMemberBalance}
           />
-        </AdaptiveGroupedSection>
+        </AdaptiveSheetSection>
       </View>
     </AdaptiveSheet>
   );
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: mobileTheme.spacing.lg,
     paddingVertical: mobileTheme.spacing.md,
-    backgroundColor: semanticColors.surface,
+    backgroundColor: semanticColors.groupedRow,
   },
   memberSummary: {
     flexDirection: 'row',

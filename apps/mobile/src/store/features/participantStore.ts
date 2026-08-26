@@ -5,8 +5,12 @@ import {
   type StateStorage,
 } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Participant, UserSettings } from '../../types';
+import { Participant } from '../../types';
 import { createUuid } from '../../utils/ids';
+import {
+  createVersionedMigrator,
+  MOBILE_PERSISTENCE_SCHEMAS,
+} from '../persistence/versioned-migration';
 
 let pendingParticipantWrite: { name: string; value: string } | null = null;
 let participantWritePromise: Promise<void> | null = null;
@@ -71,8 +75,8 @@ export interface ParticipantState {
   deleteParticipant: (id: string) => void;
   getParticipantById: (id: string) => Participant | undefined;
   syncUserAsParticipant: (
-    internalUserId: string,
-    userSettings: UserSettings | null,
+    participantId: string,
+    displayName: string,
     identity?: Pick<Participant, 'spaceId' | 'userId'>,
   ) => void;
   deactivateParticipantIfActive: (id: string) => Participant | null;
@@ -194,36 +198,37 @@ export const useParticipantStore = create<ParticipantState>()(
         get().participants.find((participant) => participant.id === id),
 
       syncUserAsParticipant: (
-        internalUserId: string,
-        userSettings: UserSettings | null,
+        participantId: string,
+        displayName: string,
         identity,
       ) => {
-        if (!internalUserId || !userSettings?.name) {
+        const name = displayName.trim();
+        if (!participantId || !name) {
           return;
         }
 
         set((state) => {
           let newParticipants = [...state.participants];
           const userAsParticipant = newParticipants.find(
-            (p) => p.id === internalUserId,
+            (p) => p.id === participantId,
           );
 
           if (userAsParticipant) {
             if (
-              userAsParticipant.name !== userSettings.name ||
+              userAsParticipant.name !== name ||
               userAsParticipant.userId !== identity?.userId ||
               userAsParticipant.spaceId !== identity?.spaceId
             ) {
               newParticipants = newParticipants.map((p) =>
-                p.id === internalUserId
-                  ? { ...p, name: userSettings.name, ...identity }
+                p.id === participantId
+                  ? { ...p, name, ...identity }
                   : p,
               );
             }
           } else {
             newParticipants.push({
-              id: internalUserId,
-              name: userSettings.name,
+              id: participantId,
+              name,
               ...identity,
             });
           }
@@ -265,10 +270,14 @@ export const useParticipantStore = create<ParticipantState>()(
       },
     }),
     {
-      name: 'expense-mobile-participants-v2',
-      version: 2,
+      name: MOBILE_PERSISTENCE_SCHEMAS.participants.storageKey,
+      version: MOBILE_PERSISTENCE_SCHEMAS.participants.currentVersion,
       storage: createJSONStorage(() => participantStateStorage),
       partialize: (state) => ({ participants: state.participants }),
+      migrate: createVersionedMigrator<ParticipantState>(
+        MOBILE_PERSISTENCE_SCHEMAS.participants,
+        {},
+      ),
     },
   ),
 );

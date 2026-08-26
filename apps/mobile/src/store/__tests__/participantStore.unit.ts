@@ -115,13 +115,13 @@ describe('ParticipantStore', () => {
   it('syncs the signed-in user as a participant and updates their name', () => {
     const { syncUserAsParticipant } = useParticipantStore.getState();
 
-    syncUserAsParticipant('user-1', { name: 'Initial' });
+    syncUserAsParticipant('user-1', 'Initial');
     expect(useParticipantStore.getState().participants).toContainEqual({
       id: 'user-1',
       name: 'Initial',
     });
 
-    syncUserAsParticipant('user-1', { name: 'Updated' });
+    syncUserAsParticipant('user-1', 'Updated');
     expect(useParticipantStore.getState().participants).toContainEqual({
       id: 'user-1',
       name: 'Updated',
@@ -132,7 +132,7 @@ describe('ParticipantStore', () => {
     const participantId = '6ca81ea8-56b6-4147-85db-cad209885ce6';
     useParticipantStore.getState().syncUserAsParticipant(
       participantId,
-      { name: 'Morgan' },
+      'Morgan',
       {
         userId: 'bdf125cb-cbe7-4b8d-98f4-50bc6213d31e',
         spaceId: 'd1f5558f-4290-4f6c-9273-ab5cf594db26',
@@ -184,7 +184,7 @@ describe('ParticipantStore', () => {
       name: 'Jordan',
     });
 
-    store.syncUserAsParticipant('user-sync', null);
+    store.syncUserAsParticipant('user-sync', '   ');
     expect(store.getParticipantById('user-sync')).toBeUndefined();
   });
 });

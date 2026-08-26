@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { router } from 'expo-router';
 import { ExpenseCategory, Participant, ExpenseGroup } from '../types';
-import { useCategoryStore } from '../store/features/categoryStore';
+import { useExpenseStore } from '../store/expenseStore';
 
 const ADD_NEW_CATEGORY_ACTION = '+ Add New Category' as const;
 
@@ -16,10 +16,17 @@ type ModalFormState = {
 type ModalFormField =
   'category' | 'selectedGroup' | 'paidByParticipant' | 'selectedParticipants';
 
+type ModalFormStateUpdater<TFormState extends ModalFormState> = <
+  Field extends ModalFormField,
+>(
+  field: Field,
+  value: TFormState[Field],
+) => void;
+
 interface UseExpenseModalsPropsGeneric<TFormState extends ModalFormState> {
   formState: TFormState;
   participants: Participant[];
-  handleUpdateFormState: (field: ModalFormField, value: any) => void;
+  handleUpdateFormState: ModalFormStateUpdater<TFormState>;
   setFormState: Dispatch<SetStateAction<TFormState>>;
 }
 
@@ -29,7 +36,7 @@ export const useExpenseModals = <TFormState extends ModalFormState>({
   handleUpdateFormState,
   setFormState,
 }: UseExpenseModalsPropsGeneric<TFormState>) => {
-  const categories = useCategoryStore((state) => state.categories);
+  const categories = useExpenseStore((state) => state.categories);
   // Modal visibility state
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);

@@ -9,7 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Stack, type Href } from 'expo-router';
+import { router, type Href } from 'expo-router';
 
 import { AdaptiveGroupedSection } from '../components/ui/adaptive-grouped-list';
 import AppearanceModeControl from '../components/ui/appearance-mode-control';
@@ -19,21 +19,23 @@ import { mobileTheme } from '../theme/tokens';
 import { isExpenseGroupArchived } from '../utils/groupDomain';
 
 const SettingsScreen = () => {
-  const { groups, settings, updateSettings, userSettings, updateUserSettings } =
+  const { groups, settings, updateSettings, updateUser, user } =
     useExpenseStore();
-  const [name, setName] = useState(userSettings?.name ?? '');
+  const [name, setName] = useState(user?.displayName ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
+  const lastSavedNameRef = useRef((user?.displayName ?? '').trim());
   const archivedGroupCount = useMemo(
     () => groups.filter(isExpenseGroupArchived).length,
     [groups],
   );
 
   const handleSave = async () => {
-    if (isSavingRef.current) {
+    const normalizedName = name.trim();
+    if (isSavingRef.current || normalizedName === lastSavedNameRef.current) {
       return;
     }
-    if (!name.trim()) {
+    if (!normalizedName) {
       Alert.alert('Error', 'Please enter your name');
       return;
     }
@@ -41,7 +43,7 @@ const SettingsScreen = () => {
     isSavingRef.current = true;
     setIsSaving(true);
     try {
-      const didSave = await updateUserSettings({ name: name.trim() });
+      const didSave = await updateUser({ displayName: normalizedName });
       if (!didSave) {
         Alert.alert(
           'Unable to Save Settings',
@@ -49,7 +51,8 @@ const SettingsScreen = () => {
         );
         return;
       }
-      Alert.alert('Success', 'Settings saved successfully');
+      lastSavedNameRef.current = normalizedName;
+      setName(normalizedName);
     } catch {
       Alert.alert(
         'Unable to Save Settings',
@@ -78,6 +81,7 @@ const SettingsScreen = () => {
               accessibilityLabel='Your name'
               autoCapitalize='words'
               editable={!isSaving}
+              onBlur={() => void handleSave()}
               onChangeText={setName}
               onSubmitEditing={() => void handleSave()}
               placeholder='Enter your name'
@@ -143,17 +147,6 @@ const SettingsScreen = () => {
           </TouchableOpacity>
         </AdaptiveGroupedSection>
       </ScrollView>
-
-      <Stack.Toolbar placement='right'>
-        <Stack.Toolbar.Button
-          accessibilityLabel='Save settings'
-          disabled={isSaving}
-          onPress={() => void handleSave()}
-          variant='done'
-        >
-          {isSaving ? 'Saving…' : 'Save'}
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
     </SafeAreaView>
   );
 };
@@ -186,7 +179,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: mobileTheme.spacing.lg,
-    backgroundColor: semanticColors.surface,
+    backgroundColor: semanticColors.groupedRow,
   },
   input: {
     flex: 1,
@@ -203,7 +196,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: semanticColors.surface,
+    backgroundColor: semanticColors.groupedRow,
   },
   appearanceSection: {
     backgroundColor: 'transparent',

@@ -53,8 +53,12 @@ jest.mock('../../store/expenseStore', () => ({
     groups: [],
     settings: { theme: 'light' },
     updateSettings: jest.fn(),
-    updateUserSettings: jest.fn(),
-    userSettings: { name: 'Alex' },
+    updateUser: jest.fn(),
+    user: {
+      id: 'account-alex',
+      displayName: 'Alex',
+      personalSpaceId: 'personal-space-alex',
+    },
   }),
 }));
 
@@ -205,7 +209,10 @@ describe('adaptive UI accessibility contracts', () => {
 
     expect(scrollView.props.automaticallyAdjustKeyboardInsets).toBe(true);
     expect(scrollView.props.keyboardShouldPersistTaps).toBe('handled');
-    expect(screen.getByTestId('username-input')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Save settings' })).toBeTruthy();
+    expect(screen.getByTestId('username-input')).toHaveProp(
+      'onBlur',
+      expect.any(Function),
+    );
+    expect(screen.queryByRole('button', { name: 'Save settings' })).toBeNull();
   });
 });

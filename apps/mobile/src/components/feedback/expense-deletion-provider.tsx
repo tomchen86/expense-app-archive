@@ -15,8 +15,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useExpenseStore } from '../../store/expenseStore';
-import { flushExpensePersistence } from '../../store/features/expenseStore';
+import {
+  flushExpensePersistence,
+  useExpenseStore,
+} from '../../store/expenseStore';
 import { semanticColors } from '../../theme/semantic-colors';
 import { mobileTheme } from '../../theme/tokens';
 import {

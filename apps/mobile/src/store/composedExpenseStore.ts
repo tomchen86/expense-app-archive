@@ -20,8 +20,8 @@ import { isExpenseGroupArchived } from '../utils/groupDomain';
 import { createUuid } from '../utils/ids';
 
 const resolveCurrentGroupParticipantId = (group: ExpenseGroup | undefined) => {
-  const { internalUserId, user } = useUserStore.getState();
-  return resolveGroupParticipantIdForUser(group, internalUserId, user?.id);
+  const { user } = useUserStore.getState();
+  return resolveGroupParticipantIdForUser(group, user.id);
 };
 
 let groupMutationChain: Promise<void> = Promise.resolve();
@@ -214,8 +214,8 @@ const rollbackGroupSnapshot = async (
 };
 
 const readUserProfileSnapshot = (): UserProfileSnapshot => {
-  const { user, userSettings, internalUserId } = useUserStore.getState();
-  return { user, userSettings, internalUserId };
+  const { user } = useUserStore.getState();
+  return { user };
 };
 
 const rollbackUserProfile = async (
@@ -257,20 +257,13 @@ const updateCurrentUserParticipantNames = (name: string) => {
   if (!trimmedName) {
     return;
   }
-  const { internalUserId, user } = useUserStore.getState();
-  const userIds = new Set(
-    [user?.id, internalUserId].filter((userId): userId is string =>
-      Boolean(userId),
-    ),
-  );
-  userIds.forEach((userId) => {
-    useParticipantStore
-      .getState()
-      .updateActiveParticipantsByUserId(userId, trimmedName);
-    useGroupStore
-      .getState()
-      .updateActiveParticipantNamesByUserId(userId, trimmedName);
-  });
+  const userId = useUserStore.getState().user.id;
+  useParticipantStore
+    .getState()
+    .updateActiveParticipantsByUserId(userId, trimmedName);
+  useGroupStore
+    .getState()
+    .updateActiveParticipantNamesByUserId(userId, trimmedName);
 };
 
 interface DurableProfileMutation {
@@ -297,8 +290,8 @@ const persistProfileMutation = async ({
   if (normalizedName) {
     participantStore.syncUserAsParticipant(
       userState.personalParticipantId,
-      { name: normalizedName },
-      { userId: targetUserId, spaceId: userState.personalSpaceId },
+      normalizedName,
+      { userId: targetUserId, spaceId: userState.user.personalSpaceId },
     );
     new Set(identityIds).forEach((userId) => {
       useParticipantStore
@@ -387,14 +380,8 @@ export const useExpenseStore = create(
       participants: useParticipantStore.getState().participants,
       categories: useCategoryStore.getState().categories,
 
-      // New structure
       user: useUserStore.getState().user,
       settings: useUserStore.getState().settings,
-
-      // Legacy structure (temporary)
-      userSettings: useUserStore.getState().userSettings,
-      internalUserId: useUserStore.getState().internalUserId,
-      personalSpaceId: useUserStore.getState().personalSpaceId,
       personalParticipantId: useUserStore.getState().personalParticipantId,
     };
 
@@ -411,14 +398,8 @@ export const useExpenseStore = create(
     );
     useUserStore.subscribe((state) =>
       set({
-        // New structure
         user: state.user,
         settings: state.settings,
-
-        // Legacy structure (temporary)
-        userSettings: state.userSettings,
-        internalUserId: state.internalUserId,
-        personalSpaceId: state.personalSpaceId,
         personalParticipantId: state.personalParticipantId,
       }),
     );
@@ -432,27 +413,11 @@ export const useExpenseStore = create(
         serializeGroupMutation(async () => {
           await useUserStore.getState().ensureLocalIdentityPersisted();
           const userState = useUserStore.getState();
-          const repairedInternalUserId =
-            userState.internalUserId ?? userState.user?.id;
-          if (!repairedInternalUserId) {
-            throw new Error('A durable local identity is required.');
-          }
-          const targetUser = userState.user
-            ? { ...userState.user, ...userData }
-            : {
-                id: repairedInternalUserId,
-                displayName: '',
-                personalSpaceId: userState.personalSpaceId,
-                ...userData,
-              };
+          const targetUser = { ...userState.user, ...userData };
           return persistProfileMutation({
             applyUserMutation: () =>
               useUserStore.getState().updateUser(userData),
-            identityIds: [
-              repairedInternalUserId,
-              userState.user?.id ?? repairedInternalUserId,
-              targetUser.id,
-            ],
+            identityIds: [targetUser.id],
             targetName: targetUser.displayName,
             targetUserId: targetUser.id,
           });
@@ -464,36 +429,17 @@ export const useExpenseStore = create(
 
       createUser: (displayName) => {
         const userId = useUserStore.getState().createUser(displayName);
-        const { personalParticipantId, personalSpaceId } =
-          useUserStore.getState();
+        const { personalParticipantId, user } = useUserStore.getState();
         useParticipantStore
           .getState()
           .syncUserAsParticipant(
             personalParticipantId,
-            { name: displayName },
-            { userId, spaceId: personalSpaceId },
+            displayName,
+            { userId, spaceId: user.personalSpaceId },
           );
         updateCurrentUserParticipantNames(displayName);
         return userId;
       },
-
-      // --- Legacy User Settings Actions (temporary) ---
-      updateUserSettings: (settings) =>
-        serializeGroupMutation(async () => {
-          await useUserStore.getState().ensureLocalIdentityPersisted();
-          const { internalUserId, user } = useUserStore.getState();
-          const userId = user?.id ?? internalUserId;
-          if (!userId) {
-            throw new Error('A durable local identity is required.');
-          }
-          return persistProfileMutation({
-            applyUserMutation: () =>
-              useUserStore.getState().updateUserSettings(settings),
-            identityIds: [userId, internalUserId ?? userId],
-            targetName: settings.name,
-            targetUserId: userId,
-          });
-        }),
 
       // --- Expense Actions ---
       addExpense: (expense) => {
@@ -547,17 +493,10 @@ export const useExpenseStore = create(
           await flushGroupPersistence();
           await flushParticipantPersistence();
 
-          const { internalUserId, user, userSettings } =
-            useUserStore.getState();
-          const userId = user?.id || internalUserId;
-          if (!userId) {
-            throw new Error('A durable local identity is required.');
-          }
-
+          const { user } = useUserStore.getState();
+          const userId = user.id;
           const creatorName =
-            user?.displayName?.trim() ||
-            userSettings?.name?.trim() ||
-            `User ${userId.substring(0, 4)}`;
+            user.displayName.trim() || `User ${userId.substring(0, 4)}`;
           let groupId = createUuid();
           while (useGroupStore.getState().getGroupById(groupId)) {
             groupId = createUuid();
@@ -767,10 +706,10 @@ export const useExpenseStore = create(
           if (!participant || participant.active === false) {
             return false;
           }
-          const { internalUserId, personalParticipantId, user } =
+          const { personalParticipantId, user } =
             useUserStore.getState();
           const currentIdentityIds = new Set(
-            [internalUserId, personalParticipantId, user?.id].filter(
+            [personalParticipantId, user.id].filter(
               (identityId): identityId is string => Boolean(identityId),
             ),
           );
@@ -914,9 +853,6 @@ export const useExpenseStore = create(
             return false;
           }
 
-          useExpenseFeatureStore
-            .getState()
-            .updateExpensesForParticipantRemoval(id);
           return true;
         }),
 
@@ -1250,26 +1186,3 @@ export const useExpenseStore = create(
     };
   }),
 );
-
-// Initialize migration for orphaned expenses on store creation
-const initializeStore = () => {
-  const { personalParticipantId, personalSpaceId } = useUserStore.getState();
-  if (personalParticipantId && personalSpaceId) {
-    useExpenseFeatureStore
-      .getState()
-      .migrateOrphanedExpenses(personalParticipantId, personalSpaceId);
-  }
-};
-
-const initializeAfterHydration = () => {
-  if (
-    useUserStore.persist.hasHydrated() &&
-    useExpenseFeatureStore.persist.hasHydrated()
-  ) {
-    initializeStore();
-  }
-};
-
-useUserStore.persist.onFinishHydration(initializeAfterHydration);
-useExpenseFeatureStore.persist.onFinishHydration(initializeAfterHydration);
-initializeAfterHydration();

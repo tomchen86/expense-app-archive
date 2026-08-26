@@ -13,7 +13,6 @@ import {
   Expense,
   Participant as _Participant,
   ExpenseGroup,
-  UserSettings as _UserSettings,
 } from '../types';
 
 import ExpenseListItem from '../components/ExpenseListItem';
@@ -29,18 +28,19 @@ import { mobileTheme } from '../theme/tokens';
 import { buildExpenseDetailRoute } from '../navigation/expense-edit-route';
 import { useExpenseDeletion } from '../components/feedback/expense-deletion-context';
 import { resolveExpenseCategoryPresentation } from '../utils/categoryDomain';
+import { AdaptiveCardSurface } from '../components/ui/adaptive-card-surface';
 
 const ExpensesScreen = () => {
   const expenses = useExpenseStore((state) => state.expenses);
   const participants = useExpenseStore((state) => state.participants);
-  const _userSettings = useExpenseStore((state) => state.userSettings);
   const groups = useExpenseStore((state) => state.groups);
   const categories = useExpenseStore((state) => state.categories);
-  const internalUserId = useExpenseStore((state) => state.internalUserId);
+  const user = useExpenseStore((state) => state.user);
+  const currentUserId = user?.id ?? null;
+  const personalSpaceId = user?.personalSpaceId ?? null;
   const personalParticipantId = useExpenseStore(
     (state) => state.personalParticipantId,
   );
-  const personalSpaceId = useExpenseStore((state) => state.personalSpaceId);
   const { pendingExpenseDeletionIds, requestExpenseDeletion } =
     useExpenseDeletion();
 
@@ -52,11 +52,11 @@ const ExpensesScreen = () => {
   const currentParticipantIds = useMemo(
     () =>
       resolvePersonalParticipantIds({
-        internalUserId,
+        userId: currentUserId,
         participants,
         personalParticipantId,
       }),
-    [internalUserId, participants, personalParticipantId],
+    [currentUserId, participants, personalParticipantId],
   );
 
   const relevantExpenses = useMemo(
@@ -88,12 +88,12 @@ const ExpensesScreen = () => {
   const groupMap = useMemo(() => {
     const map = new Map<string, ExpenseGroup>();
     groups.forEach((group) => {
-      if (group.id !== internalUserId) {
+      if (group.id !== currentUserId) {
         map.set(group.id, group);
       }
     });
     return map;
-  }, [groups, internalUserId]);
+  }, [groups, currentUserId]);
 
   const handlePress = (expense: Expense) => {
     router.push(buildExpenseDetailRoute(expense.id));
@@ -145,26 +145,31 @@ const ExpensesScreen = () => {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View>
-            <TouchableOpacity
-              accessibilityHint='Opens charts and category breakdowns'
-              accessibilityLabel={totalShareAccessibilityLabel}
-              accessibilityRole='button'
-              accessibilityState={{ disabled: !internalUserId }}
-              disabled={!internalUserId}
-              testID='total-share-button'
-              onPress={() => {
-                if (internalUserId) {
-                  router.push({
-                    pathname: '/insights',
-                    params: {
-                      contextType: 'personal',
-                      contextId: internalUserId,
-                    },
-                  });
-                }
-              }}
+            <AdaptiveCardSurface
+              interactive
+              style={styles.totalExpensesContainer}
+              testID='total-share-surface'
             >
-              <View style={styles.totalExpensesContainer}>
+              <TouchableOpacity
+                accessibilityHint='Opens charts and category breakdowns'
+                accessibilityLabel={totalShareAccessibilityLabel}
+                accessibilityRole='button'
+                accessibilityState={{ disabled: !currentUserId }}
+                disabled={!currentUserId}
+                testID='total-share-button'
+                onPress={() => {
+                  if (currentUserId) {
+                    router.push({
+                      pathname: '/insights',
+                      params: {
+                        contextType: 'personal',
+                        contextId: currentUserId,
+                      },
+                    });
+                  }
+                }}
+                style={styles.totalExpensesButton}
+              >
                 {totalUserShares.length === 0 ? (
                   <Text style={styles.totalExpensesText}>
                     Your Total Share: —
@@ -177,8 +182,8 @@ const ExpensesScreen = () => {
                     </Text>
                   ))
                 )}
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </AdaptiveCardSurface>
           </View>
         }
         ListEmptyComponent={
@@ -201,14 +206,11 @@ const styles = StyleSheet.create({
     backgroundColor: mobileTheme.colors.background,
   },
   totalExpensesContainer: {
-    backgroundColor: mobileTheme.colors.surface,
-    padding: mobileTheme.spacing.lg,
-    borderRadius: mobileTheme.radii.card,
-    borderColor: mobileTheme.colors.border,
-    borderWidth: 1,
     marginBottom: mobileTheme.spacing.xl,
+  },
+  totalExpensesButton: {
     alignItems: 'center',
-    ...mobileTheme.shadows.card,
+    padding: mobileTheme.spacing.lg,
   },
   totalExpensesText: {
     fontSize: 18,

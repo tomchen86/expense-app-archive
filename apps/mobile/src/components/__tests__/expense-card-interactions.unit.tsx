@@ -38,6 +38,14 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   };
 });
 
+jest.mock('../ui/adaptive-card-surface', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    AdaptiveCardSurface: ({ children, ...props }: any) =>
+      React.createElement('View', props, children),
+  };
+});
+
 const participants: Participant[] = [
   { id: 'participant-1', name: 'Tom' },
   { id: 'participant-2', name: 'Sharon' },
@@ -94,15 +102,21 @@ describe('ExpenseListItem interactions', () => {
     expect(screen.queryByText(/Your share/)).toBeNull();
     expect(screen.queryByText(/Paid by:/)).toBeNull();
     expect(screen.queryByText('Birthday dinner')).toBeNull();
-    expect(screen.getByTestId('expense-card-expense-1').props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          backgroundColor: mobileTheme.colors.sharedSurface,
-          borderColor: mobileTheme.colors.sharedBorder,
-        }),
-      ]),
+    expect(screen.getByTestId('expense-card-surface-expense-1')).toHaveProp(
+      'tone',
+      'shared',
+    );
+    expect(screen.getByTestId('expense-card-surface-expense-1')).toHaveProp(
+      'interactive',
+      true,
     );
     expect(screen.getByTestId('expense-group-badge-expense-1')).toBeTruthy();
+    expect(screen.getByTestId('expense-group-badge-expense-1')).toHaveStyle({
+      backgroundColor: mobileTheme.colors.surface,
+    });
+    expect(screen.getByText('Brisbane')).toHaveStyle({
+      color: mobileTheme.colors.text,
+    });
     const swipeable = screen.getByTestId('expense-swipeable-expense-1');
     expect(swipeable.props.containerStyle).toEqual(
       expect.objectContaining({ overflow: 'visible' }),
@@ -184,12 +198,9 @@ describe('ExpenseListItem interactions', () => {
     expect(screen.getByLabelText('Expense amount USD 24.00')).toBeTruthy();
     expect(screen.queryByText(/Your share/)).toBeNull();
     expect(screen.queryByText(/Paid by:/)).toBeNull();
-    expect(screen.getByTestId('expense-card-expense-1').props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          backgroundColor: mobileTheme.colors.surface,
-        }),
-      ]),
+    expect(screen.getByTestId('expense-card-surface-expense-1')).toHaveProp(
+      'tone',
+      'neutral',
     );
     expect(screen.queryByTestId('expense-group-badge-expense-1')).toBeNull();
   });
@@ -222,12 +233,12 @@ describe('ExpenseListItem interactions', () => {
       />,
     );
 
-    const sharedStyle = shared
-      .getByTestId('expense-card-expense-1')
-      .props.style.flat();
-    const personalStyle = personal
-      .getByTestId('expense-card-personal-expense')
-      .props.style.flat();
+    const sharedStyle = [
+      shared.getByTestId('expense-card-surface-expense-1').props.style,
+    ].flat();
+    const personalStyle = [
+      personal.getByTestId('expense-card-surface-personal-expense').props.style,
+    ].flat();
     const sharedMinHeight = sharedStyle.find(
       (style: any) => style?.minHeight,
     )?.minHeight;

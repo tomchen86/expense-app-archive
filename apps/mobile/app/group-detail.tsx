@@ -39,6 +39,7 @@ import GroupMembersModal from '../src/components/groups/GroupMembersModal';
 import { GroupDetailHeaderActions } from '../src/components/navigation/group-detail-header-actions';
 import TextInputModal from '../src/components/TextInputModal';
 import { resolveExpenseCategoryPresentation } from '../src/utils/categoryDomain';
+import { AdaptiveCardSurface } from '../src/components/ui/adaptive-card-surface';
 
 const GroupDetailScreen = () => {
   const params = useLocalSearchParams<{ groupId?: RouteParam }>();
@@ -48,8 +49,7 @@ const GroupDetailScreen = () => {
   const groups = useExpenseStore((state) => state.groups);
   const categories = useExpenseStore((state) => state.categories);
   const restoreGroup = useExpenseStore((state) => state.restoreGroup);
-  const internalUserId = useExpenseStore((state) => state.internalUserId);
-  const canonicalUserId = useExpenseStore((state) => state.user?.id ?? null);
+  const currentUserId = useExpenseStore((state) => state.user?.id ?? null);
   const allParticipants = useExpenseStore((state) => state.participants);
   const addParticipantToGroupByName = useExpenseStore(
     (state) => state.addParticipantToGroupByName,
@@ -90,9 +90,8 @@ const GroupDetailScreen = () => {
   }, [groupExpenses, groupId]);
 
   const currentGroupParticipantId = useMemo(
-    () =>
-      resolveGroupParticipantIdForUser(group, internalUserId, canonicalUserId),
-    [canonicalUserId, group, internalUserId],
+    () => resolveGroupParticipantIdForUser(group, currentUserId),
+    [currentUserId, group],
   );
 
   const currentUserTotalContributions = useMemo(() => {
@@ -267,7 +266,7 @@ const GroupDetailScreen = () => {
       />
 
       {isArchived && (
-        <View style={styles.archivedBanner}>
+        <AdaptiveCardSurface style={styles.archivedBanner} tone='muted'>
           <Text style={styles.archivedBannerText}>
             Archived group. Expenses and allocations are read-only.
           </Text>
@@ -284,48 +283,61 @@ const GroupDetailScreen = () => {
           >
             <Text style={styles.restoreButtonText}>Restore Group</Text>
           </TouchableOpacity>
-        </View>
+        </AdaptiveCardSurface>
       )}
 
       {groupTotals.length > 0 ? (
-        <TouchableOpacity
-          accessibilityLabel={`View insights for ${group.name}`}
-          accessibilityRole='button'
-          onPress={() =>
-            router.push({
-              pathname: '/insights',
-              params: {
-                contextType: 'group',
-                contextId: group.id,
-              },
-            })
-          }
+        <AdaptiveCardSurface
+          interactive
           style={styles.totalContainer}
-          testID='group-total-summary'
+          testID='group-total-summary-surface'
         >
-          {groupTotals.map((total) => (
-            <Text key={total.currency} style={styles.totalText}>
-              Group Total: {formatMinorUnits(total.amountMinor, total.currency)}
-            </Text>
-          ))}
-        </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel={`View insights for ${group.name}`}
+            accessibilityRole='button'
+            onPress={() =>
+              router.push({
+                pathname: '/insights',
+                params: {
+                  contextType: 'group',
+                  contextId: group.id,
+                },
+              })
+            }
+            style={styles.totalButton}
+            testID='group-total-summary'
+          >
+            {groupTotals.map((total) => (
+              <Text key={total.currency} style={styles.totalText}>
+                Group Total:{' '}
+                {formatMinorUnits(total.amountMinor, total.currency)}
+              </Text>
+            ))}
+          </TouchableOpacity>
+        </AdaptiveCardSurface>
       ) : null}
 
       {currentUserTotalContributions.length > 0 ? (
-        <TouchableOpacity
-          accessibilityLabel={`View balances for ${group.name}`}
-          accessibilityRole='button'
-          onPress={() => setIsBalancesOverlayVisible(true)}
+        <AdaptiveCardSurface
+          interactive
           style={styles.totalContainer}
-          testID='user-contribution-summary'
+          testID='user-contribution-summary-surface'
         >
-          {currentUserTotalContributions.map((total) => (
-            <Text key={total.currency} style={styles.totalText}>
-              My Total Contribution:{' '}
-              {formatMinorUnits(total.amountMinor, total.currency)}
-            </Text>
-          ))}
-        </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel={`View balances for ${group.name}`}
+            accessibilityRole='button'
+            onPress={() => setIsBalancesOverlayVisible(true)}
+            style={styles.totalButton}
+            testID='user-contribution-summary'
+          >
+            {currentUserTotalContributions.map((total) => (
+              <Text key={total.currency} style={styles.totalText}>
+                My Total Contribution:{' '}
+                {formatMinorUnits(total.amountMinor, total.currency)}
+              </Text>
+            ))}
+          </TouchableOpacity>
+        </AdaptiveCardSurface>
       ) : null}
 
       <FlatList
@@ -381,12 +393,11 @@ const styles = StyleSheet.create({
     backgroundColor: mobileTheme.colors.background,
   },
   totalContainer: {
-    backgroundColor: mobileTheme.colors.surface,
-    padding: mobileTheme.spacing.lg,
-    borderRadius: mobileTheme.radii.card,
     marginBottom: mobileTheme.spacing.xl,
+  },
+  totalButton: {
     alignItems: 'center',
-    ...mobileTheme.shadows.card,
+    padding: mobileTheme.spacing.lg,
   },
   totalText: {
     fontSize: 18,
@@ -411,10 +422,6 @@ const styles = StyleSheet.create({
   archivedBanner: {
     padding: mobileTheme.spacing.lg,
     marginBottom: mobileTheme.spacing.lg,
-    borderRadius: mobileTheme.radii.card,
-    backgroundColor: mobileTheme.colors.surfaceVariant,
-    borderColor: mobileTheme.colors.border,
-    borderWidth: 1,
   },
   archivedBannerText: {
     color: mobileTheme.colors.text,
