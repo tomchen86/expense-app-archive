@@ -63,12 +63,14 @@ export const AdaptiveSheet = ({
   leadingAction,
   onClose,
   sizing = 'resizable',
+  surface = 'grouped',
   testID,
   title,
   trailingAction,
   visible,
 }: AdaptiveSheetProps) => {
   const fitsContent = sizing === 'content';
+  const usesGlassSurface = surface === 'glass';
 
   return (
     <BottomSheet
@@ -83,11 +85,19 @@ export const AdaptiveSheet = ({
       snapPoints={fitsContent ? undefined : RESIZABLE_SNAP_POINTS}
     >
       <BottomSheetView
-        style={[styles.host, !fitsContent && styles.resizableHost]}
+        style={[
+          styles.host,
+          usesGlassSurface && styles.glassBackground,
+          !fitsContent && styles.resizableHost,
+        ]}
       >
         <View
           accessibilityViewIsModal
-          style={[styles.screen, !fitsContent && styles.resizableScreen]}
+          style={[
+            styles.screen,
+            usesGlassSurface && styles.glassBackground,
+            !fitsContent && styles.resizableScreen,
+          ]}
           testID={testID}
         >
           <View style={styles.header} testID='adaptive-sheet-header'>
@@ -119,6 +129,9 @@ export const AdaptiveSheet = ({
 const styles = StyleSheet.create({
   host: {
     backgroundColor: semanticColors.background,
+  },
+  glassBackground: {
+    backgroundColor: 'transparent',
   },
   resizableHost: {
     flex: 1,

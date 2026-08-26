@@ -73,6 +73,14 @@ jest.mock('../ui/adaptive-grouped-list', () => {
   };
 });
 
+jest.mock('../ui/adaptive-action-surface', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    AdaptiveActionSurface: ({ children, ...props }: any) =>
+      React.createElement('View', props, children),
+  };
+});
+
 const makePeriods = (count: number): InsightPeriod[] =>
   Array.from({ length: count }, (_, index) => {
     const date = new Date(2024, index, 1);
@@ -177,6 +185,11 @@ describe('iOS native Insights period picker', () => {
 
     const sheet = screen.getByTestId('period-picker-sheet');
     expect(sheet).toHaveProp('sizing', 'content');
+    expect(sheet).toHaveProp('surface', 'glass');
+    expect(screen.getByTestId('period-picker-glass-rows')).toHaveProp(
+      'tone',
+      'neutral',
+    );
     const yearPicker = screen.getByTestId('native-period-year-menu');
     expect(yearPicker).toHaveProp('selection', 2026);
     expect(screen.getAllByTestId(/native-year-option-/)).toHaveLength(2);

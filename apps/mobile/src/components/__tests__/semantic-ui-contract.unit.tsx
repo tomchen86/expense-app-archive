@@ -131,6 +131,29 @@ describe('iOS semantic UI contract', () => {
     );
   });
 
+  it('can present one continuous Liquid Glass sheet surface', () => {
+    const screen = render(
+      <AdaptiveSheet
+        onClose={jest.fn()}
+        sizing='content'
+        surface='glass'
+        testID='glass-sheet'
+        title='Period'
+        visible
+      >
+        <Text>Year and month</Text>
+      </AdaptiveSheet>,
+    );
+
+    const host = screen.UNSAFE_getByType(BottomSheetViewHost);
+    expect(StyleSheet.flatten(host.props.style)).toEqual(
+      expect.objectContaining({ backgroundColor: 'transparent' }),
+    );
+    expect(screen.getByTestId('glass-sheet')).toHaveStyle({
+      backgroundColor: 'transparent',
+    });
+  });
+
   it('gives grouped screens and sections native semantic surfaces', () => {
     const screen = render(
       <AdaptiveGroupedScreen testID='grouped-screen'>

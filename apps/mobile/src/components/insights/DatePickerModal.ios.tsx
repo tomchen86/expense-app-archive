@@ -12,7 +12,7 @@ import {
 
 import { semanticColors } from '../../theme/semantic-colors.ios';
 import { mobileTheme } from '../../theme/tokens';
-import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
+import { AdaptiveActionSurface } from '../ui/adaptive-action-surface';
 import { AdaptiveSheet } from '../ui/adaptive-sheet';
 import type { DatePickerModalProps } from './date-picker-modal.types';
 import { resolvePeriodPickerPresentation } from './period-picker-policy';
@@ -102,6 +102,7 @@ const MonthPeriodPickerSheet = ({
       leadingAction={{ label: 'Cancel', onPress: onClose }}
       onClose={onClose}
       sizing='content'
+      surface='glass'
       testID='period-picker-sheet'
       title='Period'
       trailingAction={{
@@ -111,7 +112,11 @@ const MonthPeriodPickerSheet = ({
       }}
       visible={visible && availablePeriods.length > 1}
     >
-      <AdaptiveGroupedSection>
+      <AdaptiveActionSurface
+        style={styles.selectionGroup}
+        testID='period-picker-glass-rows'
+        tone='neutral'
+      >
         <View style={[styles.selectionRow, styles.separator]}>
           <Text style={styles.selectionLabel}>Year</Text>
           <Host
@@ -172,7 +177,7 @@ const MonthPeriodPickerSheet = ({
             </Picker>
           </Host>
         </View>
-      </AdaptiveGroupedSection>
+      </AdaptiveActionSurface>
     </AdaptiveSheet>
   );
 };
@@ -227,6 +232,7 @@ const YearPeriodPickerSheet = ({
         leadingAction={{ label: 'Cancel', onPress: onClose }}
         onClose={onClose}
         sizing='content'
+        surface='glass'
         testID='period-picker-sheet'
         title='Period'
         trailingAction={{
@@ -236,7 +242,11 @@ const YearPeriodPickerSheet = ({
         }}
         visible={visible}
       >
-        <View style={styles.wheelSurface}>
+        <AdaptiveActionSurface
+          style={styles.wheelSurface}
+          testID='period-picker-glass-wheel'
+          tone='neutral'
+        >
           <Host
             ignoreSafeArea='all'
             seedColor={semanticColors.primary}
@@ -263,7 +273,7 @@ const YearPeriodPickerSheet = ({
               ))}
             </Picker>
           </Host>
-        </View>
+        </AdaptiveActionSurface>
       </AdaptiveSheet>
     );
   }
@@ -274,12 +284,17 @@ const YearPeriodPickerSheet = ({
       leadingAction={{ label: 'Close', onPress: onClose }}
       onClose={onClose}
       sizing='resizable'
+      surface='glass'
       testID='period-picker-sheet'
       title='Period'
       visible={visible}
     >
       <Text style={styles.sectionLabel}>AVAILABLE PERIODS</Text>
-      <AdaptiveGroupedSection>
+      <AdaptiveActionSurface
+        style={styles.listSurface}
+        testID='period-picker-glass-list'
+        tone='neutral'
+      >
         <ScrollView>
           {descendingPeriods.map((period, index) => {
             const selected = period.key === selectedPeriodKey;
@@ -313,7 +328,7 @@ const YearPeriodPickerSheet = ({
             );
           })}
         </ScrollView>
-      </AdaptiveGroupedSection>
+      </AdaptiveActionSurface>
     </AdaptiveSheet>
   );
 };
@@ -332,10 +347,13 @@ const styles = StyleSheet.create({
   },
   selectionRow: {
     alignItems: 'center',
-    backgroundColor: semanticColors.surface,
     flexDirection: 'row',
     minHeight: 54,
     paddingLeft: mobileTheme.spacing.lg,
+  },
+  selectionGroup: {
+    borderCurve: 'continuous',
+    borderRadius: mobileTheme.radii.control,
   },
   selectionLabel: {
     color: semanticColors.text,
@@ -351,10 +369,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: mobileTheme.spacing.lg,
   },
   wheelSurface: {
-    backgroundColor: semanticColors.surface,
     borderCurve: 'continuous',
     borderRadius: mobileTheme.radii.card,
-    overflow: 'hidden',
   },
   wheelHost: {
     height: 216,
@@ -373,9 +389,13 @@ const styles = StyleSheet.create({
     marginBottom: mobileTheme.spacing.sm,
     paddingHorizontal: mobileTheme.spacing.md,
   },
+  listSurface: {
+    borderCurve: 'continuous',
+    borderRadius: mobileTheme.radii.control,
+    flex: 1,
+  },
   periodRow: {
     alignItems: 'center',
-    backgroundColor: semanticColors.surface,
     flexDirection: 'row',
     justifyContent: 'space-between',
     minHeight: 52,

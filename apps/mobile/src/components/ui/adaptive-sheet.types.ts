@@ -17,6 +17,7 @@ export interface AdaptiveSheetProps {
   leadingAction?: AdaptiveSheetAction;
   onClose: () => void;
   sizing?: 'content' | 'resizable';
+  surface?: 'glass' | 'grouped';
   testID?: string;
   title: string;
   trailingAction?: AdaptiveSheetAction;
