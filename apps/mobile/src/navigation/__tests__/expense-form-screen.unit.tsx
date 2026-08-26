@@ -198,6 +198,22 @@ describe('AddExpenseScreen native task', () => {
     mockUseExpenseForm.mockReturnValue(buildHookResult());
   });
 
+  it('keeps one non-collapsible native root across form-sheet reopens', () => {
+    const firstOpen = render(<AddExpenseScreen />);
+
+    expect(firstOpen.getByTestId('expense-form-screen')).toHaveProp(
+      'collapsable',
+      false,
+    );
+    firstOpen.unmount();
+
+    const secondOpen = render(<AddExpenseScreen />);
+    expect(secondOpen.getByTestId('expense-form-screen')).toHaveProp(
+      'collapsable',
+      false,
+    );
+  });
+
   it('keeps the expanded note above the keyboard after its first focus', () => {
     const screen = render(<AddExpenseScreen />);
 
@@ -223,9 +239,17 @@ describe('AddExpenseScreen native task', () => {
     const screen = render(<AddExpenseScreen />);
 
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveProp(
+      'variant',
+      'plain',
+    );
     expect(screen.getByRole('button', { name: 'Add' })).toHaveProp(
       'disabled',
       true,
+    );
+    expect(screen.getByRole('button', { name: 'Add' })).toHaveProp(
+      'variant',
+      'prominent',
     );
     expect(screen.getByTestId('expense-amount-input')).toHaveProp(
       'keyboardType',
@@ -238,10 +262,13 @@ describe('AddExpenseScreen native task', () => {
     expect(screen.queryByText('Group')).toBeNull();
     expect(screen.queryByText('Add Expense')).toBeNull();
     expect(screen.queryByText('2026-08-24')).toBeNull();
-    expect(screen.getByTestId('native-date-picker')).toHaveProp(
+    expect(screen.queryByTestId('native-date-picker')).toBeNull();
+    expect(screen.getByTestId('date-picker')).toHaveProp(
       'accessibilityLabel',
       'Date, Aug 24, 2026',
     );
+
+    fireEvent.press(screen.getByTestId('date-picker'));
     expect(screen.getByTestId('native-date-picker')).toHaveProp(
       'maximumDate',
       expect.any(Date),

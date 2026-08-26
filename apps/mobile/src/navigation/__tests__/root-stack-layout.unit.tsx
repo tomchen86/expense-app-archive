@@ -1,6 +1,7 @@
 import React from 'react';
 import { Appearance } from 'react-native';
 import { render } from '@testing-library/react-native';
+import { featureFlags } from 'react-native-screens';
 
 import RootLayout from '../../../app/_layout';
 
@@ -22,6 +23,12 @@ jest.mock('react-native-gesture-handler', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => ({}));
+
+jest.mock('react-native-screens', () => ({
+  featureFlags: {
+    experiment: { synchronousScreenUpdatesEnabled: false },
+  },
+}));
 
 jest.mock('expo-status-bar', () => ({
   StatusBar: 'StatusBar',
@@ -86,6 +93,10 @@ describe('RootLayout', () => {
     expect(screen.getByTestId('navigation-theme').props.value.dark).toBe(true);
   });
 
+  it('enables synchronous native screen sizing before form sheets render', () => {
+    expect(featureFlags.experiment.synchronousScreenUpdatesEnabled).toBe(true);
+  });
+
   it('releases the override and follows the device appearance in System mode', () => {
     mockPreferredTheme = 'system';
     mockSystemColorScheme = 'dark';
@@ -107,7 +118,7 @@ describe('RootLayout', () => {
     );
   });
 
-  it('presents expense creation as a native modal task', () => {
+  it('presents expense creation as a full-height native form sheet task', () => {
     const screen = render(<RootLayout />);
     const addExpenseRoute = screen
       .getAllByTestId('root-stack-screen')
@@ -117,7 +128,10 @@ describe('RootLayout', () => {
     expect(addExpenseRoute?.props.options).toEqual(
       expect.objectContaining({
         headerBackVisible: false,
-        presentation: 'modal',
+        presentation: 'formSheet',
+        sheetAllowedDetents: [1],
+        sheetExpandsWhenScrolledToEdge: false,
+        sheetGrabberVisible: true,
         title: 'New Expense',
       }),
     );
@@ -134,7 +148,8 @@ describe('RootLayout', () => {
       expect.objectContaining({
         headerBackVisible: false,
         presentation: 'formSheet',
-        sheetAllowedDetents: 'fitToContents',
+        sheetAllowedDetents: [0.35],
+        sheetInitialDetentIndex: 0,
         sheetGrabberVisible: true,
         title: 'New Group',
       }),

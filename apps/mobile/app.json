@@ -12,9 +12,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "appleTeamId": "Q6C35LT283",
       "icon": "./assets/icon.icon",
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.mobile"
+      "bundleIdentifier": "com.tomchen.expenseapp"
     },
     "android": {
       "adaptiveIcon": {

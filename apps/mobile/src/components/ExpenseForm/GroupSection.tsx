@@ -33,7 +33,10 @@ export const GroupSection: React.FC<GroupSectionProps> = ({
         SHARING
       </Text>
       <AdaptiveGroupedSection>
-        <View style={styles.row}>
+        <View
+          style={[styles.row, sharingEnabled && styles.separator]}
+          testID='sharing-row'
+        >
           <Text style={styles.rowLabel}>Split with others</Text>
           <Switch
             accessibilityLabel='Split with others'
@@ -62,6 +65,7 @@ export const GroupSection: React.FC<GroupSectionProps> = ({
               }
               label='Group'
               onPress={onGroupPress}
+              separator={Boolean(selectedGroup)}
               testID='group-picker'
               value={selectedGroup?.name ?? 'Choose a group'}
             />
@@ -72,6 +76,7 @@ export const GroupSection: React.FC<GroupSectionProps> = ({
                   disabled={financialControlsDisabled || interactionDisabled}
                   label='Paid by'
                   onPress={onPaidByPress}
+                  separator
                   testID='paid-by-picker'
                   value={paidByParticipant?.name ?? 'Choose payer'}
                 />
@@ -97,6 +102,7 @@ const SelectionRow = ({
   disabled = false,
   label,
   onPress,
+  separator = false,
   testID,
   value,
 }: {
@@ -104,6 +110,7 @@ const SelectionRow = ({
   disabled?: boolean;
   label: string;
   onPress: () => void;
+  separator?: boolean;
   testID: string;
   value: string;
 }) => (
@@ -113,7 +120,7 @@ const SelectionRow = ({
     accessibilityState={{ disabled }}
     disabled={disabled}
     onPress={onPress}
-    style={styles.row}
+    style={[styles.row, separator && styles.separator]}
     testID={testID}
   >
     <Text style={styles.rowLabel}>{label}</Text>
@@ -142,6 +149,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: mobileTheme.spacing.lg,
+  },
+  separator: {
     borderBottomColor: semanticColors.separator,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },

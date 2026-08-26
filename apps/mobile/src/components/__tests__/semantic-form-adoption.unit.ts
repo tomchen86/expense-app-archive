@@ -4,6 +4,21 @@ import { resolve } from 'node:path';
 const componentRoot = resolve(__dirname, '..');
 
 describe('iOS expense form semantic adapter contract', () => {
+  it('selects the native date implementation through platform files', () => {
+    const iosSource = readFileSync(
+      resolve(componentRoot, 'DatePicker.ios.tsx'),
+      'utf8',
+    );
+    const fallbackSource = readFileSync(
+      resolve(componentRoot, 'DatePicker.tsx'),
+      'utf8',
+    );
+
+    expect(iosSource).toContain("display='compact'");
+    expect(iosSource).not.toContain('Platform.OS');
+    expect(fallbackSource).not.toContain('Platform.OS');
+  });
+
   it.each(['ExpenseForm/BasicInfoSection.tsx', 'ExpenseForm/GroupSection.tsx'])(
     '%s delegates grouped surfaces to the shared adapter',
     (path) => {

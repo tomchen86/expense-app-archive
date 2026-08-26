@@ -83,14 +83,14 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
         DETAILS
       </Text>
       <AdaptiveGroupedSection>
-        <View style={styles.row}>
+        <View style={[styles.row, styles.separator]} testID='expense-title-row'>
           <Text style={styles.rowLabel}>Title</Text>
           <TextInput
             accessibilityLabel='Expense title'
             autoCapitalize='sentences'
             editable={!interactionDisabled}
             onChangeText={onTitleChange}
-            placeholder='Dinner'
+            placeholder='What was it for?'
             placeholderTextColor={semanticColors.placeholder}
             returnKeyType='done'
             style={styles.rowInput}
@@ -104,12 +104,14 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({
           accessibilityState={{ disabled: interactionDisabled }}
           disabled={interactionDisabled}
           onPress={onCategoryPress}
-          style={styles.row}
+          style={[styles.row, styles.separator]}
           testID='category-picker'
         >
           <Text style={styles.rowLabel}>Category</Text>
           <View style={styles.rowValueContainer}>
-            <Text style={styles.rowValue}>{category}</Text>
+            <Text style={styles.rowValue} testID='expense-category-value'>
+              {category}
+            </Text>
             <Text accessibilityElementsHidden style={styles.chevron}>
               ›
             </Text>
@@ -186,7 +188,7 @@ const styles = StyleSheet.create({
     paddingTop: mobileTheme.spacing.lg,
   },
   currency: {
-    color: semanticColors.textMuted,
+    color: semanticColors.text,
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -224,6 +226,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: mobileTheme.spacing.lg,
+  },
+  separator: {
     borderBottomColor: semanticColors.separator,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
@@ -247,7 +251,7 @@ const styles = StyleSheet.create({
   },
   rowValue: {
     flexShrink: 1,
-    color: semanticColors.textMuted,
+    color: semanticColors.text,
     fontSize: 16,
     textAlign: 'right',
   },

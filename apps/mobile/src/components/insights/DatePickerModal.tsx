@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   },
   periodRow: {
     alignItems: 'center',
-    backgroundColor: semanticColors.surface,
+    backgroundColor: semanticColors.groupedRow,
     flexDirection: 'row',
     justifyContent: 'space-between',
     minHeight: 52,

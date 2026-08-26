@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { CurrencyInsight } from '../../utils/calculations/insightCalculations';
 import { formatMinorUnits } from '../../utils/money';
 import { mobileTheme } from '../../theme/tokens';
+import { AdaptiveCardSurface } from '../ui/adaptive-card-surface';
 
 interface InsightsSummaryProps {
   insights: CurrencyInsight[];
@@ -47,7 +48,7 @@ const InsightsSummary: React.FC<InsightsSummaryProps> = ({
         const total = formatMinorUnits(insight.totalMinor, insight.currency);
         const comparison = comparisonText(insight, priorPeriodText);
         return (
-          <View
+          <AdaptiveCardSurface
             accessibilityLabel={
               comparison
                 ? `Total spent ${total}. ${comparison}`
@@ -64,7 +65,7 @@ const InsightsSummary: React.FC<InsightsSummaryProps> = ({
             {comparison ? (
               <Text style={styles.comparison}>{comparison}</Text>
             ) : null}
-          </View>
+          </AdaptiveCardSurface>
         );
       })}
     </View>
@@ -77,12 +78,7 @@ const styles = StyleSheet.create({
     marginBottom: mobileTheme.spacing.lg,
   },
   card: {
-    backgroundColor: mobileTheme.colors.surface,
-    borderColor: mobileTheme.colors.border,
-    borderRadius: mobileTheme.radii.card,
-    borderWidth: 1,
     padding: mobileTheme.spacing.lg,
-    ...mobileTheme.shadows.card,
   },
   eyebrow: {
     color: mobileTheme.colors.textMuted,

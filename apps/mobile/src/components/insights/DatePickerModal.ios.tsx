@@ -12,8 +12,8 @@ import {
 
 import { semanticColors } from '../../theme/semantic-colors.ios';
 import { mobileTheme } from '../../theme/tokens';
-import { AdaptiveActionSurface } from '../ui/adaptive-action-surface';
 import { AdaptiveSheet } from '../ui/adaptive-sheet';
+import { AdaptiveSheetSection } from '../ui/adaptive-sheet-section';
 import type { DatePickerModalProps } from './date-picker-modal.types';
 import { resolvePeriodPickerPresentation } from './period-picker-policy';
 
@@ -99,23 +99,27 @@ const MonthPeriodPickerSheet = ({
   return (
     <AdaptiveSheet
       contentStyle={styles.hierarchicalSheetContent}
-      leadingAction={{ label: 'Cancel', onPress: onClose }}
+      leadingAction={{
+        label: 'Cancel',
+        onPress: onClose,
+        variant: 'plain',
+      }}
       onClose={onClose}
       sizing='content'
-      surface='glass'
+      surface='system'
       testID='period-picker-sheet'
       title='Period'
       trailingAction={{
         disabled: !draftPeriodKey,
         label: 'Done',
         onPress: handleDone,
+        variant: 'prominent',
       }}
       visible={visible && availablePeriods.length > 1}
     >
-      <AdaptiveActionSurface
+      <AdaptiveSheetSection
         style={styles.selectionGroup}
-        testID='period-picker-glass-rows'
-        tone='neutral'
+        testID='period-picker-sheet-rows'
       >
         <View style={[styles.selectionRow, styles.separator]}>
           <Text style={styles.selectionLabel}>Year</Text>
@@ -177,7 +181,7 @@ const MonthPeriodPickerSheet = ({
             </Picker>
           </Host>
         </View>
-      </AdaptiveActionSurface>
+      </AdaptiveSheetSection>
     </AdaptiveSheet>
   );
 };
@@ -229,23 +233,27 @@ const YearPeriodPickerSheet = ({
     return (
       <AdaptiveSheet
         contentStyle={styles.wheelSheetContent}
-        leadingAction={{ label: 'Cancel', onPress: onClose }}
+        leadingAction={{
+          label: 'Cancel',
+          onPress: onClose,
+          variant: 'plain',
+        }}
         onClose={onClose}
         sizing='content'
-        surface='glass'
+        surface='system'
         testID='period-picker-sheet'
         title='Period'
         trailingAction={{
           disabled: !draftPeriodKey,
           label: 'Done',
           onPress: handleDone,
+          variant: 'prominent',
         }}
         visible={visible}
       >
-        <AdaptiveActionSurface
+        <AdaptiveSheetSection
           style={styles.wheelSurface}
-          testID='period-picker-glass-wheel'
-          tone='neutral'
+          testID='period-picker-sheet-wheel'
         >
           <Host
             ignoreSafeArea='all'
@@ -273,7 +281,7 @@ const YearPeriodPickerSheet = ({
               ))}
             </Picker>
           </Host>
-        </AdaptiveActionSurface>
+        </AdaptiveSheetSection>
       </AdaptiveSheet>
     );
   }
@@ -281,19 +289,22 @@ const YearPeriodPickerSheet = ({
   return (
     <AdaptiveSheet
       contentStyle={styles.listSheetContent}
-      leadingAction={{ label: 'Close', onPress: onClose }}
+      leadingAction={{
+        label: 'Close',
+        onPress: onClose,
+        variant: 'plain',
+      }}
       onClose={onClose}
       sizing='resizable'
-      surface='glass'
+      surface='system'
       testID='period-picker-sheet'
       title='Period'
       visible={visible}
     >
       <Text style={styles.sectionLabel}>AVAILABLE PERIODS</Text>
-      <AdaptiveActionSurface
+      <AdaptiveSheetSection
         style={styles.listSurface}
-        testID='period-picker-glass-list'
-        tone='neutral'
+        testID='period-picker-sheet-list'
       >
         <ScrollView>
           {descendingPeriods.map((period, index) => {
@@ -328,7 +339,7 @@ const YearPeriodPickerSheet = ({
             );
           })}
         </ScrollView>
-      </AdaptiveActionSurface>
+      </AdaptiveSheetSection>
     </AdaptiveSheet>
   );
 };

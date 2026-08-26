@@ -22,6 +22,7 @@ export const ExpenseFormHeaderActions = ({
         accessibilityLabel='Cancel'
         disabled={isSubmitting}
         onPress={onCancel}
+        variant='plain'
       >
         Cancel
       </Stack.Toolbar.Button>
@@ -31,6 +32,7 @@ export const ExpenseFormHeaderActions = ({
         accessibilityLabel={isEditing ? 'Save' : 'Add'}
         disabled={!canSubmit || isSubmitting}
         onPress={onSubmit}
+        variant='prominent'
       >
         {isEditing ? 'Save' : 'Add'}
       </Stack.Toolbar.Button>

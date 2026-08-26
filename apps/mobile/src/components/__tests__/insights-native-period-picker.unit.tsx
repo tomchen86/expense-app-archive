@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import type { InsightPeriod } from '../../hooks/useInsightsData';
+import { semanticColors } from '../../theme/semantic-colors.ios';
 import DatePickerModal from '../insights/DatePickerModal.ios';
 import PeriodPickerControl from '../insights/period-picker-control.ios';
 import {
@@ -141,6 +142,10 @@ describe('iOS native Insights period picker', () => {
     );
 
     const picker = screen.getByTestId('native-period-menu');
+    expect(screen.getByTestId('native-period-menu-host')).toHaveProp(
+      'seedColor',
+      semanticColors.text,
+    );
     expect(picker).toHaveProp('selection', periods[2].key);
     expect(picker.props.modifiers).toEqual(
       expect.arrayContaining([
@@ -185,11 +190,9 @@ describe('iOS native Insights period picker', () => {
 
     const sheet = screen.getByTestId('period-picker-sheet');
     expect(sheet).toHaveProp('sizing', 'content');
-    expect(sheet).toHaveProp('surface', 'glass');
-    expect(screen.getByTestId('period-picker-glass-rows')).toHaveProp(
-      'tone',
-      'neutral',
-    );
+    expect(sheet).toHaveProp('surface', 'system');
+    expect(screen.getByTestId('period-picker-sheet-rows')).toBeTruthy();
+    expect(screen.queryByTestId('period-picker-glass-rows')).toBeNull();
     const yearPicker = screen.getByTestId('native-period-year-menu');
     expect(yearPicker).toHaveProp('selection', 2026);
     expect(screen.getAllByTestId(/native-year-option-/)).toHaveLength(2);

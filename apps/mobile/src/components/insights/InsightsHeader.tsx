@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { mobileTheme } from '../../theme/tokens';
 import type { InsightPeriod } from '../../hooks/useInsightsData';
-import { AdaptiveActionSurface } from '../ui/adaptive-action-surface';
+import { AdaptiveCardSurface } from '../ui/adaptive-card-surface';
 import PeriodAggregationControl from './period-aggregation-control';
 import PeriodPickerControl from './period-picker-control';
 
@@ -145,7 +145,7 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
   );
 
   return (
-    <View style={styles.controlsContainer}>
+    <AdaptiveCardSurface style={styles.controlsContainer}>
       <PeriodAggregationControl
         aggregation={aggregation}
         onChange={onAggregationChange}
@@ -153,8 +153,7 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
 
       <View style={styles.periodNavigatorContainer} testID='period-navigator'>
         {hasMultiplePeriods ? (
-          <AdaptiveActionSurface
-            interactive
+          <View
             style={[
               styles.periodArrowSurface,
               isPreviousDisabled && styles.disabledArrowButton,
@@ -181,7 +180,7 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
                 size={21}
               />
             </TouchableOpacity>
-          </AdaptiveActionSurface>
+          </View>
         ) : null}
         {hasMultiplePeriods ? (
           <View
@@ -189,8 +188,7 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
             style={styles.periodSwipeTarget}
             testID='period-swipe-target'
           >
-            <AdaptiveActionSurface
-              interactive
+            <View
               style={styles.periodPickerSurface}
               testID='period-picker-surface'
             >
@@ -213,10 +211,10 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
                   selectedPeriodKey={selectedPeriodKey}
                 />
               </Animated.View>
-            </AdaptiveActionSurface>
+            </View>
           </View>
         ) : (
-          <AdaptiveActionSurface
+          <View
             style={styles.periodPickerSurface}
             testID='period-picker-surface'
           >
@@ -243,11 +241,10 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
                 </Text>
               </Animated.View>
             </View>
-          </AdaptiveActionSurface>
+          </View>
         )}
         {hasMultiplePeriods ? (
-          <AdaptiveActionSurface
-            interactive
+          <View
             style={[
               styles.periodArrowSurface,
               isNextDisabled && styles.disabledArrowButton,
@@ -274,19 +271,15 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
                 size={21}
               />
             </TouchableOpacity>
-          </AdaptiveActionSurface>
+          </View>
         ) : null}
       </View>
-    </View>
+    </AdaptiveCardSurface>
   );
 };
 
 const styles = StyleSheet.create({
   controlsContainer: {
-    backgroundColor: mobileTheme.colors.surface,
-    borderColor: mobileTheme.colors.border,
-    borderRadius: mobileTheme.radii.card,
-    borderWidth: 1,
     marginBottom: mobileTheme.spacing.lg,
     padding: mobileTheme.spacing.md,
   },
@@ -309,7 +302,6 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     width: 44,
-    ...mobileTheme.shadows.card,
   },
   disabledArrowButton: {
     opacity: 0.28,
@@ -331,7 +323,6 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     width: '100%',
-    ...mobileTheme.shadows.card,
   },
   periodPickerContent: {
     alignItems: 'center',

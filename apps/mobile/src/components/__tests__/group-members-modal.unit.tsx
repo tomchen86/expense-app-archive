@@ -68,13 +68,14 @@ const group: ExpenseGroup = {
 describe('GroupMembersModal', () => {
   it('starts read-only and shows mutations only after Edit', () => {
     const onAddMember = jest.fn();
+    const onClose = jest.fn();
     const onRemoveMember = jest.fn();
     const screen = render(
       <GroupMembersModal
         currentParticipantId='participant-alex'
         group={group}
         onAddMember={onAddMember}
-        onClose={jest.fn()}
+        onClose={onClose}
         onRemoveMember={onRemoveMember}
         visible
       />,
@@ -87,6 +88,12 @@ describe('GroupMembersModal', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Edit members' }));
 
+    expect(
+      screen.getByRole('button', { name: 'Cancel editing members' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Finish editing members' }),
+    ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add member' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Remove Blake' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Remove Alex' })).toBeNull();
@@ -95,6 +102,12 @@ describe('GroupMembersModal', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Add member' }));
     expect(onRemoveMember).toHaveBeenCalledWith('participant-blake');
     expect(onAddMember).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Cancel editing members' }),
+    );
+    expect(screen.queryByRole('button', { name: 'Add member' })).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('keeps archived membership read-only', () => {

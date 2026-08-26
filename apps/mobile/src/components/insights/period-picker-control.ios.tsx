@@ -34,8 +34,9 @@ const PeriodPickerControl = ({
   return (
     <Host
       ignoreSafeArea='all'
-      seedColor={semanticColors.primary}
+      seedColor={semanticColors.text}
       style={styles.host}
+      testID='native-period-menu-host'
       useViewportSizeMeasurement
     >
       <Picker

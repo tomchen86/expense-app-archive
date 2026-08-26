@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert, StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import ManageCategoriesScreen from '../../../app/manage-categories';
@@ -38,6 +39,7 @@ jest.mock('react-native', () => {
     };
 
   return {
+    Alert: { alert: jest.fn() },
     FlatList: ({ data, renderItem, ...props }: any) =>
       React.createElement(
         'FlatList',
@@ -51,6 +53,7 @@ jest.mock('react-native', () => {
         ),
       ),
     ScrollView: host('ScrollView'),
+    Pressable: host('Pressable', true),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
       flatten: (style: unknown): Record<string, unknown> | undefined => {
@@ -65,6 +68,14 @@ jest.mock('react-native', () => {
     Text: host('Text'),
     TouchableOpacity: host('View', true),
     View: host('View'),
+  };
+});
+
+jest.mock('@expo/vector-icons', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    Ionicons: (props: Record<string, unknown>) =>
+      React.createElement('Ionicons', props),
   };
 });
 
@@ -144,10 +155,16 @@ describe('native category management UI', () => {
     expect(screen.queryByText('Manage Categories')).toBeNull();
     expect(screen.queryByText('+ Add New Category')).toBeNull();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Tap a category to edit. Removing a category in use will offer Archive or explicit reclassification.',
       ),
-    ).toBeTruthy();
+    ).toBeNull();
+
+    fireEvent.press(screen.getByRole('button', { name: 'About categories' }));
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'About Categories',
+      expect.stringContaining('Uncategorized is reserved'),
+    );
 
     fireEvent.press(screen.getByLabelText('Add category'));
     expect(mockOpenAddModal).toHaveBeenCalledTimes(1);
@@ -200,6 +217,29 @@ describe('native category management UI', () => {
     fireEvent.press(deleteButton);
     expect(close).toHaveBeenCalledTimes(1);
     expect(mockDeleteCategory).toHaveBeenCalledWith('custom-category');
+  });
+
+  it('keeps the row separator independent from pressed content opacity', () => {
+    const screen = render(
+      <CategoryListItem
+        canDelete
+        category={mockCategories[1]}
+        onDelete={mockDeleteCategory}
+        onEdit={mockOpenEditModal}
+      />,
+    );
+
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId('category-row-custom-category').props.style,
+      ),
+    ).not.toHaveProperty('borderBottomWidth');
+    expect(
+      screen.getByTestId('category-separator-custom-category'),
+    ).toHaveStyle({
+      backgroundColor: semanticColors.separator,
+      height: StyleSheet.hairlineWidth,
+    });
   });
 
   it('makes an archived category explicitly restorable', () => {

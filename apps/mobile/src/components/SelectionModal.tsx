@@ -9,8 +9,8 @@ import {
 
 import { semanticColors } from '../theme/semantic-colors';
 import { mobileTheme } from '../theme/tokens';
-import { AdaptiveGroupedSection } from './ui/adaptive-grouped-list';
 import { AdaptiveSheet } from './ui/adaptive-sheet';
+import { AdaptiveSheetSection } from './ui/adaptive-sheet-section';
 
 interface SelectionModalProps<T> {
   visible: boolean;
@@ -51,14 +51,18 @@ function SelectionModal<T>({
   return (
     <AdaptiveSheet
       leadingAction={
-        multiSelect ? undefined : { label: 'Cancel', onPress: onClose }
+        multiSelect
+          ? undefined
+          : { label: 'Cancel', onPress: onClose, variant: 'plain' }
       }
       onClose={onClose}
       sizing={sheetSizing}
       testID='selection-modal-content'
       title={title}
       trailingAction={
-        multiSelect ? { label: 'Done', onPress: onClose } : undefined
+        multiSelect
+          ? { label: 'Done', onPress: onClose, variant: 'prominent' }
+          : undefined
       }
       visible={visible}
     >
@@ -68,7 +72,7 @@ function SelectionModal<T>({
           sheetSizing === 'resizable' && styles.resizableContent,
         ]}
       >
-        <AdaptiveGroupedSection style={styles.listSection}>
+        <AdaptiveSheetSection style={styles.listSection}>
           <FlatList
             data={data}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -100,10 +104,10 @@ function SelectionModal<T>({
             }}
             style={styles.list}
           />
-        </AdaptiveGroupedSection>
+        </AdaptiveSheetSection>
 
         {onClearSelection ? (
-          <AdaptiveGroupedSection style={styles.clearSection}>
+          <AdaptiveSheetSection style={styles.clearSection}>
             <TouchableOpacity
               accessibilityLabel='Clear selection'
               accessibilityRole='button'
@@ -112,7 +116,7 @@ function SelectionModal<T>({
             >
               <Text style={styles.clearText}>Clear Selection</Text>
             </TouchableOpacity>
-          </AdaptiveGroupedSection>
+          </AdaptiveSheetSection>
         ) : null}
       </View>
     </AdaptiveSheet>
@@ -144,7 +148,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: mobileTheme.spacing.lg,
-    backgroundColor: semanticColors.surface,
+    backgroundColor: semanticColors.groupedRow,
   },
   itemContent: {
     flex: 1,

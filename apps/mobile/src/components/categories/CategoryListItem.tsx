@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -52,50 +52,61 @@ const CategoryListItem: React.FC<CategoryListItemProps> = ({
   );
 
   const renderContent = () => (
-    <TouchableOpacity
-      accessibilityActions={
-        canDelete ? [{ label: 'Delete category', name: 'delete' }] : undefined
-      }
-      accessibilityHint={
-        archived
-          ? 'Restores this category for new expenses.'
-          : canDelete
-            ? 'Opens the category editor. Swipe left to delete.'
+    <View>
+      <Pressable
+        accessibilityActions={
+          canDelete ? [{ label: 'Delete category', name: 'delete' }] : undefined
+        }
+        accessibilityHint={
+          archived
+            ? 'Restores this category for new expenses.'
+            : canDelete
+              ? 'Opens the category editor. Swipe left to delete.'
+              : canEdit
+                ? 'Opens the category editor.'
+                : 'This system category cannot be edited or deleted.'
+        }
+        accessibilityLabel={
+          archived
+            ? `Restore ${displayName} category`
             : canEdit
-              ? 'Opens the category editor.'
-              : 'This system category cannot be edited or deleted.'
-      }
-      accessibilityLabel={
-        archived
-          ? `Restore ${displayName} category`
-          : canEdit
-            ? `Edit ${displayName} category`
-            : `${displayName} system category`
-      }
-      accessibilityRole={archived || canEdit ? 'button' : 'text'}
-      disabled={!archived && !canEdit}
-      onAccessibilityAction={(event) => {
-        if (canDelete && event.nativeEvent.actionName === 'delete') {
-          onDelete(category.id);
+              ? `Edit ${displayName} category`
+              : `${displayName} system category`
         }
-      }}
-      onPress={() => {
-        if (archived) {
-          onRestore?.(category.id);
-        } else if (canEdit) {
-          onEdit(category);
-        }
-      }}
-      activeOpacity={0.7}
-      style={[styles.itemContainer, isLast && styles.lastItem]}
-      testID={`category-row-${category.id}`}
-    >
-      <View style={[styles.colorDot, { backgroundColor: category.color }]} />
-      <Text numberOfLines={1} style={styles.itemName}>
-        {displayName}
-      </Text>
-      {archived ? <Text style={styles.restoreText}>Restore</Text> : null}
-    </TouchableOpacity>
+        accessibilityRole={archived || canEdit ? 'button' : 'text'}
+        disabled={!archived && !canEdit}
+        onAccessibilityAction={(event) => {
+          if (canDelete && event.nativeEvent.actionName === 'delete') {
+            onDelete(category.id);
+          }
+        }}
+        onPress={() => {
+          if (archived) {
+            onRestore?.(category.id);
+          } else if (canEdit) {
+            onEdit(category);
+          }
+        }}
+        style={({ pressed }) => [
+          styles.itemContainer,
+          pressed && (archived || canEdit) && styles.pressedItem,
+        ]}
+        testID={`category-row-${category.id}`}
+      >
+        <View style={[styles.colorDot, { backgroundColor: category.color }]} />
+        <Text numberOfLines={1} style={styles.itemName}>
+          {displayName}
+        </Text>
+        {archived ? <Text style={styles.restoreText}>Restore</Text> : null}
+      </Pressable>
+      {!isLast ? (
+        <View
+          pointerEvents='none'
+          style={styles.separator}
+          testID={`category-separator-${category.id}`}
+        />
+      ) : null}
+    </View>
   );
 
   // The reserved Uncategorized row has no destructive swipe action.
@@ -121,12 +132,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 54,
     paddingHorizontal: mobileTheme.spacing.lg,
-    backgroundColor: semanticColors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: semanticColors.separator,
+    backgroundColor: semanticColors.groupedRow,
   },
-  lastItem: {
-    borderBottomWidth: 0,
+  pressedItem: {
+    backgroundColor: semanticColors.fill,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 51,
+    backgroundColor: semanticColors.separator,
   },
   colorDot: {
     width: 20,

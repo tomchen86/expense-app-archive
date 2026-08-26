@@ -4,6 +4,7 @@ import { PieChart } from 'react-native-gifted-charts';
 import type { CurrencyInsight } from '../../utils/calculations/insightCalculations';
 import { formatMinorUnits } from '../../utils/money';
 import { mobileTheme } from '../../theme/tokens';
+import { AdaptiveCardSurface } from '../ui/adaptive-card-surface';
 
 interface CategoryChartProps {
   insights: CurrencyInsight[];
@@ -76,18 +77,21 @@ const CategoryChart: React.FC<CategoryChartProps> = ({ insights }) => {
   );
   if (currentInsights.length === 0) {
     return (
-      <View accessibilityLiveRegion='polite' style={styles.container}>
+      <AdaptiveCardSurface
+        accessibilityLiveRegion='polite'
+        style={styles.container}
+      >
         <View style={styles.chartContainer}>
           <Text style={styles.noDataText}>
             No expense data for the selected period.
           </Text>
         </View>
-      </View>
+      </AdaptiveCardSurface>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <AdaptiveCardSurface style={styles.container}>
       {currentInsights.map((insight) => (
         <View key={insight.currency} style={styles.currencyGroup}>
           <Text accessibilityRole='header' style={styles.currencyHeading}>
@@ -140,7 +144,7 @@ const CategoryChart: React.FC<CategoryChartProps> = ({ insights }) => {
                     value: category.value,
                   }))}
                   donut
-                  innerCircleColor={mobileTheme.colors.surface}
+                  innerCircleColor='transparent'
                 />
               ) : (
                 <HorizontalBarVisual
@@ -189,14 +193,12 @@ const CategoryChart: React.FC<CategoryChartProps> = ({ insights }) => {
           </View>
         </View>
       ))}
-    </View>
+    </AdaptiveCardSurface>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: mobileTheme.colors.surface,
-    borderRadius: mobileTheme.radii.card,
     padding: mobileTheme.spacing.lg,
     marginBottom: mobileTheme.spacing.xl,
   },

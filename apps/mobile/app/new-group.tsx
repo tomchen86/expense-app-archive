@@ -1,8 +1,15 @@
 import React, { useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { router, Stack } from 'expo-router';
 
-import { AdaptiveGroupedSection } from '../src/components/ui/adaptive-grouped-list';
+import { AdaptiveSheetSection } from '../src/components/ui/adaptive-sheet-section';
 import { useExpenseStore } from '../src/store/expenseStore';
 import { semanticColors } from '../src/theme/semantic-colors';
 import { mobileTheme } from '../src/theme/tokens';
@@ -50,10 +57,10 @@ const NewGroupScreen = () => {
   };
 
   return (
-    <View style={styles.screen}>
+    <View collapsable={false} style={styles.screen} testID='new-group-screen'>
       <Stack.Screen
         options={{
-          contentStyle: { backgroundColor: semanticColors.background },
+          contentStyle: { backgroundColor: semanticColors.sheetBackground },
           gestureEnabled: !isSubmitting,
           title: 'New Group',
         }}
@@ -63,6 +70,7 @@ const NewGroupScreen = () => {
           accessibilityLabel='Cancel'
           disabled={isSubmitting}
           onPress={closeNewGroupRoute}
+          variant='plain'
         >
           Cancel
         </Stack.Toolbar.Button>
@@ -72,16 +80,23 @@ const NewGroupScreen = () => {
           accessibilityLabel='Create'
           disabled={!canSubmit}
           onPress={() => void handleCreate()}
+          variant='prominent'
         >
           Create
         </Stack.Toolbar.Button>
       </Stack.Toolbar>
 
-      <View style={styles.content}>
+      <ScrollView
+        automaticallyAdjustKeyboardInsets={false}
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior='automatic'
+        keyboardShouldPersistTaps='handled'
+        testID='new-group-content'
+      >
         <Text accessibilityRole='header' style={styles.sectionLabel}>
           GROUP DETAILS
         </Text>
-        <AdaptiveGroupedSection style={styles.section}>
+        <AdaptiveSheetSection style={styles.section}>
           <View style={styles.nameRow}>
             <Text style={styles.label}>Name</Text>
             <TextInput
@@ -100,22 +115,23 @@ const NewGroupScreen = () => {
               value={groupName}
             />
           </View>
-        </AdaptiveGroupedSection>
+        </AdaptiveSheetSection>
         <Text style={styles.helperText}>
           Members can be added after the group is created.
         </Text>
-      </View>
+      </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: semanticColors.background,
+    flex: 1,
+    backgroundColor: semanticColors.sheetBackground,
   },
   content: {
     paddingHorizontal: mobileTheme.spacing.xl,
-    paddingTop: 72,
+    paddingTop: mobileTheme.spacing.lg,
     paddingBottom: mobileTheme.spacing.xxl,
   },
   sectionLabel: {

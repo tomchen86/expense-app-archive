@@ -14,8 +14,8 @@ import {
   canRemoveParticipantFromGroup,
   isExpenseGroupArchived,
 } from '../../utils/groupDomain';
-import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
 import { AdaptiveSheet } from '../ui/adaptive-sheet';
+import { AdaptiveSheetSection } from '../ui/adaptive-sheet-section';
 
 interface GroupMembersModalProps {
   currentParticipantId: string | null;
@@ -91,10 +91,13 @@ const GroupMembersModal = ({
   return (
     <AdaptiveSheet
       leadingAction={{
-        accessibilityLabel: 'Close members',
+        accessibilityLabel: isEditing
+          ? 'Cancel editing members'
+          : 'Close members',
         disabled: isMutationPending,
-        label: 'Close',
-        onPress: close,
+        label: isEditing ? 'Cancel' : 'Close',
+        onPress: isEditing ? () => setIsEditing(false) : close,
+        variant: 'plain',
       }}
       onClose={close}
       title='Members'
@@ -107,6 +110,7 @@ const GroupMembersModal = ({
               disabled: isMutationPending,
               label: isEditing ? 'Done' : 'Edit',
               onPress: () => setIsEditing((editing) => !editing),
+              variant: isEditing ? 'prominent' : 'plain',
             }
           : undefined
       }
@@ -119,7 +123,7 @@ const GroupMembersModal = ({
           sheetSizing === 'resizable' && styles.resizableContent,
         ]}
       >
-        <AdaptiveGroupedSection style={styles.listSection}>
+        <AdaptiveSheetSection style={styles.listSection}>
           <FlatList
             data={group.participants}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -148,7 +152,7 @@ const GroupMembersModal = ({
             }
             renderItem={renderMember}
           />
-        </AdaptiveGroupedSection>
+        </AdaptiveSheetSection>
       </View>
     </AdaptiveSheet>
   );
@@ -177,7 +181,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: mobileTheme.spacing.lg,
-    backgroundColor: semanticColors.surface,
+    backgroundColor: semanticColors.groupedRow,
   },
   memberName: {
     flex: 1,
@@ -198,7 +202,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     justifyContent: 'center',
     paddingHorizontal: mobileTheme.spacing.lg,
-    backgroundColor: semanticColors.surface,
+    backgroundColor: semanticColors.groupedRow,
   },
   addButtonText: {
     color: semanticColors.primary,

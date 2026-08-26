@@ -1,7 +1,9 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { BasicInfoSection } from '../ExpenseForm/BasicInfoSection';
+import { semanticColors } from '../../theme/semantic-colors';
 
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -69,6 +71,23 @@ const baseProps = {
 };
 
 describe('Expense note field', () => {
+  it('keeps meaningful form labels legible and uses task-focused title copy', () => {
+    const screen = render(<BasicInfoSection {...baseProps} />);
+
+    expect(screen.getByTestId('expense-title-input')).toHaveProp(
+      'placeholder',
+      'What was it for?',
+    );
+    expect(StyleSheet.flatten(screen.getByText('USD').props.style)).toEqual(
+      expect.objectContaining({ color: semanticColors.text }),
+    );
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId('expense-category-value').props.style,
+      ),
+    ).toEqual(expect.objectContaining({ color: semanticColors.text }));
+  });
+
   it('focuses and expands on the first tap, then collapses to a summary row on blur', () => {
     const screen = render(<BasicInfoSection {...baseProps} />);
     let noteInput = screen.getByTestId('expense-caption-input');

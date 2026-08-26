@@ -1,5 +1,13 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { ScrollView, Text, StyleSheet } from 'react-native';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 
 import { useCategoryManager } from '../src/hooks/useCategoryManager';
@@ -23,6 +31,11 @@ const ManageCategoriesScreen = () => {
     scopeKind: isGroupScope ? 'group' : 'personal',
     spaceId,
   });
+  const showCategoryInfo = () =>
+    Alert.alert(
+      'About Categories',
+      'Tap a category to edit it. Swipe left to remove a custom category. Categories used by expenses can be archived or moved, so historical classifications stay intact. Uncategorized is reserved and cannot be renamed or removed.',
+    );
 
   return (
     <AdaptiveGroupedScreen>
@@ -44,7 +57,22 @@ const ManageCategoriesScreen = () => {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionLabel}>CATEGORIES</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>CATEGORIES</Text>
+          <TouchableOpacity
+            accessibilityLabel='About categories'
+            accessibilityRole='button'
+            hitSlop={mobileTheme.spacing.sm}
+            onPress={showCategoryInfo}
+            style={styles.infoButton}
+          >
+            <Ionicons
+              color={semanticColors.primary}
+              name='information-circle-outline'
+              size={18}
+            />
+          </TouchableOpacity>
+        </View>
         <AdaptiveGroupedSection>
           {categoryManager.activeCategories.map((category, index) => (
             <CategoryListItem
@@ -58,15 +86,6 @@ const ManageCategoriesScreen = () => {
             />
           ))}
         </AdaptiveGroupedSection>
-        <Text style={styles.footerText}>
-          Tap a category to edit. Removing a category in use will offer Archive
-          or explicit reclassification.
-        </Text>
-
-        <Text style={styles.footerText}>
-          Uncategorized is reserved. Any other unused category can be deleted.
-        </Text>
-
         {categoryManager.archivedCategories.length > 0 ? (
           <>
             <Text style={[styles.sectionLabel, styles.archivedSectionLabel]}>
@@ -135,8 +154,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
     marginBottom: mobileTheme.spacing.sm,
     marginLeft: mobileTheme.spacing.md,
+  },
+  infoButton: {
+    alignItems: 'center',
+    height: 28,
+    justifyContent: 'center',
+    marginLeft: mobileTheme.spacing.xs,
+    width: 28,
   },
   footerText: {
     color: semanticColors.textMuted,
@@ -146,6 +176,8 @@ const styles = StyleSheet.create({
     marginTop: mobileTheme.spacing.sm,
   },
   archivedSectionLabel: {
+    marginBottom: mobileTheme.spacing.sm,
+    marginLeft: mobileTheme.spacing.md,
     marginTop: mobileTheme.spacing.xxl,
   },
   moveTargetText: {

@@ -3,8 +3,8 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { semanticColors } from '../theme/semantic-colors';
 import { mobileTheme } from '../theme/tokens';
-import { AdaptiveGroupedSection } from './ui/adaptive-grouped-list';
 import { AdaptiveSheet } from './ui/adaptive-sheet';
+import { AdaptiveSheetSection } from './ui/adaptive-sheet-section';
 
 interface TextInputModalProps {
   visible: boolean;
@@ -83,6 +83,7 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
         label: cancelButtonText,
         onPress: handleClose,
         testID: 'text-input-modal-cancel',
+        variant: 'plain',
       }}
       onClose={handleClose}
       title={title}
@@ -93,12 +94,13 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
         label: submitButtonText,
         onPress: () => void handleSubmit(),
         testID: submitButtonTestID,
+        variant: 'prominent',
       }}
       sizing='content'
       visible={visible}
     >
       <View style={styles.content}>
-        <AdaptiveGroupedSection>
+        <AdaptiveSheetSection>
           <TextInput
             accessibilityLabel={placeholder}
             autoCapitalize='words'
@@ -114,7 +116,7 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
             testID={inputTestID}
             value={inputValue}
           />
-        </AdaptiveGroupedSection>
+        </AdaptiveSheetSection>
       </View>
     </AdaptiveSheet>
   );

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 
-import DatePicker from '../DatePicker';
+import DatePicker from '../DatePicker.ios';
 import { GroupSection } from '../ExpenseForm/GroupSection';
 
 jest.mock('react-native', () => {
@@ -117,6 +117,52 @@ describe('iOS expense form native controls', () => {
         height: 31,
         marginRight: 8,
         width: 51,
+      }),
+    );
+    expect(
+      StyleSheet.flatten(screen.getByTestId('sharing-row').props.style),
+    ).not.toEqual(
+      expect.objectContaining({
+        borderBottomWidth: StyleSheet.hairlineWidth,
+      }),
+    );
+  });
+
+  it('draws separators only between visible sharing rows', () => {
+    const screen = render(
+      <GroupSection
+        onGroupPress={jest.fn()}
+        onPaidByPress={jest.fn()}
+        onSharingChange={jest.fn()}
+        onSplitPress={jest.fn()}
+        paidByParticipant={{ id: 'me', name: 'Tom' }}
+        selectedGroup={{
+          createdAt: '2026-08-26T00:00:00.000Z',
+          id: 'group-1',
+          name: 'Trip',
+          participants: [],
+        }}
+        selectedParticipants={[{ id: 'me', name: 'Tom' }]}
+        sharingEnabled
+      />,
+    );
+
+    expect(screen.getByTestId('sharing-row')).toHaveStyle({
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    });
+    expect(screen.getByTestId('group-picker')).toHaveStyle({
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    });
+    expect(screen.getByTestId('paid-by-picker')).toHaveStyle({
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    });
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId('split-between-picker').props.style,
+      ),
+    ).not.toEqual(
+      expect.objectContaining({
+        borderBottomWidth: StyleSheet.hairlineWidth,
       }),
     );
   });

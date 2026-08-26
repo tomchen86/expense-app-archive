@@ -8,8 +8,8 @@ import {
   normalizeCategoryColor,
 } from '../../theme/category-palette';
 import { mobileTheme } from '../../theme/tokens';
-import { AdaptiveGroupedSection } from '../ui/adaptive-grouped-list';
 import { AdaptiveSheet } from '../ui/adaptive-sheet';
+import { AdaptiveSheetSection } from '../ui/adaptive-sheet-section';
 
 interface CategoryFormProps {
   visible: boolean;
@@ -69,7 +69,11 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
 
   return (
     <AdaptiveSheet
-      leadingAction={{ label: 'Cancel', onPress: handleClose }}
+      leadingAction={{
+        label: 'Cancel',
+        onPress: handleClose,
+        variant: 'plain',
+      }}
       onClose={handleClose}
       testID='category-form-sheet'
       title={modalTitle}
@@ -78,6 +82,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
         label: editingCategory ? 'Save' : 'Add',
         onPress: handleSave,
         testID: 'category-save-action',
+        variant: 'prominent',
       }}
       visible={visible}
     >
@@ -87,7 +92,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
         keyboardShouldPersistTaps='handled'
       >
         <Text style={styles.sectionLabel}>NAME</Text>
-        <AdaptiveGroupedSection>
+        <AdaptiveSheetSection>
           <TextInput
             accessibilityLabel='Category name'
             style={styles.input}
@@ -99,17 +104,17 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
             maxLength={50}
             testID='category-name-input'
           />
-        </AdaptiveGroupedSection>
+        </AdaptiveSheetSection>
 
         <Text style={styles.sectionLabel}>COLOR</Text>
-        <AdaptiveGroupedSection style={styles.colorSection}>
+        <AdaptiveSheetSection style={styles.colorSection}>
           <ColorPicker
             label={null}
             selectedColor={selectedColor}
             onColorSelect={setSelectedColor}
             unavailableColors={unavailableColors}
           />
-        </AdaptiveGroupedSection>
+        </AdaptiveSheetSection>
         {!selectedColor ? (
           <Text accessibilityLiveRegion='polite' style={styles.helperText}>
             All category colors are already in use.

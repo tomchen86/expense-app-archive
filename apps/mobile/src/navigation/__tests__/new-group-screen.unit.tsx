@@ -5,6 +5,7 @@ import { router, Stack } from 'expo-router';
 
 import NewGroupScreen from '../../../app/new-group';
 import { semanticColors } from '../../theme/semantic-colors';
+import { mobileTheme } from '../../theme/tokens';
 
 const mockAddGroup = jest.fn();
 
@@ -27,6 +28,7 @@ jest.mock('react-native', () => {
       flatten: (style: unknown) => style,
       hairlineWidth: 1,
     },
+    ScrollView: host('ScrollView'),
     Text: host('Text'),
     TextInput: host('TextInput', true),
     View: host('View'),
@@ -52,6 +54,14 @@ describe('NewGroupScreen', () => {
       screen.getByText('Members can be added after the group is created.'),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveProp(
+      'variant',
+      'plain',
+    );
+    expect(screen.getByRole('button', { name: 'Create' })).toHaveProp(
+      'variant',
+      'prominent',
+    );
 
     fireEvent.changeText(screen.getByTestId('group-name-input'), ' Brisbane ');
     fireEvent.press(screen.getByRole('button', { name: 'Create' }));
@@ -64,6 +74,28 @@ describe('NewGroupScreen', () => {
     expect(latestScreenOptions).toEqual(
       expect.objectContaining({
         contentStyle: { backgroundColor: semanticColors.background },
+      }),
+    );
+  });
+
+  it('lets the native sheet calculate its toolbar inset without a magic spacer', () => {
+    const screen = render(<NewGroupScreen />);
+    const sheet = screen.getByTestId('new-group-screen');
+    const content = screen.getByTestId('new-group-content');
+
+    expect(sheet.props.style).toEqual(
+      expect.objectContaining({
+        flex: 1,
+      }),
+    );
+    expect(sheet).toHaveProp('collapsable', false);
+    expect(content).toHaveProp('automaticallyAdjustKeyboardInsets', false);
+    expect(content).toHaveProp('contentInsetAdjustmentBehavior', 'automatic');
+    expect(content.props.contentContainerStyle).toEqual(
+      expect.objectContaining({
+        paddingBottom: mobileTheme.spacing.xxl,
+        paddingHorizontal: mobileTheme.spacing.xl,
+        paddingTop: mobileTheme.spacing.lg,
       }),
     );
   });

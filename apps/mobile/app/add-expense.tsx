@@ -192,7 +192,11 @@ const AddExpenseScreen = () => {
   };
 
   return (
-    <View style={styles.screen}>
+    <View
+      collapsable={false}
+      style={styles.screen}
+      testID='expense-form-screen'
+    >
       <Stack.Screen
         options={{
           gestureEnabled: !hasUnsavedWork && !isSubmitting,
