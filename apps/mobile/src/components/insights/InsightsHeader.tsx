@@ -205,6 +205,7 @@ const InsightsHeader: React.FC<InsightsHeaderProps> = ({
                 testID='period-transition'
               >
                 <PeriodPickerControl
+                  aggregation={aggregation}
                   availablePeriods={availablePeriods}
                   displayPeriodText={displayPeriodText}
                   onOpen={onPeriodPress}

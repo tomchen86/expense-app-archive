@@ -9,6 +9,7 @@ import { resolvePeriodPickerPresentation } from './period-picker-policy';
 import PeriodPickerTrigger from './period-picker-trigger';
 
 const PeriodPickerControl = ({
+  aggregation,
   availablePeriods,
   displayPeriodText,
   onOpen,
@@ -17,7 +18,11 @@ const PeriodPickerControl = ({
 }: PeriodPickerControlProps) => {
   const presentation = resolvePeriodPickerPresentation(availablePeriods.length);
 
-  if (presentation !== 'menu' || !selectedPeriodKey) {
+  if (
+    aggregation === 'month' ||
+    presentation !== 'menu' ||
+    !selectedPeriodKey
+  ) {
     return (
       <PeriodPickerTrigger
         displayPeriodText={displayPeriodText}

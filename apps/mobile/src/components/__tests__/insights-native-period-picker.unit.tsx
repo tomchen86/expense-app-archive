@@ -87,6 +87,17 @@ const makePeriods = (count: number): InsightPeriod[] =>
     };
   });
 
+const makeYearPeriods = (count: number): InsightPeriod[] =>
+  Array.from({ length: count }, (_, index) => {
+    const year = 2000 + index;
+    return {
+      key: `year:${year}`,
+      label: year.toString(),
+      month: 0,
+      year,
+    };
+  });
+
 describe('iOS native Insights period picker', () => {
   it('selects the adaptive presentation from the number of populated periods', () => {
     expect(resolvePeriodPickerPresentation(0)).toBe('static');
@@ -107,11 +118,12 @@ describe('iOS native Insights period picker', () => {
   });
 
   it('uses a true SwiftUI menu Picker for a short data-only period list', () => {
-    const periods = makePeriods(3);
+    const periods = makeYearPeriods(3);
     const onSelectPeriod = jest.fn();
     const onOpen = jest.fn();
     const screen = render(
       <PeriodPickerControl
+        aggregation='year'
         availablePeriods={periods}
         displayPeriodText={periods[2].label}
         onOpen={onOpen}
@@ -137,13 +149,95 @@ describe('iOS native Insights period picker', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it('uses a SwiftUI wheel in a draggable sheet for a medium period list', () => {
-    const periods = makePeriods(PERIOD_MENU_MAX_OPTIONS + 1);
+  it('separates Year and Month, then shows only populated months in the chosen year', () => {
+    const periods: InsightPeriod[] = [
+      {
+        key: 'month:2025-11',
+        label: 'December 2025',
+        month: 11,
+        year: 2025,
+      },
+      { key: 'month:2026-4', label: 'May 2026', month: 4, year: 2026 },
+      { key: 'month:2026-7', label: 'August 2026', month: 7, year: 2026 },
+    ];
     const onClose = jest.fn();
     const onSelectPeriod = jest.fn();
     const screen = render(
       <DatePickerModal
         aggregation='month'
+        availablePeriods={periods}
+        onClose={onClose}
+        onSelectPeriod={onSelectPeriod}
+        selectedMonth={7}
+        selectedPeriodKey={periods[2].key}
+        selectedYear={2026}
+        visible
+      />,
+    );
+
+    const sheet = screen.getByTestId('period-picker-sheet');
+    expect(sheet).toHaveProp('sizing', 'content');
+    const yearPicker = screen.getByTestId('native-period-year-menu');
+    expect(yearPicker).toHaveProp('selection', 2026);
+    expect(screen.getAllByTestId(/native-year-option-/)).toHaveLength(2);
+    expect(screen.getByTestId('native-period-month-menu')).toHaveProp(
+      'selection',
+      periods[2].key,
+    );
+    expect(screen.getAllByTestId(/native-month-option-/)).toHaveLength(2);
+    expect(
+      screen.getByTestId(`native-month-option-${periods[1].key}`),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(`native-month-option-${periods[2].key}`),
+    ).toBeTruthy();
+
+    act(() => yearPicker.props.onSelectionChange(2025));
+
+    expect(screen.getAllByTestId(/native-month-option-/)).toHaveLength(1);
+    expect(
+      screen.getByTestId(`native-month-option-${periods[0].key}`),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId(`native-month-option-${periods[1].key}`),
+    ).toBeNull();
+    expect(screen.getByTestId('native-period-month-menu')).toHaveProp(
+      'selection',
+      periods[0].key,
+    );
+
+    act(() => sheet.props.trailingAction.onPress());
+
+    expect(onSelectPeriod).toHaveBeenCalledWith(periods[0]);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the hierarchical sheet for Month even when only a few periods exist', () => {
+    const periods = makePeriods(3);
+    const onOpen = jest.fn();
+    const screen = render(
+      <PeriodPickerControl
+        aggregation='month'
+        availablePeriods={periods}
+        displayPeriodText={periods[2].label}
+        onOpen={onOpen}
+        onSelectPeriod={jest.fn()}
+        selectedPeriodKey={periods[2].key}
+      />,
+    );
+
+    expect(screen.queryByTestId('native-period-menu')).toBeNull();
+    fireEvent.press(screen.getByTestId('period-picker-button'));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses a SwiftUI wheel in a draggable sheet for a medium period list', () => {
+    const periods = makeYearPeriods(PERIOD_MENU_MAX_OPTIONS + 1);
+    const onClose = jest.fn();
+    const onSelectPeriod = jest.fn();
+    const screen = render(
+      <DatePickerModal
+        aggregation='year'
         availablePeriods={periods}
         onClose={onClose}
         onSelectPeriod={onSelectPeriod}
@@ -173,12 +267,12 @@ describe('iOS native Insights period picker', () => {
   });
 
   it('uses one flat grouped period list only when the native choices are large', () => {
-    const periods = makePeriods(PERIOD_WHEEL_MAX_OPTIONS + 1);
+    const periods = makeYearPeriods(PERIOD_WHEEL_MAX_OPTIONS + 1);
     const onClose = jest.fn();
     const onSelectPeriod = jest.fn();
     const screen = render(
       <DatePickerModal
-        aggregation='month'
+        aggregation='year'
         availablePeriods={periods}
         onClose={onClose}
         onSelectPeriod={onSelectPeriod}

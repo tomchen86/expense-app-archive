@@ -17,7 +17,167 @@ import { AdaptiveSheet } from '../ui/adaptive-sheet';
 import type { DatePickerModalProps } from './date-picker-modal.types';
 import { resolvePeriodPickerPresentation } from './period-picker-policy';
 
-const DatePickerModal = ({
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+const MonthPeriodPickerSheet = ({
+  availablePeriods,
+  onClose,
+  onSelectPeriod,
+  selectedPeriodKey,
+  visible,
+}: DatePickerModalProps) => {
+  const selectedPeriod =
+    availablePeriods.find((period) => period.key === selectedPeriodKey) ??
+    availablePeriods.at(-1) ??
+    null;
+  const [draftPeriodKey, setDraftPeriodKey] = useState<string | null>(
+    selectedPeriod?.key ?? null,
+  );
+
+  useEffect(() => {
+    if (visible) {
+      setDraftPeriodKey(selectedPeriod?.key ?? null);
+    }
+  }, [selectedPeriod?.key, visible]);
+
+  const draftPeriod =
+    availablePeriods.find((period) => period.key === draftPeriodKey) ??
+    selectedPeriod;
+  const availableYears = useMemo(
+    () =>
+      [...new Set(availablePeriods.map((period) => period.year))].sort(
+        (left, right) => right - left,
+      ),
+    [availablePeriods],
+  );
+  const activeYear =
+    draftPeriod?.year ?? availableYears[0] ?? selectedPeriod?.year ?? null;
+  const availableMonths = useMemo(
+    () =>
+      availablePeriods
+        .filter((period) => period.year === activeYear)
+        .sort((left, right) => left.month - right.month),
+    [activeYear, availablePeriods],
+  );
+
+  const handleYearSelection = (year: number) => {
+    const periodsInYear = availablePeriods
+      .filter((period) => period.year === year)
+      .sort((left, right) => left.month - right.month);
+    const nextPeriod =
+      periodsInYear.find((period) => period.month === draftPeriod?.month) ??
+      periodsInYear.at(-1);
+    if (nextPeriod) {
+      setDraftPeriodKey(nextPeriod.key);
+    }
+  };
+
+  const handleDone = () => {
+    const period = availablePeriods.find(
+      (candidate) => candidate.key === draftPeriodKey,
+    );
+    if (!period) {
+      return;
+    }
+    onSelectPeriod(period);
+    onClose();
+  };
+
+  return (
+    <AdaptiveSheet
+      contentStyle={styles.hierarchicalSheetContent}
+      leadingAction={{ label: 'Cancel', onPress: onClose }}
+      onClose={onClose}
+      sizing='content'
+      testID='period-picker-sheet'
+      title='Period'
+      trailingAction={{
+        disabled: !draftPeriodKey,
+        label: 'Done',
+        onPress: handleDone,
+      }}
+      visible={visible && availablePeriods.length > 1}
+    >
+      <AdaptiveGroupedSection>
+        <View style={[styles.selectionRow, styles.separator]}>
+          <Text style={styles.selectionLabel}>Year</Text>
+          <Host
+            ignoreSafeArea='all'
+            seedColor={semanticColors.primary}
+            style={styles.menuHost}
+            useViewportSizeMeasurement
+          >
+            <Picker
+              label='Year'
+              modifiers={[pickerStyle('menu'), labelsHidden()]}
+              onSelectionChange={handleYearSelection}
+              selection={activeYear}
+              testID='native-period-year-menu'
+            >
+              {availableYears.map((year) => (
+                <SwiftUIText
+                  key={year}
+                  modifiers={[tag(year)]}
+                  testID={`native-year-option-${year}`}
+                >
+                  {year}
+                </SwiftUIText>
+              ))}
+            </Picker>
+          </Host>
+        </View>
+        <View style={styles.selectionRow}>
+          <Text style={styles.selectionLabel}>Month</Text>
+          <Host
+            ignoreSafeArea='all'
+            seedColor={semanticColors.primary}
+            style={styles.menuHost}
+            useViewportSizeMeasurement
+          >
+            <Picker
+              label='Month'
+              modifiers={[pickerStyle('menu'), labelsHidden()]}
+              onSelectionChange={(periodKey) => {
+                if (
+                  availableMonths.some((period) => period.key === periodKey)
+                ) {
+                  setDraftPeriodKey(periodKey);
+                }
+              }}
+              selection={draftPeriodKey}
+              testID='native-period-month-menu'
+            >
+              {availableMonths.map((period) => (
+                <SwiftUIText
+                  key={period.key}
+                  modifiers={[tag(period.key)]}
+                  testID={`native-month-option-${period.key}`}
+                >
+                  {MONTH_NAMES[period.month]}
+                </SwiftUIText>
+              ))}
+            </Picker>
+          </Host>
+        </View>
+      </AdaptiveGroupedSection>
+    </AdaptiveSheet>
+  );
+};
+
+const YearPeriodPickerSheet = ({
   availablePeriods,
   onClose,
   onSelectPeriod,
@@ -158,7 +318,34 @@ const DatePickerModal = ({
   );
 };
 
+const DatePickerModal = (props: DatePickerModalProps) =>
+  props.aggregation === 'month' ? (
+    <MonthPeriodPickerSheet {...props} />
+  ) : (
+    <YearPeriodPickerSheet {...props} />
+  );
+
 const styles = StyleSheet.create({
+  hierarchicalSheetContent: {
+    paddingBottom: mobileTheme.spacing.lg,
+    paddingHorizontal: mobileTheme.spacing.lg,
+  },
+  selectionRow: {
+    alignItems: 'center',
+    backgroundColor: semanticColors.surface,
+    flexDirection: 'row',
+    minHeight: 54,
+    paddingLeft: mobileTheme.spacing.lg,
+  },
+  selectionLabel: {
+    color: semanticColors.text,
+    flex: 1,
+    fontSize: 17,
+  },
+  menuHost: {
+    height: 44,
+    width: 160,
+  },
   wheelSheetContent: {
     paddingBottom: mobileTheme.spacing.lg,
     paddingHorizontal: mobileTheme.spacing.lg,
