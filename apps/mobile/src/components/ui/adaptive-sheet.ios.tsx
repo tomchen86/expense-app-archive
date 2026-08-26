@@ -1,10 +1,18 @@
 import BottomSheet, { BottomSheetView } from '@expo/ui/community/bottom-sheet';
+import { Button, Host } from '@expo/ui/swift-ui';
+import {
+  accessibilityLabel,
+  buttonBorderShape,
+  buttonStyle,
+  controlSize,
+  disabled,
+  tint,
+} from '@expo/ui/swift-ui/modifiers';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { semanticColors } from '../../theme/semantic-colors.ios';
 import { mobileTheme } from '../../theme/tokens';
-import { AdaptiveActionSurface } from './adaptive-action-surface';
 import type {
   AdaptiveSheetAction,
   AdaptiveSheetProps,
@@ -22,38 +30,34 @@ const HeaderAction = ({ action }: { action?: AdaptiveSheetAction }) => {
     return <View style={styles.actionPlaceholder} />;
   }
 
+  const hierarchyStyle =
+    action.variant === 'prominent'
+      ? buttonStyle('glassProminent')
+      : buttonStyle('glass');
+
   return (
-    <View style={styles.actionFrame}>
-      <AdaptiveActionSurface
-        interactive
-        style={styles.actionSurface}
-        testID='adaptive-sheet-glass-action'
-        tone='neutral'
-      >
-        <TouchableOpacity
-          accessibilityLabel={action.accessibilityLabel ?? action.label}
-          accessibilityRole='button'
-          accessibilityState={{
-            busy: action.busy,
-            disabled: action.disabled,
-          }}
-          disabled={action.disabled}
-          onPress={action.onPress}
-          style={styles.action}
-          testID={action.testID}
-        >
-          <Text
-            style={[
-              styles.actionText,
-              action.destructive && styles.destructiveActionText,
-              action.disabled && styles.disabledActionText,
-            ]}
-          >
-            {action.label}
-          </Text>
-        </TouchableOpacity>
-      </AdaptiveActionSurface>
-    </View>
+    <Host
+      ignoreSafeArea='all'
+      seedColor={semanticColors.primary}
+      style={styles.actionHost}
+      testID='adaptive-sheet-glass-action'
+      useViewportSizeMeasurement
+    >
+      <Button
+        label={action.label}
+        modifiers={[
+          hierarchyStyle,
+          buttonBorderShape('capsule'),
+          controlSize('large'),
+          disabled(Boolean(action.disabled || action.busy)),
+          accessibilityLabel(action.accessibilityLabel ?? action.label),
+          ...(action.destructive ? [tint(semanticColors.destructive)] : []),
+        ]}
+        onPress={action.onPress}
+        role={action.destructive ? 'destructive' : 'default'}
+        testID={action.testID}
+      />
+    </Host>
   );
 };
 
@@ -63,14 +67,14 @@ export const AdaptiveSheet = ({
   leadingAction,
   onClose,
   sizing = 'resizable',
-  surface = 'grouped',
+  surface = 'system',
   testID,
   title,
   trailingAction,
   visible,
 }: AdaptiveSheetProps) => {
   const fitsContent = sizing === 'content';
-  const usesGlassSurface = surface === 'glass';
+  const usesSystemSurface = surface === 'system';
 
   return (
     <BottomSheet
@@ -87,7 +91,7 @@ export const AdaptiveSheet = ({
       <BottomSheetView
         style={[
           styles.host,
-          usesGlassSurface && styles.glassBackground,
+          usesSystemSurface && styles.systemSheetContent,
           !fitsContent && styles.resizableHost,
         ]}
       >
@@ -95,7 +99,7 @@ export const AdaptiveSheet = ({
           accessibilityViewIsModal
           style={[
             styles.screen,
-            usesGlassSurface && styles.glassBackground,
+            usesSystemSurface && styles.systemSheetContent,
             !fitsContent && styles.resizableScreen,
           ]}
           testID={testID}
@@ -130,7 +134,7 @@ const styles = StyleSheet.create({
   host: {
     backgroundColor: semanticColors.background,
   },
-  glassBackground: {
+  systemSheetContent: {
     backgroundColor: 'transparent',
   },
   resizableHost: {
@@ -156,33 +160,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  action: {
-    alignItems: 'center',
-    height: 44,
-    minWidth: 72,
-    justifyContent: 'center',
-    paddingHorizontal: mobileTheme.spacing.md,
+  actionHost: {
+    height: 48,
+    width: 104,
   },
   actionPlaceholder: {
-    height: 44,
-    width: 72,
-  },
-  actionFrame: {
-    borderRadius: mobileTheme.radii.pill,
-    ...mobileTheme.shadows.action,
-  },
-  actionSurface: {
-    borderRadius: mobileTheme.radii.pill,
-  },
-  actionText: {
-    color: semanticColors.primary,
-    fontSize: 17,
-  },
-  destructiveActionText: {
-    color: semanticColors.destructive,
-  },
-  disabledActionText: {
-    opacity: 0.35,
+    height: 48,
+    width: 104,
   },
   content: {},
   resizableContent: {

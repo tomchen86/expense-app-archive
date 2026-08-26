@@ -1,9 +1,10 @@
 import React from 'react';
 import { AccessibilityInfo, StyleSheet, Text } from 'react-native';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { render, waitFor } from '@testing-library/react-native';
 
 import { AdaptiveActionSurface } from '../ui/adaptive-action-surface.ios';
 import { AdaptiveActionSurface as AdaptiveActionSurfaceAndroid } from '../ui/adaptive-action-surface.android';
+import { TransparencyPreferenceProvider } from '../ui/transparency-preference.ios';
 
 let mockColorScheme: 'dark' | 'light' = 'light';
 
@@ -62,10 +63,15 @@ const glassEffectMock = jest.requireMock('expo-glass-effect') as {
   isLiquidGlassAvailable: jest.Mock<boolean, []>;
 };
 
-const reduceTransparencyMock =
-  AccessibilityInfo.isReduceTransparencyEnabled as jest.MockedFunction<
-    typeof AccessibilityInfo.isReduceTransparencyEnabled
-  >;
+const renderIOSSurface = (
+  surface: React.ReactElement,
+  reduceTransparency = false,
+) =>
+  render(
+    <TransparencyPreferenceProvider reduceTransparency={reduceTransparency}>
+      {surface}
+    </TransparencyPreferenceProvider>,
+  );
 
 describe('AdaptiveActionSurface', () => {
   beforeEach(() => {
@@ -73,7 +79,11 @@ describe('AdaptiveActionSurface', () => {
     glassEffectMock.GlassView.mockClear();
     glassEffectMock.isGlassEffectAPIAvailable.mockReset().mockReturnValue(true);
     glassEffectMock.isLiquidGlassAvailable.mockReset().mockReturnValue(true);
-    reduceTransparencyMock.mockReset().mockResolvedValue(false);
+    (
+      AccessibilityInfo.isReduceTransparencyEnabled as jest.MockedFunction<
+        typeof AccessibilityInfo.isReduceTransparencyEnabled
+      >
+    ).mockReset();
   });
 
   it.each([
@@ -86,9 +96,7 @@ describe('AdaptiveActionSurface', () => {
       glassEffectMock.isLiquidGlassAvailable.mockReturnValue(
         liquidGlassAvailable,
       );
-      reduceTransparencyMock.mockReturnValue(new Promise(() => {}));
-
-      const screen = render(
+      const screen = renderIOSSurface(
         <AdaptiveActionSurface testID='action-surface'>
           <Text>Action</Text>
         </AdaptiveActionSurface>,
@@ -100,24 +108,22 @@ describe('AdaptiveActionSurface', () => {
     },
   );
 
-  it('keeps the fallback while Reduce Transparency is unresolved', () => {
-    reduceTransparencyMock.mockReturnValue(new Promise(() => {}));
-
-    const screen = render(
+  it('uses the shared resolved preference without a per-control accessibility query', () => {
+    const screen = renderIOSSurface(
       <AdaptiveActionSurface testID='action-surface'>
         <Text>Action</Text>
       </AdaptiveActionSurface>,
     );
 
-    expect(screen.getByTestId('action-surface')).toBeTruthy();
+    expect(screen.getByTestId('mock-glass-view')).toBeTruthy();
     expect(screen.getByText('Action')).toBeTruthy();
-    expect(glassEffectMock.GlassView).not.toHaveBeenCalled();
+    expect(
+      AccessibilityInfo.isReduceTransparencyEnabled,
+    ).not.toHaveBeenCalled();
   });
 
   it('honors Reduce Transparency and forwards fallback props and children', async () => {
-    reduceTransparencyMock.mockResolvedValue(true);
-
-    const screen = render(
+    const screen = renderIOSSurface(
       <AdaptiveActionSurface
         testID='action-surface'
         accessibilityLabel='Adaptive action'
@@ -125,11 +131,8 @@ describe('AdaptiveActionSurface', () => {
       >
         <Text>Action</Text>
       </AdaptiveActionSurface>,
+      true,
     );
-
-    await act(async () => {
-      await Promise.resolve();
-    });
 
     const fallback = screen.getByTestId('action-surface');
     expect(fallback.props.accessibilityLabel).toBe('Adaptive action');
@@ -139,7 +142,7 @@ describe('AdaptiveActionSurface', () => {
   });
 
   it('uses GlassView only after every capability passes and forwards its props and children', async () => {
-    const screen = render(
+    const screen = renderIOSSurface(
       <AdaptiveActionSurface
         testID='action-surface'
         accessibilityLabel='Adaptive action'
@@ -151,7 +154,9 @@ describe('AdaptiveActionSurface', () => {
 
     expect(glassEffectMock.isGlassEffectAPIAvailable).toHaveBeenCalled();
     expect(glassEffectMock.isLiquidGlassAvailable).toHaveBeenCalled();
-    expect(reduceTransparencyMock).toHaveBeenCalled();
+    expect(
+      AccessibilityInfo.isReduceTransparencyEnabled,
+    ).not.toHaveBeenCalled();
 
     await waitFor(() => {
       expect(glassEffectMock.GlassView).toHaveBeenCalledTimes(1);
@@ -175,7 +180,7 @@ describe('AdaptiveActionSurface', () => {
   });
 
   it('keeps primary iOS glass neutral with only a subtle blue tint', async () => {
-    render(
+    renderIOSSurface(
       <AdaptiveActionSurface interactive tone='primary'>
         <Text>Primary action</Text>
       </AdaptiveActionSurface>,
@@ -196,7 +201,7 @@ describe('AdaptiveActionSurface', () => {
   it('gives grouped iOS glass a field-matching grey tint in Dark Mode', async () => {
     mockColorScheme = 'dark';
 
-    render(
+    renderIOSSurface(
       <AdaptiveActionSurface tone='grouped'>
         <Text>Grouped control</Text>
       </AdaptiveActionSurface>,
@@ -214,7 +219,7 @@ describe('AdaptiveActionSurface', () => {
   });
 
   it('keeps the moving selection thumb visible in Light Mode', async () => {
-    render(
+    renderIOSSurface(
       <AdaptiveActionSurface tone='selection'>
         <Text>Selection</Text>
       </AdaptiveActionSurface>,

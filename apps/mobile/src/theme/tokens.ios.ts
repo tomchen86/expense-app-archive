@@ -20,10 +20,10 @@ export const iosSelectionGlassTint = {
 
 export const mobileTheme = {
   colors: {
-    background: dynamicColor('#F3F6FA', '#000000'),
-    surface: dynamicColor('#FFFFFF', '#1C1C1E'),
-    surfaceElevated: dynamicColor('#F8FBFF', '#2C2C2E'),
-    surfaceVariant: dynamicColor('#E8EEF6', '#3A3A3C'),
+    background: PlatformColor('systemGroupedBackgroundColor'),
+    surface: PlatformColor('secondarySystemGroupedBackgroundColor'),
+    surfaceElevated: PlatformColor('tertiarySystemGroupedBackgroundColor'),
+    surfaceVariant: PlatformColor('secondarySystemFillColor'),
     sharedSurface: dynamicColor('#F2F7FF', '#1A2839'),
     sharedBorder: dynamicColor(
       'rgba(0, 122, 255, 0.18)',
@@ -34,8 +34,8 @@ export const mobileTheme = {
       'rgba(10, 132, 255, 0.14)',
     ),
     sharedBadgeText: PlatformColor('systemBlueColor'),
-    text: dynamicColor('#122033', '#F2F2F7'),
-    textMuted: dynamicColor('#5F6B7A', '#AEAEB2'),
+    text: PlatformColor('labelColor'),
+    textMuted: PlatformColor('secondaryLabelColor'),
     primary: PlatformColor('systemBlueColor'),
     primaryGlassTint: dynamicColor(
       iosPrimaryGlassTint.light,
@@ -45,11 +45,11 @@ export const mobileTheme = {
       'rgba(0, 122, 255, 0.14)',
       'rgba(10, 132, 255, 0.20)',
     ),
-    onPrimary: dynamicColor('#FFFFFF', '#FFFFFF'),
+    onPrimary: PlatformColor('lightTextColor'),
     onPrimaryContainer: PlatformColor('systemBlueColor'),
-    success: dynamicColor('#187A55', '#30D158'),
-    destructive: dynamicColor('#C9362B', '#FF453A'),
-    border: dynamicColor('rgba(18, 32, 51, 0.12)', 'rgba(255, 255, 255, 0.16)'),
+    success: PlatformColor('systemGreenColor'),
+    destructive: PlatformColor('systemRedColor'),
+    border: PlatformColor('separatorColor'),
     glassBorder: dynamicColor(
       'rgba(255, 255, 255, 0.58)',
       'rgba(255, 255, 255, 0.18)',
@@ -71,10 +71,10 @@ export const mobileTheme = {
   },
   shadows: {
     card: {
-      shadowColor: dynamicColor('#203758', '#000000'),
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.1,
-      shadowRadius: 6,
+      shadowColor: dynamicColor('#000000', '#000000'),
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 12,
       elevation: 2,
     },
     action: {

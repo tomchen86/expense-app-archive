@@ -3,24 +3,28 @@ jest.mock('react-native', () => ({
   PlatformColor: jest.fn((name: string) => `platform:${name}`),
 }));
 
-import { DynamicColorIOS, PlatformColor } from 'react-native';
+import { PlatformColor } from 'react-native';
 import appConfig from '../../../app.json';
 import { mobileTheme } from '../tokens.ios';
 
 describe('iOS dynamic theme adapter', () => {
-  it('provides native light and dark variants for shared mobile tokens', () => {
-    expect(DynamicColorIOS).toHaveBeenCalledWith({
-      light: '#F3F6FA',
-      dark: '#000000',
-    });
-    expect(mobileTheme.colors.background).toEqual({
-      light: '#F3F6FA',
-      dark: '#000000',
-    });
-    expect(mobileTheme.colors.destructive).toEqual({
-      light: '#C9362B',
-      dark: '#FF453A',
-    });
+  it('uses native semantic roles for iOS canvas, content, and chrome', () => {
+    expect(mobileTheme.colors.background).toBe(
+      'platform:systemGroupedBackgroundColor',
+    );
+    expect(mobileTheme.colors.surface).toBe(
+      'platform:secondarySystemGroupedBackgroundColor',
+    );
+    expect(mobileTheme.colors.surfaceElevated).toBe(
+      'platform:tertiarySystemGroupedBackgroundColor',
+    );
+    expect(mobileTheme.colors.surfaceVariant).toBe(
+      'platform:secondarySystemFillColor',
+    );
+    expect(mobileTheme.colors.text).toBe('platform:labelColor');
+    expect(mobileTheme.colors.textMuted).toBe('platform:secondaryLabelColor');
+    expect(mobileTheme.colors.destructive).toBe('platform:systemRedColor');
+    expect(mobileTheme.colors.success).toBe('platform:systemGreenColor');
     expect(PlatformColor).toHaveBeenCalledWith('systemBlueColor');
     expect(mobileTheme.colors.primary).toBe('platform:systemBlueColor');
     expect(mobileTheme.colors.sharedBadgeText).toBe('platform:systemBlueColor');
@@ -38,8 +42,10 @@ describe('iOS dynamic theme adapter', () => {
     });
     expect(mobileTheme.shadows.card).toEqual(
       expect.objectContaining({
-        shadowColor: { light: '#203758', dark: '#000000' },
-        shadowOpacity: 0.1,
+        shadowColor: { light: '#000000', dark: '#000000' },
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
       }),
     );
     expect(mobileTheme.shadows.card).not.toHaveProperty('boxShadow');

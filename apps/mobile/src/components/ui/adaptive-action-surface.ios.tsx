@@ -3,13 +3,8 @@ import {
   isGlassEffectAPIAvailable,
   isLiquidGlassAvailable,
 } from 'expo-glass-effect';
-import React, { useEffect, useState } from 'react';
-import {
-  AccessibilityInfo,
-  StyleSheet,
-  useColorScheme,
-  View,
-} from 'react-native';
+import React from 'react';
+import { StyleSheet, useColorScheme, View } from 'react-native';
 
 import { resolvePlatformMaterial } from '../../theme/platform-material';
 import {
@@ -19,6 +14,7 @@ import {
   mobileTheme,
 } from '../../theme/tokens.ios';
 import type { AdaptiveActionSurfaceProps } from './adaptive-action-surface.types';
+import { useReduceTransparencyPreference } from './transparency-preference.ios';
 
 export type { AdaptiveActionSurfaceProps } from './adaptive-action-surface.types';
 
@@ -42,34 +38,7 @@ export const AdaptiveActionSurface = ({
   ...viewProps
 }: AdaptiveActionSurfaceProps) => {
   const colorScheme = useColorScheme();
-  const [reduceTransparency, setReduceTransparency] = useState<boolean | null>(
-    null,
-  );
-
-  useEffect(() => {
-    let isMounted = true;
-    AccessibilityInfo.isReduceTransparencyEnabled()
-      .then((isEnabled) => {
-        if (isMounted) {
-          setReduceTransparency(isEnabled);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setReduceTransparency(true);
-        }
-      });
-
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceTransparencyChanged',
-      setReduceTransparency,
-    );
-
-    return () => {
-      isMounted = false;
-      subscription.remove();
-    };
-  }, []);
+  const reduceTransparency = useReduceTransparencyPreference();
 
   const capabilities = getGlassCapabilities();
   const appearance = colorScheme === 'dark' ? 'dark' : 'light';
@@ -77,7 +46,7 @@ export const AdaptiveActionSurface = ({
     resolvePlatformMaterial({
       platform: 'ios',
       ...capabilities,
-      reduceTransparency: reduceTransparency ?? true,
+      reduceTransparency,
     }) === 'liquid-glass';
 
   if (useLiquidGlass) {

@@ -31,12 +31,16 @@ const HeaderAction = ({ action }: { action?: AdaptiveSheetAction }) =>
       }}
       disabled={action.disabled}
       onPress={action.onPress}
-      style={styles.action}
+      style={[
+        styles.action,
+        action.variant === 'prominent' && styles.prominentAction,
+      ]}
       testID={action.testID}
     >
       <Text
         style={[
           styles.actionText,
+          action.variant === 'prominent' && styles.prominentActionText,
           action.destructive && styles.destructiveActionText,
           action.disabled && styles.disabledActionText,
         ]}
@@ -116,12 +120,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: mobileTheme.spacing.lg,
   },
+  prominentAction: {
+    backgroundColor: semanticColors.primary,
+  },
   actionPlaceholder: {
     width: 76,
   },
   actionText: {
     color: semanticColors.primary,
     fontSize: 16,
+  },
+  prominentActionText: {
+    color: semanticColors.background,
     fontWeight: '600',
   },
   destructiveActionText: {

@@ -4,6 +4,8 @@ export interface SemanticColors {
   background: ColorValue;
   surface: ColorValue;
   surfaceElevated: ColorValue;
+  groupedRow: ColorValue;
+  sheetBackground: ColorValue;
   fill: ColorValue;
   text: ColorValue;
   textMuted: ColorValue;

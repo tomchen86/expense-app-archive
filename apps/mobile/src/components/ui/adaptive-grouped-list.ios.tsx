@@ -2,11 +2,11 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { semanticColors } from '../../theme/semantic-colors.ios';
-import { mobileTheme } from '../../theme/tokens';
 import type {
   AdaptiveGroupedScreenProps,
   AdaptiveGroupedSectionProps,
 } from './adaptive-grouped-list.types';
+import { AdaptiveCardSurface } from './adaptive-card-surface.ios';
 
 export type {
   AdaptiveGroupedScreenProps,
@@ -21,23 +21,18 @@ export const AdaptiveGroupedScreen = ({
 );
 
 export const AdaptiveGroupedSection = ({
+  children,
   style,
   ...props
 }: AdaptiveGroupedSectionProps) => (
-  <View {...props} style={[styles.section, style]} />
+  <AdaptiveCardSurface {...props} style={style} variant='section'>
+    {children}
+  </AdaptiveCardSurface>
 );
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: semanticColors.background,
-  },
-  section: {
-    overflow: 'hidden',
-    backgroundColor: semanticColors.surface,
-    borderColor: semanticColors.separator,
-    borderCurve: 'continuous',
-    borderRadius: mobileTheme.radii.control,
-    borderWidth: StyleSheet.hairlineWidth,
   },
 });

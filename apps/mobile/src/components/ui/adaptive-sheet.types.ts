@@ -9,6 +9,7 @@ export interface AdaptiveSheetAction {
   label: string;
   onPress: () => void;
   testID?: string;
+  variant: 'plain' | 'prominent';
 }
 
 export interface AdaptiveSheetProps {
@@ -17,7 +18,7 @@ export interface AdaptiveSheetProps {
   leadingAction?: AdaptiveSheetAction;
   onClose: () => void;
   sizing?: 'content' | 'resizable';
-  surface?: 'glass' | 'grouped';
+  surface?: 'grouped' | 'system';
   testID?: string;
   title: string;
   trailingAction?: AdaptiveSheetAction;
