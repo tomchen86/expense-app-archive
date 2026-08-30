@@ -1,5 +1,8 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
-import { useExpenseForm } from '../useExpenseForm';
+import {
+  resetExpenseFormDraftSessionsForTests,
+  useExpenseForm,
+} from '../useExpenseForm';
 import { useExpenseStore } from '../../store/expenseStore';
 import { useCategoryStore } from '../../store/features/categoryStore';
 import type { Expense } from '../../types';
@@ -19,6 +22,7 @@ describe('useExpenseForm - Category Sync Integration', () => {
   ];
 
   beforeEach(() => {
+    resetExpenseFormDraftSessionsForTests();
     // Reset category store first (source of truth)
     useCategoryStore.setState({
       categories: TEST_CATEGORIES,
@@ -32,14 +36,17 @@ describe('useExpenseForm - Category Sync Integration', () => {
       groups: [],
       participants: [],
       categories: TEST_CATEGORIES,
-      userSettings: { name: 'Test User' },
-      internalUserId: 'test-user-id',
+      user: {
+        ...initialState.user,
+        id: 'test-user-id',
+        displayName: 'Test User',
+      },
     });
   });
 
   it('should reflect categories from store', () => {
     const { result } = renderHook(() =>
-      useExpenseForm({ editingExpense: null }),
+      useExpenseForm({ draftSessionId: 'category-sync', editingExpense: null }),
     );
 
     expect(result.current.categories).toHaveLength(3);
@@ -52,7 +59,7 @@ describe('useExpenseForm - Category Sync Integration', () => {
 
   it('should update when category is deleted from store', async () => {
     const { result, rerender } = renderHook(() =>
-      useExpenseForm({ editingExpense: null }),
+      useExpenseForm({ draftSessionId: 'category-sync', editingExpense: null }),
     );
 
     // Initial state: 3 categories
@@ -83,7 +90,7 @@ describe('useExpenseForm - Category Sync Integration', () => {
 
   it('should update when category is added to store', async () => {
     const { result } = renderHook(() =>
-      useExpenseForm({ editingExpense: null }),
+      useExpenseForm({ draftSessionId: 'category-sync', editingExpense: null }),
     );
 
     // Initial state: 3 categories
@@ -108,16 +115,40 @@ describe('useExpenseForm - Category Sync Integration', () => {
     ).toBeDefined();
   });
 
+  it('does not reset an in-progress form when categories change', async () => {
+    const { result } = renderHook(() =>
+      useExpenseForm({ draftSessionId: 'category-sync', editingExpense: null }),
+    );
+    act(() => {
+      result.current.handleUpdateFormState('title', 'Movie tickets');
+      result.current.handleUpdateFormState('amount', '42.00');
+    });
+
+    act(() => {
+      useCategoryStore.getState().addCategory({
+        name: 'New category',
+        color: '#123456',
+      });
+    });
+    await waitFor(() => {
+      expect(result.current.categories).toHaveLength(4);
+    });
+
+    expect(result.current.formState.title).toBe('Movie tickets');
+    expect(result.current.formState.amount).toBe('42.00');
+    expect(result.current.isDirty).toBe(true);
+  });
+
   it('should use first available category as default when form is reset', () => {
     const { result } = renderHook(() =>
-      useExpenseForm({ editingExpense: null }),
+      useExpenseForm({ draftSessionId: 'category-sync', editingExpense: null }),
     );
 
     // Default category should be the first one
     expect(result.current.formState.category).toBe('Food');
   });
 
-  it('should fallback to "Other" if categories array is empty', () => {
+  it('should fallback to "Uncategorized" if categories array is empty', () => {
     // Set store to have no categories (edge case)
     act(() => {
       useExpenseStore.setState({
@@ -126,29 +157,37 @@ describe('useExpenseForm - Category Sync Integration', () => {
     });
 
     const { result } = renderHook(() =>
-      useExpenseForm({ editingExpense: null }),
+      useExpenseForm({ draftSessionId: 'category-sync', editingExpense: null }),
     );
 
-    // Should fallback to "Other"
-    expect(result.current.formState.category).toBe('Other');
+    expect(result.current.formState.category).toBe('Uncategorized');
   });
 
   it('should reset to first category when editingExpense becomes null', () => {
     const mockExpense = {
       id: 'exp-1',
       title: 'Test Expense',
-      amount: 50,
+      amountMinor: 5000,
+      currency: 'USD',
       date: '2025-09-30',
       category: 'Transport',
       caption: '',
-    };
+      spaceId: 'personal-space',
+      spaceKind: 'personal' as const,
+      payments: [{ participantId: 'test-user-id', amountMinor: 5000 }],
+      shares: [{ participantId: 'test-user-id', amountMinor: 5000 }],
+    } satisfies Expense;
 
     const { result, rerender } = renderHook<
       ReturnType<typeof useExpenseForm>,
       { editingExpense: Expense | null }
-    >(({ editingExpense }) => useExpenseForm({ editingExpense }), {
-      initialProps: { editingExpense: mockExpense },
-    });
+    >(
+      ({ editingExpense }) =>
+        useExpenseForm({ draftSessionId: 'category-sync', editingExpense }),
+      {
+        initialProps: { editingExpense: mockExpense },
+      },
+    );
 
     // Initially editing expense with "Transport" category
     expect(result.current.formState.category).toBe('Transport');
@@ -164,14 +203,22 @@ describe('useExpenseForm - Category Sync Integration', () => {
     const mockExpense = {
       id: 'exp-1',
       title: 'Test Expense',
-      amount: 50,
+      amountMinor: 5000,
+      currency: 'USD',
       date: '2025-09-30',
       category: 'Transport',
       caption: '',
-    };
+      spaceId: 'personal-space',
+      spaceKind: 'personal' as const,
+      payments: [{ participantId: 'test-user-id', amountMinor: 5000 }],
+      shares: [{ participantId: 'test-user-id', amountMinor: 5000 }],
+    } satisfies Expense;
 
     const { result } = renderHook(() =>
-      useExpenseForm({ editingExpense: mockExpense }),
+      useExpenseForm({
+        draftSessionId: 'category-sync',
+        editingExpense: mockExpense,
+      }),
     );
 
     // Editing expense with "Transport" category

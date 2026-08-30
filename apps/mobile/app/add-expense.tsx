@@ -1,40 +1,81 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, Button } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { Expense } from '../src/types';
+import { Alert, Keyboard, View, StyleSheet, ScrollView } from 'react-native';
+import {
+  router,
+  Stack,
+  useLocalSearchParams,
+  useNavigation,
+} from 'expo-router';
 import { useExpenseForm } from '../src/hooks/useExpenseForm';
 import { useExpenseModals } from '../src/hooks/useExpenseModals';
+import { useExpenseStore } from '../src/store/expenseStore';
+import {
+  resolveEditingExpense,
+  resolveSingleRouteParam,
+} from '../src/navigation/expense-edit-route';
+import type { RouteParam } from '../src/navigation/expense-edit-route';
 import { BasicInfoSection } from '../src/components/ExpenseForm/BasicInfoSection';
 import { GroupSection } from '../src/components/ExpenseForm/GroupSection';
 import { ExpenseModals } from '../src/components/ExpenseForm/ExpenseModals';
+import { ExpenseFormHeaderActions } from '../src/components/ExpenseForm/expense-form-header-actions';
+import { getExpenseCurrency } from '../src/utils/expenseDomain';
+import { mobileTheme } from '../src/theme/tokens';
+import { createUuid } from '../src/utils/ids';
 
 const AddExpenseScreen = () => {
-  const params = useLocalSearchParams();
-  const initialSpaceId = Array.isArray(params.groupId)
-    ? params.groupId[0]
-    : params.groupId;
-  let editingExpense: Expense | undefined;
-
-  try {
-    editingExpense = params.expense
-      ? (JSON.parse(params.expense as string) as Expense)
-      : undefined;
-  } catch (error) {
-    console.warn('Failed to parse expense parameter:', error);
-    editingExpense = undefined;
-  }
+  const formScrollRef = React.useRef<ScrollView>(null);
+  const isNoteFocused = React.useRef(false);
+  const noteLayoutY = React.useRef<number | null>(null);
+  const params = useLocalSearchParams<{
+    expenseId?: RouteParam;
+    draftSessionId?: RouteParam;
+    groupId?: RouteParam;
+  }>();
+  const fallbackDraftSessionId = React.useRef(createUuid());
+  const routeExpenseId = resolveSingleRouteParam(params.expenseId);
+  const draftSessionId =
+    resolveSingleRouteParam(params.draftSessionId) ??
+    (routeExpenseId
+      ? `edit:${routeExpenseId}:${fallbackDraftSessionId.current}`
+      : fallbackDraftSessionId.current);
+  const initialSpaceId = resolveSingleRouteParam(params.groupId);
+  const editingExpense = useExpenseStore((state) =>
+    resolveEditingExpense(state.expenses, params.expenseId),
+  );
+  const defaultCurrency = useExpenseStore((state) => state.settings.currency);
+  const navigation = useNavigation();
+  const allowNextRemoval = React.useRef(false);
+  const handleSaved = React.useCallback(() => {
+    allowNextRemoval.current = true;
+    router.back();
+  }, []);
 
   const {
     formState,
     setFormState,
     handleUpdateFormState,
-    handleRemoveParticipant,
     onChangeDate,
     handleSubmit,
+    discardChanges,
+    handleSharingChange,
     isEditing,
+    isDirty,
+    hasPendingMutation,
+    isRollbackPending,
+    isSubmitting,
+    canSubmit,
+    financialEditingDisabled,
+    financialEditingReason,
     groups,
     participants,
-  } = useExpenseForm({ editingExpense, initialSpaceId });
+    sharingEnabled,
+    sharingLocked,
+  } = useExpenseForm({
+    draftSessionId,
+    editingExpense,
+    initialSpaceId,
+    onSaved: handleSaved,
+  });
 
   const {
     showCategoryModal,
@@ -59,45 +100,167 @@ const AddExpenseScreen = () => {
     setFormState,
   });
 
+  const currency = editingExpense
+    ? getExpenseCurrency(editingExpense)
+    : defaultCurrency.toUpperCase();
+  const interactionDisabled = isSubmitting || isRollbackPending;
+  const hasUnsavedWork = isDirty || hasPendingMutation;
+  const scrollNoteAboveKeyboard = React.useCallback(() => {
+    if (noteLayoutY.current === null) {
+      return;
+    }
+    formScrollRef.current?.scrollTo({
+      animated: true,
+      y: Math.max(0, noteLayoutY.current - mobileTheme.spacing.lg),
+    });
+  }, []);
+  const handleNoteFocus = React.useCallback(() => {
+    isNoteFocused.current = true;
+    scrollNoteAboveKeyboard();
+  }, [scrollNoteAboveKeyboard]);
+  const handleNoteBlur = React.useCallback(() => {
+    isNoteFocused.current = false;
+  }, []);
+  const handleNoteLayout = React.useCallback((y: number) => {
+    noteLayoutY.current = y;
+  }, []);
+
+  React.useEffect(() => {
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      if (isNoteFocused.current) {
+        scrollNoteAboveKeyboard();
+      }
+    });
+    return () => subscription.remove();
+  }, [scrollNoteAboveKeyboard]);
+
+  const confirmDiscard = React.useCallback(
+    (removeRoute: () => void) => {
+      if (isSubmitting) {
+        return;
+      }
+      if (!hasUnsavedWork) {
+        void discardChanges();
+        allowNextRemoval.current = true;
+        removeRoute();
+        return;
+      }
+      Alert.alert('Discard Changes?', 'Your changes will not be saved.', [
+        { text: 'Keep Editing', style: 'cancel' },
+        {
+          text: 'Discard',
+          style: 'destructive',
+          onPress: () => {
+            void discardChanges().then((discarded) => {
+              if (discarded) {
+                allowNextRemoval.current = true;
+                removeRoute();
+              }
+            });
+          },
+        },
+      ]);
+    },
+    [discardChanges, hasUnsavedWork, isSubmitting],
+  );
+
+  React.useEffect(
+    () =>
+      navigation.addListener('beforeRemove', (event) => {
+        if (allowNextRemoval.current) {
+          return;
+        }
+        if (isSubmitting) {
+          event.preventDefault();
+          return;
+        }
+        if (!hasUnsavedWork) {
+          void discardChanges();
+          return;
+        }
+        event.preventDefault();
+        confirmDiscard(() => navigation.dispatch(event.data.action));
+      }),
+    [confirmDiscard, discardChanges, hasUnsavedWork, isSubmitting, navigation],
+  );
+
+  const handleSharingToggle = (enabled: boolean) => {
+    handleSharingChange(enabled);
+    if (enabled) {
+      setShowGroupModal(true);
+    }
+  };
+
   return (
-    <View style={styles.screen}>
-      <ScrollView style={styles.container}>
+    <View
+      collapsable={false}
+      style={styles.screen}
+      testID='expense-form-screen'
+    >
+      <Stack.Screen
+        options={{
+          gestureEnabled: !hasUnsavedWork && !isSubmitting,
+          headerBackVisible: false,
+          title: isEditing ? 'Edit Expense' : 'New Expense',
+        }}
+      />
+      <ExpenseFormHeaderActions
+        canSubmit={canSubmit}
+        isEditing={isEditing}
+        isSubmitting={isSubmitting}
+        onCancel={() => confirmDiscard(() => router.back())}
+        onSubmit={handleSubmit}
+      />
+
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        contentInsetAdjustmentBehavior='automatic'
+        contentContainerStyle={styles.content}
+        keyboardDismissMode='on-drag'
+        keyboardShouldPersistTaps='handled'
+        ref={formScrollRef}
+        testID='expense-form-scroll-view'
+      >
         <BasicInfoSection
           title={formState.title}
           amount={formState.amount}
+          currency={currency}
           category={formState.category}
           caption={formState.caption}
           date={formState.date}
+          financialEditingDisabled={financialEditingDisabled}
+          financialEditingReason={financialEditingReason}
+          interactionDisabled={interactionDisabled}
           onTitleChange={(value) => handleUpdateFormState('title', value)}
           onAmountChange={(value) => handleUpdateFormState('amount', value)}
           onCategoryPress={() => setShowCategoryModal(true)}
           onCaptionChange={(value) => handleUpdateFormState('caption', value)}
           onDateChange={onChangeDate}
+          onNoteBlur={handleNoteBlur}
+          onNoteFocus={handleNoteFocus}
+          onNoteLayout={handleNoteLayout}
         />
 
         <GroupSection
+          sharingEnabled={sharingEnabled}
+          sharingLocked={sharingLocked}
+          financialControlsDisabled={financialEditingDisabled}
+          interactionDisabled={interactionDisabled}
           selectedGroup={formState.selectedGroup}
           paidByParticipant={formState.paidByParticipant}
           selectedParticipants={formState.selectedParticipants}
+          onSharingChange={handleSharingToggle}
           onGroupPress={() => setShowGroupModal(true)}
           onPaidByPress={() => setShowPaidByModal(true)}
           onSplitPress={() => setShowSplitModal(true)}
-          onRemoveParticipant={handleRemoveParticipant}
         />
-
-        <View style={styles.buttonContainer}>
-          <Button
-            title={isEditing ? 'Update Expense' : 'Add Expense'}
-            onPress={handleSubmit}
-          />
-        </View>
       </ScrollView>
 
       <ExpenseModals
-        showCategoryModal={showCategoryModal}
-        showGroupModal={showGroupModal}
-        showPaidByModal={showPaidByModal}
-        showSplitModal={showSplitModal}
+        showCategoryModal={showCategoryModal && !interactionDisabled}
+        showGroupModal={showGroupModal && !interactionDisabled}
+        showPaidByModal={showPaidByModal && !interactionDisabled}
+        showSplitModal={showSplitModal && !interactionDisabled}
         categoryModalData={categoryModalData}
         groups={groups}
         availableParticipants={availableParticipants}
@@ -125,14 +288,11 @@ const AddExpenseScreen = () => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: mobileTheme.colors.background,
   },
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  buttonContainer: {
-    marginTop: 20,
-    marginBottom: 40,
+  content: {
+    paddingHorizontal: mobileTheme.spacing.xl,
+    paddingBottom: mobileTheme.spacing.xxxl,
   },
 });
 

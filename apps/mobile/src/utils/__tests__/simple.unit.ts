@@ -1,5 +1,4 @@
 import {
-  calculateCategoryTotals,
   filterExpensesByDate,
   isNextPeriodDisabled,
   getDisplayPeriodText,
@@ -17,48 +16,6 @@ interface SimpleExpense {
 }
 
 describe('Insight Calculations', () => {
-  describe('calculateCategoryTotals', () => {
-    it('should calculate totals correctly', () => {
-      const expenses: SimpleExpense[] = [
-        {
-          id: '1',
-          title: 'Coffee',
-          amount: 4.5,
-          date: '2025-09-19',
-          category: 'Food & Dining',
-        },
-        {
-          id: '2',
-          title: 'Lunch',
-          amount: 12.5,
-          date: '2025-09-19',
-          category: 'Food & Dining',
-        },
-        {
-          id: '3',
-          title: 'Gas',
-          amount: 45.0,
-          date: '2025-09-19',
-          category: 'Transportation',
-        },
-      ];
-
-      const result = calculateCategoryTotals(expenses as any);
-
-      expect(result.totals).toEqual({
-        'Food & Dining': 17.0,
-        Transportation: 45.0,
-      });
-      expect(result.total).toBe(62.0);
-    });
-
-    it('should handle empty array', () => {
-      const result = calculateCategoryTotals([]);
-      expect(result.totals).toEqual({});
-      expect(result.total).toBe(0);
-    });
-  });
-
   describe('filterExpensesByDate', () => {
     const testExpenses: SimpleExpense[] = [
       {

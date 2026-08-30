@@ -1,154 +1,346 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useMemo, useRef } from 'react';
+import {
+  Animated,
+  PanResponder,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
+import { mobileTheme } from '../../theme/tokens';
+import type { InsightPeriod } from '../../hooks/useInsightsData';
+import { AdaptiveCardSurface } from '../ui/adaptive-card-surface';
+import PeriodAggregationControl from './period-aggregation-control';
+import PeriodPickerControl from './period-picker-control';
+
+const SWIPE_CAPTURE_DISTANCE = 2;
+const SWIPE_COMMIT_DISTANCE = 3;
+const SWIPE_FLICK_VELOCITY = 0.45;
+const HORIZONTAL_INTENT_RATIO = 0.7;
+const MAX_DRAG_DISTANCE = 52;
+const PERIOD_ENTRY_DISTANCE = 36;
+
+const isHorizontalPeriodSwipe = (dx: number, dy: number): boolean =>
+  Math.abs(dx) >= SWIPE_CAPTURE_DISTANCE &&
+  Math.abs(dx) > Math.abs(dy) * HORIZONTAL_INTENT_RATIO;
 
 interface InsightsHeaderProps {
   aggregation: 'month' | 'year';
   onAggregationChange: (aggregation: 'month' | 'year') => void;
   displayPeriodText: string;
+  availablePeriods: InsightPeriod[];
   onPeriodPress: () => void;
+  onPeriodSelect: (period: InsightPeriod) => void;
   onPreviousPeriod: () => void;
   onNextPeriod: () => void;
+  hasMultiplePeriods: boolean;
   isNextDisabled: boolean;
+  isPreviousDisabled: boolean;
+  selectedPeriodKey: string | null;
 }
 
 const InsightsHeader: React.FC<InsightsHeaderProps> = ({
   aggregation,
+  availablePeriods,
   onAggregationChange,
   displayPeriodText,
   onPeriodPress,
+  onPeriodSelect,
   onPreviousPeriod,
   onNextPeriod,
+  hasMultiplePeriods,
   isNextDisabled,
+  isPreviousDisabled,
+  selectedPeriodKey,
 }) => {
-  return (
-    <View style={styles.controlsContainer}>
-      <View style={styles.aggregationToggleContainer}>
-        <TouchableOpacity
-          style={[
-            styles.aggregationButton,
-            aggregation === 'month' && styles.aggregationButtonActive,
-          ]}
-          onPress={() => onAggregationChange('month')}
-        >
-          <Text
-            style={[
-              styles.aggregationButtonText,
-              aggregation === 'month' && styles.aggregationButtonTextActive,
-            ]}
-          >
-            By Month
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.aggregationButton,
-            aggregation === 'year' && styles.aggregationButtonActive,
-          ]}
-          onPress={() => onAggregationChange('year')}
-        >
-          <Text
-            style={[
-              styles.aggregationButtonText,
-              aggregation === 'year' && styles.aggregationButtonTextActive,
-            ]}
-          >
-            By Year
-          </Text>
-        </TouchableOpacity>
-      </View>
+  const periodDragX = useRef(new Animated.Value(0)).current;
+  const periodOpacity = periodDragX.interpolate({
+    inputRange: [-MAX_DRAG_DISTANCE, 0, MAX_DRAG_DISTANCE],
+    outputRange: [0.62, 1, 0.62],
+    extrapolate: 'clamp',
+  });
 
-      <View style={styles.periodNavigatorContainer}>
-        <TouchableOpacity
-          onPress={onPreviousPeriod}
-          style={styles.periodArrowButton}
-        >
-          <Text style={styles.periodArrowText}>{'<'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onPeriodPress}>
-          <Text style={styles.periodDisplayText}>{displayPeriodText}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onNextPeriod}
-          disabled={isNextDisabled}
-          style={[
-            styles.periodArrowButton,
-            isNextDisabled && styles.disabledArrowButton,
-          ]}
-        >
-          <Text
+  const resetPeriodDrag = useCallback(() => {
+    Animated.timing(periodDragX, {
+      duration: 150,
+      toValue: 0,
+      useNativeDriver: true,
+    }).start();
+  }, [periodDragX]);
+
+  const animatePeriodChange = useCallback(
+    (direction: 'previous' | 'next') => {
+      if (
+        (direction === 'previous' && isPreviousDisabled) ||
+        (direction === 'next' && isNextDisabled)
+      ) {
+        resetPeriodDrag();
+        return;
+      }
+
+      if (direction === 'previous') {
+        onPreviousPeriod();
+      } else {
+        onNextPeriod();
+      }
+
+      periodDragX.setValue(
+        direction === 'previous'
+          ? -PERIOD_ENTRY_DISTANCE
+          : PERIOD_ENTRY_DISTANCE,
+      );
+      Animated.timing(periodDragX, {
+        duration: 180,
+        toValue: 0,
+        useNativeDriver: true,
+      }).start();
+    },
+    [
+      isNextDisabled,
+      isPreviousDisabled,
+      onNextPeriod,
+      onPreviousPeriod,
+      periodDragX,
+      resetPeriodDrag,
+    ],
+  );
+
+  const periodPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gestureState) =>
+          hasMultiplePeriods &&
+          isHorizontalPeriodSwipe(gestureState.dx, gestureState.dy),
+        onMoveShouldSetPanResponderCapture: (_event, gestureState) =>
+          hasMultiplePeriods &&
+          isHorizontalPeriodSwipe(gestureState.dx, gestureState.dy),
+        onPanResponderMove: (_event, gestureState) => {
+          periodDragX.setValue(
+            Math.max(
+              -MAX_DRAG_DISTANCE,
+              Math.min(MAX_DRAG_DISTANCE, gestureState.dx),
+            ),
+          );
+        },
+        onPanResponderRelease: (_event, gestureState) => {
+          const isFlick =
+            Math.abs(gestureState.vx ?? 0) >= SWIPE_FLICK_VELOCITY;
+          if (Math.abs(gestureState.dx) < SWIPE_COMMIT_DISTANCE && !isFlick) {
+            resetPeriodDrag();
+            return;
+          }
+          if (gestureState.dx > 0) {
+            animatePeriodChange('previous');
+          } else {
+            animatePeriodChange('next');
+          }
+        },
+        onPanResponderTerminate: () => {
+          resetPeriodDrag();
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [animatePeriodChange, hasMultiplePeriods, periodDragX, resetPeriodDrag],
+  );
+
+  return (
+    <AdaptiveCardSurface style={styles.controlsContainer}>
+      <PeriodAggregationControl
+        aggregation={aggregation}
+        onChange={onAggregationChange}
+      />
+
+      <View style={styles.periodNavigatorContainer} testID='period-navigator'>
+        {hasMultiplePeriods ? (
+          <View
             style={[
-              styles.periodArrowText,
-              isNextDisabled && styles.disabledArrowText,
+              styles.periodArrowSurface,
+              isPreviousDisabled && styles.disabledArrowButton,
             ]}
+            testID='previous-period-surface'
           >
-            {'>'}
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.72}
+              accessibilityLabel='Previous period'
+              accessibilityRole='button'
+              accessibilityState={{ disabled: isPreviousDisabled }}
+              disabled={isPreviousDisabled}
+              onPress={() => animatePeriodChange('previous')}
+              style={styles.periodArrowButton}
+              testID='previous-period-button'
+            >
+              <Ionicons
+                color={
+                  isPreviousDisabled
+                    ? mobileTheme.colors.textMuted
+                    : mobileTheme.colors.primary
+                }
+                name='chevron-back'
+                size={21}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        {hasMultiplePeriods ? (
+          <View
+            {...periodPanResponder.panHandlers}
+            style={styles.periodSwipeTarget}
+            testID='period-swipe-target'
+          >
+            <View
+              style={styles.periodPickerSurface}
+              testID='period-picker-surface'
+            >
+              <Animated.View
+                style={[
+                  styles.periodTransition,
+                  {
+                    opacity: periodOpacity,
+                    transform: [{ translateX: periodDragX }],
+                  },
+                ]}
+                testID='period-transition'
+              >
+                <PeriodPickerControl
+                  aggregation={aggregation}
+                  availablePeriods={availablePeriods}
+                  displayPeriodText={displayPeriodText}
+                  onOpen={onPeriodPress}
+                  onSelectPeriod={onPeriodSelect}
+                  selectedPeriodKey={selectedPeriodKey}
+                />
+              </Animated.View>
+            </View>
+          </View>
+        ) : (
+          <View
+            style={styles.periodPickerSurface}
+            testID='period-picker-surface'
+          >
+            <View
+              accessibilityLabel={displayPeriodText}
+              style={styles.periodButton}
+            >
+              <Animated.View
+                style={[
+                  styles.periodPickerContent,
+                  {
+                    opacity: periodOpacity,
+                    transform: [{ translateX: periodDragX }],
+                  },
+                ]}
+                testID='period-transition'
+              >
+                <Text
+                  ellipsizeMode='tail'
+                  numberOfLines={1}
+                  style={styles.periodDisplayText}
+                >
+                  {displayPeriodText}
+                </Text>
+              </Animated.View>
+            </View>
+          </View>
+        )}
+        {hasMultiplePeriods ? (
+          <View
+            style={[
+              styles.periodArrowSurface,
+              isNextDisabled && styles.disabledArrowButton,
+            ]}
+            testID='next-period-surface'
+          >
+            <TouchableOpacity
+              activeOpacity={0.72}
+              accessibilityLabel='Next period'
+              accessibilityRole='button'
+              accessibilityState={{ disabled: isNextDisabled }}
+              disabled={isNextDisabled}
+              onPress={() => animatePeriodChange('next')}
+              style={styles.periodArrowButton}
+              testID='next-period-button'
+            >
+              <Ionicons
+                color={
+                  isNextDisabled
+                    ? mobileTheme.colors.textMuted
+                    : mobileTheme.colors.primary
+                }
+                name='chevron-forward'
+                size={21}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
-    </View>
+    </AdaptiveCardSurface>
   );
 };
 
 const styles = StyleSheet.create({
   controlsContainer: {
-    marginBottom: 20,
-    padding: 10,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingVertical: 15,
-  },
-  aggregationToggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#007bff',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  aggregationButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  aggregationButtonActive: {
-    backgroundColor: '#007bff',
-  },
-  aggregationButtonText: {
-    color: '#007bff',
-    fontWeight: '600',
-  },
-  aggregationButtonTextActive: {
-    color: '#fff',
+    marginBottom: mobileTheme.spacing.lg,
+    padding: mobileTheme.spacing.md,
   },
   periodNavigatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: mobileTheme.spacing.sm,
+    justifyContent: 'center',
+    marginTop: mobileTheme.spacing.sm,
   },
   periodArrowButton: {
-    padding: 10,
-    paddingHorizontal: 15,
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
   },
-  periodArrowText: {
-    fontSize: 18,
-    color: '#007bff',
-    fontWeight: 'bold',
+  periodArrowSurface: {
+    alignItems: 'center',
+    borderRadius: 22,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
   },
   disabledArrowButton: {
-    opacity: 0.3,
+    opacity: 0.28,
   },
-  disabledArrowText: {
-    color: '#ccc',
+  periodButton: {
+    alignItems: 'center',
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    minWidth: 0,
+  },
+  periodSwipeTarget: {
+    flex: 1,
+    minWidth: 0,
+  },
+  periodPickerSurface: {
+    borderRadius: mobileTheme.radii.pill,
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  periodPickerContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingHorizontal: mobileTheme.spacing.lg,
+  },
+  periodTransition: {
+    flex: 1,
+    width: '100%',
   },
   periodDisplayText: {
+    color: mobileTheme.colors.text,
+    flexShrink: 1,
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
-    paddingHorizontal: 20,
+    marginRight: mobileTheme.spacing.xs,
     textAlign: 'center',
-    minWidth: 150,
   },
 });
 

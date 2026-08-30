@@ -7,12 +7,14 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import { semanticColors } from '../theme/semantic-colors';
+import { mobileTheme } from '../theme/tokens';
 
 interface SelectInputProps {
   label: string;
-  selectedValue: string | null | undefined; // Text to display (e.g., category name, group name)
+  selectedValue: string | null | undefined;
   placeholder?: string;
-  onPress: () => void; // Function to open the modal/picker
+  onPress: () => void;
   containerStyle?: ViewStyle;
   labelStyle?: TextStyle;
   valueStyle?: TextStyle;
@@ -36,6 +38,8 @@ const SelectInput: React.FC<SelectInputProps> = ({
     <View style={[styles.container, containerStyle]}>
       <Text style={[styles.label, labelStyle]}>{label}</Text>
       <TouchableOpacity
+        accessibilityLabel={`${label}, ${displayValue}`}
+        accessibilityRole='button'
         onPress={onPress}
         style={styles.touchable}
         testID={testID}
@@ -49,7 +53,6 @@ const SelectInput: React.FC<SelectInputProps> = ({
         >
           {displayValue}
         </Text>
-        {/* Optional: Add an icon like a dropdown arrow here */}
       </TouchableOpacity>
     </View>
   );
@@ -57,30 +60,30 @@ const SelectInput: React.FC<SelectInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 15,
+    marginBottom: mobileTheme.spacing.lg,
   },
   label: {
     fontSize: 16,
-    marginBottom: 5,
-    color: '#333',
+    marginBottom: mobileTheme.spacing.xs,
+    color: semanticColors.text,
     fontWeight: '500',
   },
   touchable: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 10, // Adjust padding for touchable area
-    backgroundColor: '#fff',
-    minHeight: 40, // Consistent height with FormInput
+    borderColor: semanticColors.separator,
+    borderRadius: mobileTheme.radii.control,
+    paddingHorizontal: mobileTheme.spacing.md,
+    paddingVertical: mobileTheme.spacing.sm,
+    backgroundColor: semanticColors.surface,
+    minHeight: 44,
     justifyContent: 'center',
   },
   valueText: {
     fontSize: 16,
-    color: '#000',
+    color: semanticColors.text,
   },
   placeholderText: {
-    color: '#999', // Lighter color for placeholder
+    color: semanticColors.placeholder,
   },
 });
 

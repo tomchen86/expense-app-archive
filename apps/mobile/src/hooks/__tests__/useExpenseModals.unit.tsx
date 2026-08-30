@@ -93,6 +93,88 @@ describe('useExpenseModals', () => {
     ]);
   });
 
+  it('keeps archived categories out of new expense choices', () => {
+    useCategoryStore.setState({
+      categories: [
+        {
+          id: 'active-category',
+          name: 'Active',
+          color: '#102030',
+        },
+        {
+          id: 'archived-category',
+          name: 'Archived',
+          color: '#405060',
+          archivedAt: '2026-08-25T00:00:00.000Z',
+        },
+      ],
+    });
+    const Harness = buildHarness(participants);
+    const ref = createRef<HookHandle>();
+
+    act(() => {
+      TestRenderer.create(<Harness ref={ref} />);
+    });
+
+    expect(ref.current!.hookValue.categoryModalData).toEqual([
+      'Active',
+      ref.current!.hookValue.ADD_NEW_CATEGORY_ACTION,
+    ]);
+  });
+
+  it('keeps personal and group category ownership within its ledger', () => {
+    useCategoryStore.setState({
+      categories: [
+        {
+          id: 'system-category',
+          name: 'System',
+          color: '#102030',
+          scopeKind: 'system',
+        },
+        {
+          id: 'personal-category',
+          name: 'Personal Only',
+          color: '#405060',
+          scopeKind: 'personal',
+        },
+        {
+          id: 'group-category',
+          name: 'Trip Only',
+          color: '#708090',
+          scopeKind: 'group',
+          spaceId: group.id,
+        },
+        {
+          id: 'other-group-category',
+          name: 'Other Group',
+          color: '#A0B0C0',
+          scopeKind: 'group',
+          spaceId: 'g2',
+        },
+      ],
+    });
+    const PersonalHarness = buildHarness(participants);
+    const GroupHarness = buildHarness(participants, group);
+    const personalRef = createRef<HookHandle>();
+    const groupRef = createRef<HookHandle>();
+
+    act(() => {
+      TestRenderer.create(<PersonalHarness ref={personalRef} />);
+      TestRenderer.create(<GroupHarness ref={groupRef} />);
+    });
+
+    expect(personalRef.current!.hookValue.categoryModalData).toEqual([
+      'System',
+      'Personal Only',
+      personalRef.current!.hookValue.ADD_NEW_CATEGORY_ACTION,
+    ]);
+    expect(groupRef.current!.hookValue.categoryModalData).toEqual([
+      'System',
+      'Trip Only',
+      groupRef.current!.hookValue.ADD_NEW_CATEGORY_ACTION,
+    ]);
+  });
+
   it('removes a deleted category from an already mounted expense selector', () => {
     useCategoryStore.setState({
       categories: [
@@ -189,5 +271,24 @@ describe('useExpenseModals', () => {
     });
 
     expect(router.push).toHaveBeenCalledWith('/manage-categories');
+  });
+
+  it('opens category management in the selected group ownership scope', () => {
+    const Harness = buildHarness(participants, group);
+    const ref = createRef<HookHandle>();
+
+    act(() => {
+      TestRenderer.create(<Harness ref={ref} />);
+    });
+    act(() => {
+      ref.current!.hookValue.handleCategorySelect(
+        ref.current!.hookValue.ADD_NEW_CATEGORY_ACTION,
+      );
+    });
+
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/manage-categories',
+      params: { scopeKind: 'group', spaceId: group.id },
+    });
   });
 });

@@ -1,5 +1,32 @@
-import { useExpenseStore } from '../features/expenseStore';
+import {
+  getExpenseMutationVersion,
+  useExpenseStore,
+} from '../features/expenseStore';
 import { mockExpenses, createMockExpense } from '../../__tests__/fixtures';
+import type { Expense, ExpenseSyncStatus } from '../../types';
+
+const createSharedExpenseWithSync = (
+  status: ExpenseSyncStatus,
+  serverVersion: number,
+): Expense => ({
+  id: `shared-${status}-${serverVersion}`,
+  title: 'Shared expense',
+  amountMinor: 2500,
+  currency: 'AUD',
+  date: '2026-08-24',
+  category: 'Other',
+  spaceId: 'shared-space',
+  spaceKind: 'shared',
+  payments: [{ participantId: 'payer', amountMinor: 2500 }],
+  shares: [{ participantId: 'member', amountMinor: 2500 }],
+  sync: {
+    mutationId: `mutation-${status}-${serverVersion}`,
+    serverVersion,
+    localRevision: 1,
+    status,
+    updatedAt: '2026-08-24T00:00:00.000Z',
+  },
+});
 
 describe('ExpenseStore', () => {
   let randomSpy: jest.SpiedFunction<typeof Math.random>;
@@ -23,7 +50,7 @@ describe('ExpenseStore', () => {
     it('should add expense with generated ID', () => {
       const expense = createMockExpense({
         title: 'Test Expense',
-        amount: 25.5,
+        amountMinor: 2550,
         date: '2025-09-19',
       });
 
@@ -80,10 +107,14 @@ describe('ExpenseStore', () => {
     it('should handle group expenses', () => {
       const groupExpense = createMockExpense({
         title: 'Group Lunch',
-        amount: 50.0,
-        groupId: 'group-1',
-        paidBy: 'user-1',
-        splitBetween: ['user-1', 'user-2'],
+        amountMinor: 5000,
+        spaceId: 'group-1',
+        spaceKind: 'shared',
+        payments: [{ participantId: 'user-1', amountMinor: 5000 }],
+        shares: [
+          { participantId: 'user-1', amountMinor: 2500 },
+          { participantId: 'user-2', amountMinor: 2500 },
+        ],
       });
 
       useExpenseStore.getState().addExpense(groupExpense);
@@ -95,9 +126,14 @@ describe('ExpenseStore', () => {
         ...expectedGroupFields,
         id: expect.any(String),
       });
-      expect(expenses[0].groupId).toBe('group-1');
-      expect(expenses[0].paidBy).toBe('user-1');
-      expect(expenses[0].splitBetween).toEqual(['user-1', 'user-2']);
+      expect(expenses[0].spaceId).toBe('group-1');
+      expect(expenses[0].payments).toEqual([
+        { participantId: 'user-1', amountMinor: 5000 },
+      ]);
+      expect(expenses[0].shares).toEqual([
+        { participantId: 'user-1', amountMinor: 2500 },
+        { participantId: 'user-2', amountMinor: 2500 },
+      ]);
     });
   });
 
@@ -160,7 +196,7 @@ describe('ExpenseStore', () => {
     it('should update existing expense', () => {
       const expense = createMockExpense({
         title: 'Original Title',
-        amount: 25.0,
+        amountMinor: 2500,
       });
 
       useExpenseStore.getState().addExpense(expense);
@@ -169,7 +205,9 @@ describe('ExpenseStore', () => {
       const updatedExpense = {
         ...addedExpense,
         title: 'Updated Title',
-        amount: 30.0,
+        amountMinor: 3000,
+        payments: [{ participantId: 'user-1', amountMinor: 3000 }],
+        shares: [{ participantId: 'user-1', amountMinor: 3000 }],
       };
 
       useExpenseStore.getState().updateExpense(updatedExpense);
@@ -177,7 +215,7 @@ describe('ExpenseStore', () => {
 
       expect(expenses).toHaveLength(1);
       expect(expenses[0].title).toBe('Updated Title');
-      expect(expenses[0].amount).toBe(30.0);
+      expect(expenses[0].amountMinor).toBe(3000);
       expect(expenses[0].id).toBe(addedExpense.id);
     });
 
@@ -238,6 +276,53 @@ describe('ExpenseStore', () => {
   });
 
   describe('deleteExpense', () => {
+    it('hard-discards a pending shared create that has never been acknowledged', () => {
+      const pendingCreate = createSharedExpenseWithSync('pending', 0);
+      useExpenseStore.setState({ expenses: [pendingCreate] });
+
+      useExpenseStore.getState().deleteExpense(pendingCreate.id);
+
+      expect(useExpenseStore.getState().expenses).toEqual([]);
+    });
+
+    it('tombstones a pending shared update that has a server version', () => {
+      const pendingUpdate = createSharedExpenseWithSync('pending', 4);
+      useExpenseStore.setState({ expenses: [pendingUpdate] });
+
+      useExpenseStore.getState().deleteExpense(pendingUpdate.id);
+
+      expect(useExpenseStore.getState().expenses).toEqual([
+        expect.objectContaining({
+          id: pendingUpdate.id,
+          sync: expect.objectContaining({
+            deletedAt: expect.any(String),
+            localRevision: 2,
+            serverVersion: 4,
+            status: 'pending',
+          }),
+        }),
+      ]);
+    });
+
+    it('does not hard-discard an in-flight zero-version shared create', () => {
+      const syncingCreate = createSharedExpenseWithSync('syncing', 0);
+      useExpenseStore.setState({ expenses: [syncingCreate] });
+
+      useExpenseStore.getState().deleteExpense(syncingCreate.id);
+      useExpenseStore.getState().deleteExpense(syncingCreate.id);
+
+      expect(useExpenseStore.getState().expenses).toEqual([
+        expect.objectContaining({
+          id: syncingCreate.id,
+          sync: expect.objectContaining({
+            deletedAt: expect.any(String),
+            serverVersion: 0,
+            status: 'pending',
+          }),
+        }),
+      ]);
+    });
+
     it('should remove expense by ID', () => {
       const expense = createMockExpense({ title: 'To Delete' });
 
@@ -279,6 +364,216 @@ describe('ExpenseStore', () => {
     });
   });
 
+  describe('conditional draft rollback', () => {
+    const openingExpense: Expense = {
+      id: 'rollback-expense',
+      title: 'Opening title',
+      amountMinor: 2500,
+      currency: 'AUD',
+      date: '2026-08-24',
+      category: 'Other',
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'payer', amountMinor: 2500 }],
+      shares: [{ participantId: 'payer', amountMinor: 2500 }],
+      sync: {
+        mutationId: 'opening-mutation',
+        serverVersion: 4,
+        localRevision: 2,
+        status: 'synced',
+        updatedAt: '2026-08-24T00:00:00.000Z',
+      },
+    };
+    const attemptedExpense: Expense = {
+      ...openingExpense,
+      title: 'Attempted title',
+      sync: {
+        mutationId: 'attempted-mutation',
+        serverVersion: 4,
+        localRevision: 3,
+        status: 'pending',
+        updatedAt: '2026-08-24T00:01:00.000Z',
+      },
+    };
+    const openingVersion = {
+      mutationId: 'opening-mutation',
+      serverVersion: 4,
+      localRevision: 2,
+      status: 'synced' as const,
+      updatedAt: '2026-08-24T00:00:00.000Z',
+    };
+    const attemptedVersion = {
+      mutationId: 'attempted-mutation',
+      serverVersion: 4,
+      localRevision: 3,
+      status: 'pending' as const,
+      updatedAt: '2026-08-24T00:01:00.000Z',
+    };
+
+    it('restores the opening snapshot only from the exact attempted version', () => {
+      useExpenseStore.setState({ expenses: [attemptedExpense] });
+
+      expect(
+        useExpenseStore
+          .getState()
+          .restoreExpenseSnapshot(
+            openingExpense,
+            attemptedVersion,
+            openingVersion,
+          ),
+      ).toEqual({ status: 'applied' });
+      expect(useExpenseStore.getState().expenses).toEqual([openingExpense]);
+    });
+
+    it('does not overwrite a newer revision or resurrect a missing expense', () => {
+      const newerExpense: Expense = {
+        ...attemptedExpense,
+        title: 'Newer title',
+        sync: {
+          ...attemptedExpense.sync!,
+          mutationId: 'newer-mutation',
+          localRevision: 4,
+          updatedAt: '2026-08-24T00:02:00.000Z',
+        },
+      };
+      useExpenseStore.setState({ expenses: [newerExpense] });
+
+      expect(
+        useExpenseStore
+          .getState()
+          .restoreExpenseSnapshot(
+            openingExpense,
+            attemptedVersion,
+            openingVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'version-mismatch' });
+      expect(useExpenseStore.getState().expenses).toEqual([newerExpense]);
+
+      useExpenseStore.setState({ expenses: [] });
+      expect(
+        useExpenseStore
+          .getState()
+          .restoreExpenseSnapshot(
+            openingExpense,
+            attemptedVersion,
+            openingVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'missing' });
+      expect(useExpenseStore.getState().expenses).toEqual([]);
+    });
+
+    it('hard-deletes a draft create only at its exact attempted version', () => {
+      useExpenseStore.setState({ expenses: [attemptedExpense] });
+      expect(
+        useExpenseStore
+          .getState()
+          .deleteExpenseDraftIfVersion(attemptedExpense.id, attemptedVersion),
+      ).toEqual({ status: 'applied' });
+      expect(useExpenseStore.getState().expenses).toEqual([]);
+
+      const newerExpense = {
+        ...attemptedExpense,
+        sync: {
+          ...attemptedExpense.sync!,
+          mutationId: 'newer-create-mutation',
+          localRevision: 4,
+        },
+      };
+      useExpenseStore.setState({ expenses: [newerExpense] });
+      expect(
+        useExpenseStore
+          .getState()
+          .deleteExpenseDraftIfVersion(attemptedExpense.id, attemptedVersion),
+      ).toEqual({ status: 'conflict', reason: 'version-mismatch' });
+      expect(useExpenseStore.getState().expenses).toEqual([newerExpense]);
+
+      useExpenseStore.setState({ expenses: [] });
+      expect(
+        useExpenseStore
+          .getState()
+          .deleteExpenseDraftIfVersion(attemptedExpense.id, attemptedVersion),
+      ).toEqual({ status: 'conflict', reason: 'missing' });
+    });
+
+    it('updates only the exact expected expense version', () => {
+      useExpenseStore.setState({ expenses: [attemptedExpense] });
+
+      const applied = useExpenseStore
+        .getState()
+        .updateExpenseIfVersion(
+          { ...attemptedExpense, title: 'Queued title' },
+          attemptedVersion,
+        );
+
+      expect(applied).toMatchObject({
+        status: 'applied',
+        version: {
+          localRevision: 4,
+          mutationId: expect.any(String),
+        },
+      });
+      expect(useExpenseStore.getState().expenses[0].title).toBe('Queued title');
+      expect(
+        getExpenseMutationVersion(useExpenseStore.getState().expenses[0]),
+      ).toEqual(applied.status === 'applied' ? applied.version : null);
+    });
+
+    it('does not conditionally update a newer, deleted, or missing expense', () => {
+      const newerExpense: Expense = {
+        ...attemptedExpense,
+        title: 'External title',
+        sync: {
+          ...attemptedExpense.sync!,
+          mutationId: 'external-newer-mutation',
+          localRevision: 4,
+          updatedAt: '2026-08-24T00:03:00.000Z',
+        },
+      };
+      useExpenseStore.setState({ expenses: [newerExpense] });
+      expect(
+        useExpenseStore
+          .getState()
+          .updateExpenseIfVersion(
+            { ...attemptedExpense, title: 'Stale overwrite' },
+            attemptedVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'version-mismatch' });
+      expect(useExpenseStore.getState().expenses).toEqual([newerExpense]);
+
+      const tombstone: Expense = {
+        ...newerExpense,
+        sync: {
+          ...newerExpense.sync!,
+          mutationId: 'external-delete-mutation',
+          localRevision: 5,
+          updatedAt: '2026-08-24T00:04:00.000Z',
+          deletedAt: '2026-08-24T00:04:00.000Z',
+        },
+      };
+      useExpenseStore.setState({ expenses: [tombstone] });
+      expect(
+        useExpenseStore
+          .getState()
+          .updateExpenseIfVersion(
+            { ...attemptedExpense, title: 'Stale resurrection' },
+            attemptedVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'version-mismatch' });
+      expect(useExpenseStore.getState().expenses).toEqual([tombstone]);
+
+      useExpenseStore.setState({ expenses: [] });
+      expect(
+        useExpenseStore
+          .getState()
+          .updateExpenseIfVersion(
+            { ...attemptedExpense, title: 'Stale resurrection' },
+            attemptedVersion,
+          ),
+      ).toEqual({ status: 'conflict', reason: 'missing' });
+      expect(useExpenseStore.getState().expenses).toEqual([]);
+    });
+  });
+
   describe('getExpenseById', () => {
     it('should return expense by ID', () => {
       const expense = createMockExpense({ title: 'Find Me' });
@@ -302,159 +597,4 @@ describe('ExpenseStore', () => {
     });
   });
 
-  describe('migrateOrphanedExpenses', () => {
-    it('should migrate orphaned personal expenses without a fake group ID', () => {
-      const orphanedExpense = createMockExpense({
-        title: 'Orphaned',
-        groupId: undefined,
-        paidBy: undefined,
-      });
-      const normalExpense = createMockExpense({
-        title: 'Normal',
-        groupId: 'group-1',
-        paidBy: 'user-1',
-      });
-
-      useExpenseStore.getState().addExpense(orphanedExpense);
-      useExpenseStore.getState().addExpense(normalExpense);
-
-      useExpenseStore.getState().migrateOrphanedExpenses('internal-user-1');
-      const expenses = useExpenseStore.getState().expenses;
-
-      const migratedExpense = expenses.find((e) => e.title === 'Orphaned');
-      const untouchedExpense = expenses.find((e) => e.title === 'Normal');
-
-      expect(migratedExpense).toMatchObject({
-        amountMinor: 2500,
-        currency: 'USD',
-        spaceId: 'personal_internal-user-1',
-        spaceKind: 'personal',
-        payments: [{ participantId: 'internal-user-1', amountMinor: 2500 }],
-        shares: [{ participantId: 'internal-user-1', amountMinor: 2500 }],
-      });
-      expect(migratedExpense!.groupId).toBeUndefined();
-      expect(untouchedExpense!.groupId).toBe('group-1');
-      expect(untouchedExpense!.paidBy).toBe('user-1');
-    });
-
-    it('should not migrate expenses with existing groupId or paidBy', () => {
-      const expenseWithGroup = createMockExpense({
-        title: 'Has Group',
-        groupId: 'group-1',
-        paidBy: undefined,
-      });
-      const expenseWithPaidBy = createMockExpense({
-        title: 'Has PaidBy',
-        groupId: undefined,
-        paidBy: 'user-1',
-      });
-
-      useExpenseStore.getState().addExpense(expenseWithGroup);
-      useExpenseStore.getState().addExpense(expenseWithPaidBy);
-
-      useExpenseStore.getState().migrateOrphanedExpenses('internal-user-1');
-      const expenses = useExpenseStore.getState().expenses;
-
-      const groupExpense = expenses.find((e) => e.title === 'Has Group');
-      const paidByExpense = expenses.find((e) => e.title === 'Has PaidBy');
-
-      expect(groupExpense!.groupId).toBe('group-1');
-      expect(groupExpense!.paidBy).toBeUndefined();
-      expect(paidByExpense!.groupId).toBeUndefined();
-      expect(paidByExpense!.paidBy).toBe('user-1');
-    });
-  });
-
-  describe('removeExpensesForGroup', () => {
-    it('should retain historical space references when a group is removed', () => {
-      const groupExpense1 = createMockExpense({
-        title: 'Group Expense 1',
-        groupId: 'group-1',
-      });
-      const groupExpense2 = createMockExpense({
-        title: 'Group Expense 2',
-        groupId: 'group-1',
-      });
-      const otherExpense = createMockExpense({
-        title: 'Other Group',
-        groupId: 'group-2',
-      });
-
-      useExpenseStore.getState().addExpense(groupExpense1);
-      useExpenseStore.getState().addExpense(groupExpense2);
-      useExpenseStore.getState().addExpense(otherExpense);
-
-      useExpenseStore.getState().removeExpensesForGroup('group-1');
-      const expenses = useExpenseStore.getState().expenses;
-
-      const updatedExpense1 = expenses.find(
-        (e) => e.title === 'Group Expense 1',
-      );
-      const updatedExpense2 = expenses.find(
-        (e) => e.title === 'Group Expense 2',
-      );
-      const untouchedExpense = expenses.find((e) => e.title === 'Other Group');
-
-      expect(updatedExpense1!.groupId).toBe('group-1');
-      expect(updatedExpense2!.groupId).toBe('group-1');
-      expect(untouchedExpense!.groupId).toBe('group-2');
-    });
-  });
-
-  describe('updateExpensesForParticipantRemoval', () => {
-    it('should retain historical allocations when a participant is removed', () => {
-      const expense = createMockExpense({
-        title: 'Participant Expense',
-        paidBy: 'user-1',
-        splitBetween: ['user-1', 'user-2', 'user-3'],
-      });
-
-      useExpenseStore.getState().addExpense(expense);
-      useExpenseStore.getState().updateExpensesForParticipantRemoval('user-1');
-
-      const expenses = useExpenseStore.getState().expenses;
-      const updatedExpense = expenses[0];
-
-      expect(updatedExpense.paidBy).toBe('user-1');
-      expect(updatedExpense.splitBetween).toEqual([
-        'user-1',
-        'user-2',
-        'user-3',
-      ]);
-    });
-
-    it('should handle undefined splitBetween gracefully', () => {
-      const expense = createMockExpense({
-        title: 'No Split',
-        paidBy: 'user-1',
-        splitBetween: undefined,
-      });
-
-      useExpenseStore.getState().addExpense(expense);
-      useExpenseStore.getState().updateExpensesForParticipantRemoval('user-1');
-
-      const expenses = useExpenseStore.getState().expenses;
-      const updatedExpense = expenses[0];
-
-      expect(updatedExpense.paidBy).toBe('user-1');
-      expect(updatedExpense.splitBetween).toBeUndefined();
-    });
-
-    it('should not affect expenses where participant is not involved', () => {
-      const expense = createMockExpense({
-        title: 'Unrelated',
-        paidBy: 'user-2',
-        splitBetween: ['user-2', 'user-3'],
-      });
-
-      useExpenseStore.getState().addExpense(expense);
-      useExpenseStore.getState().updateExpensesForParticipantRemoval('user-1');
-
-      const expenses = useExpenseStore.getState().expenses;
-      const unchangedExpense = expenses[0];
-
-      expect(unchangedExpense.paidBy).toBe('user-2');
-      expect(unchangedExpense.splitBetween).toEqual(['user-2', 'user-3']);
-    });
-  });
 });

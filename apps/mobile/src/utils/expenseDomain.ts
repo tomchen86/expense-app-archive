@@ -1,5 +1,5 @@
 import type { Expense, ExpenseSpaceKind, MoneyAllocation } from '../types';
-import { allocateEqualShares, getCurrencyFractionDigits } from './money';
+import { getCurrencyFractionDigits } from './money';
 
 export interface PersonalExpenseProjection {
   expense: Expense;
@@ -16,32 +16,22 @@ const isNonNegativeMinorAmount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 
 export const getExpenseCurrency = (expense: Expense): string =>
-  expense.currency ?? 'USD';
+  expense.currency;
 
 export const isExpenseDeleted = (expense: Expense): boolean =>
   typeof expense.sync?.deletedAt === 'string';
 
 export const getExpenseAmountMinor = (expense: Expense): number => {
-  if (isPositiveMinorAmount(expense.amountMinor)) {
-    return expense.amountMinor;
-  }
-
-  if (typeof expense.amount !== 'number' || !Number.isFinite(expense.amount)) {
-    return 0;
-  }
-
-  const fractionDigits = getCurrencyFractionDigits(getExpenseCurrency(expense));
-  const amountMinor = Math.round(expense.amount * 10 ** (fractionDigits ?? 2));
-  return isPositiveMinorAmount(amountMinor) ? amountMinor : 0;
+  return isPositiveMinorAmount(expense.amountMinor) ? expense.amountMinor : 0;
 };
 
 export const getExpenseSpaceId = (expense: Expense): string | undefined =>
-  expense.spaceId ?? expense.groupId;
+  expense.spaceId;
 
 export const getExpenseSpaceKind = (
   expense: Expense,
 ): ExpenseSpaceKind | undefined =>
-  expense.spaceKind ?? (expense.groupId ? 'shared' : undefined);
+  expense.spaceKind;
 
 const validAllocations = (
   allocations: MoneyAllocation[] | undefined,
@@ -55,33 +45,11 @@ const validAllocations = (
   );
 
 export const getExpensePayments = (expense: Expense): MoneyAllocation[] => {
-  const canonical = validAllocations(expense.payments, isPositiveMinorAmount);
-  if (canonical.length > 0) {
-    return canonical;
-  }
-
-  const amountMinor = getExpenseAmountMinor(expense);
-  return expense.paidBy && amountMinor > 0
-    ? [{ participantId: expense.paidBy, amountMinor }]
-    : [];
+  return validAllocations(expense.payments, isPositiveMinorAmount);
 };
 
 export const getExpenseShares = (expense: Expense): MoneyAllocation[] => {
-  const canonical = validAllocations(expense.shares, isNonNegativeMinorAmount);
-  if (canonical.length > 0) {
-    return canonical;
-  }
-
-  const amountMinor = getExpenseAmountMinor(expense);
-  const legacyParticipantIds =
-    expense.splitBetween && expense.splitBetween.length > 0
-      ? expense.splitBetween
-      : expense.participants && expense.participants.length > 0
-        ? expense.participants.map((participant) => participant.id)
-        : expense.paidBy
-          ? [expense.paidBy]
-          : [];
-  return allocateEqualShares(amountMinor, legacyParticipantIds);
+  return validAllocations(expense.shares, isNonNegativeMinorAmount);
 };
 
 export const sumAllocationsForParticipant = (
@@ -99,18 +67,16 @@ export const getPersonalExpenseProjection = (
   if (isExpenseDeleted(expense)) {
     return null;
   }
-  const myPaidMinor = sumAllocationsForParticipant(
-    getExpensePayments(expense),
-    participantId,
-  );
-  const mySpentMinor = sumAllocationsForParticipant(
-    getExpenseShares(expense),
-    participantId,
-  );
-
-  if (myPaidMinor === 0 && mySpentMinor === 0) {
+  const payments = getExpensePayments(expense);
+  const shares = getExpenseShares(expense);
+  const hasAllocation =
+    payments.some((payment) => payment.participantId === participantId) ||
+    shares.some((share) => share.participantId === participantId);
+  if (!hasAllocation) {
     return null;
   }
+  const myPaidMinor = sumAllocationsForParticipant(payments, participantId);
+  const mySpentMinor = sumAllocationsForParticipant(shares, participantId);
 
   return {
     expense,

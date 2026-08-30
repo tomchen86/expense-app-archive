@@ -1,31 +1,36 @@
-import { Tabs } from 'expo-router';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import React from 'react';
+
+import { MOBILE_TABS } from '../../src/navigation/mobile-tabs';
+import { mobileTheme } from '../../src/theme/tokens';
 
 export default function TabLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: true,
+    <NativeTabs
+      backBehavior='initialRoute'
+      iconColor={{
+        default: mobileTheme.colors.textMuted,
+        selected: mobileTheme.colors.primary,
       }}
+      labelVisibilityMode='labeled'
+      sidebarAdaptable={false}
+      tabBarRespectsIMEInsets
+      tintColor={mobileTheme.colors.primary}
     >
-      <Tabs.Screen
-        name='history'
-        options={{
-          title: 'Group',
-        }}
-      />
-      <Tabs.Screen
-        name='index'
-        options={{
-          title: 'Expense',
-        }}
-      />
-      <Tabs.Screen
-        name='settings'
-        options={{
-          title: 'Settings',
-        }}
-      />
-    </Tabs>
+      {MOBILE_TABS.map((tab) => (
+        <NativeTabs.Trigger
+          contentStyle={{ backgroundColor: mobileTheme.colors.background }}
+          key={tab.name}
+          name={tab.name}
+          unstable_nativeProps={{
+            tabBarItemAccessibilityLabel: tab.label,
+            tabBarItemTestID: tab.testID,
+          }}
+        >
+          <NativeTabs.Trigger.Label>{tab.label}</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon md={tab.md} sf={tab.sf} />
+        </NativeTabs.Trigger>
+      ))}
+    </NativeTabs>
   );
 }

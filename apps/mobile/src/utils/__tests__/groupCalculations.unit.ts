@@ -1,7 +1,6 @@
 import {
-  calculateGroupTotal,
-  calculateUserTotalContributionInGroup,
   calculateAllMemberBalancesInGroup,
+  calculateCurrentUserGroupSummaryByCurrency,
   resolveGroupParticipantIdForUser,
 } from '../groupCalculations';
 import type { Expense, ExpenseGroup, Participant } from '../../types';
@@ -17,50 +16,47 @@ describe('groupCalculations', () => {
     {
       id: '1',
       title: 'Dinner',
-      amount: 90,
+      amountMinor: 9000,
+      currency: 'USD',
       date: '2025-01-01',
       category: 'Food & Dining',
-      groupId: 'group-1',
-      paidBy: 'user-1',
-      participants: members,
+      spaceId: 'group-1',
+      spaceKind: 'shared',
+      payments: [{ participantId: 'user-1', amountMinor: 9000 }],
+      shares: [
+        { participantId: 'user-1', amountMinor: 3000 },
+        { participantId: 'user-2', amountMinor: 3000 },
+        { participantId: 'user-3', amountMinor: 3000 },
+      ],
     },
     {
       id: '2',
       title: 'Groceries',
-      amount: 45,
+      amountMinor: 4500,
+      currency: 'USD',
       date: '2025-01-02',
       category: 'Food & Dining',
-      groupId: 'group-1',
-      paidBy: 'user-2',
-      participants: members.slice(0, 2),
+      spaceId: 'group-1',
+      spaceKind: 'shared',
+      payments: [{ participantId: 'user-2', amountMinor: 4500 }],
+      shares: [
+        { participantId: 'user-1', amountMinor: 2250 },
+        { participantId: 'user-2', amountMinor: 2250 },
+      ],
     },
     {
       id: '3',
       title: 'Travel',
-      amount: 120,
+      amountMinor: 12000,
+      currency: 'USD',
       date: '2025-01-03',
       category: 'Travel',
-      groupId: 'group-2',
-      paidBy: 'user-3',
+      spaceId: 'group-2',
+      spaceKind: 'shared',
+      payments: [{ participantId: 'user-3', amountMinor: 12000 }],
+      shares: [{ participantId: 'user-3', amountMinor: 12000 }],
     },
   ];
-
-  it('calculates the total for a specific group', () => {
-    expect(calculateGroupTotal(expenses, 'group-1')).toBe(135);
-    expect(calculateGroupTotal(expenses, 'group-2')).toBe(120);
-  });
-
-  it('calculates user contribution within a group', () => {
-    expect(
-      calculateUserTotalContributionInGroup('user-1', expenses, 'group-1'),
-    ).toBe(90);
-    expect(
-      calculateUserTotalContributionInGroup('user-2', expenses, 'group-1'),
-    ).toBe(45);
-    expect(
-      calculateUserTotalContributionInGroup('user-3', expenses, 'group-1'),
-    ).toBe(0);
-  });
 
   it('resolves an account identity to its distinct participant in a shared space', () => {
     const canonicalGroup: ExpenseGroup = {
@@ -83,10 +79,11 @@ describe('groupCalculations', () => {
     expect(
       resolveGroupParticipantIdForUser(canonicalGroup, 'account-bob'),
     ).toBeNull();
+    expect(resolveGroupParticipantIdForUser(canonicalGroup, null)).toBeNull();
   });
 
   it('calculates balances for each member', () => {
-    const groupExpenses = expenses.filter((exp) => exp.groupId === 'group-1');
+    const groupExpenses = expenses.filter((exp) => exp.spaceId === 'group-1');
     const balances = calculateAllMemberBalancesInGroup(members, groupExpenses);
 
     const alice = balances.find((balance) => balance.memberId === 'user-1');
@@ -109,5 +106,133 @@ describe('groupCalculations', () => {
     expect(
       result.reduce((sum, balance) => sum + balance.netBalanceMinor, 0),
     ).toBe(0);
+  });
+
+  it('projects the current user share and aggregate balance per currency', () => {
+    const group: ExpenseGroup = {
+      id: 'shared-space',
+      name: 'Household',
+      createdAt: '2026-08-20T00:00:00.000Z',
+      participants: [
+        {
+          id: 'participant-alex',
+          name: 'Alex',
+          userId: 'account-alex',
+          spaceId: 'shared-space',
+        },
+        {
+          id: 'participant-blake',
+          name: 'Blake',
+          spaceId: 'shared-space',
+        },
+      ],
+    };
+    const sharedExpenses: Expense[] = [
+      {
+        id: 'aud-expense',
+        title: 'Groceries',
+        amountMinor: 10_000,
+        currency: 'AUD',
+        date: '2026-08-20',
+        category: 'Food & Dining',
+        spaceId: group.id,
+        spaceKind: 'shared',
+        payments: [{ participantId: 'participant-alex', amountMinor: 10_000 }],
+        shares: [
+          { participantId: 'participant-alex', amountMinor: 6_000 },
+          { participantId: 'participant-blake', amountMinor: 4_000 },
+        ],
+      },
+      {
+        id: 'usd-expense',
+        title: 'Tickets',
+        amountMinor: 5_000,
+        currency: 'USD',
+        date: '2026-08-21',
+        category: 'Entertainment',
+        spaceId: group.id,
+        spaceKind: 'shared',
+        payments: [{ participantId: 'participant-blake', amountMinor: 5_000 }],
+        shares: [
+          { participantId: 'participant-alex', amountMinor: 2_000 },
+          { participantId: 'participant-blake', amountMinor: 3_000 },
+        ],
+      },
+    ];
+
+    expect(
+      calculateCurrentUserGroupSummaryByCurrency(
+        group,
+        sharedExpenses,
+        'account-alex',
+      ),
+    ).toEqual([
+      {
+        currency: 'AUD',
+        myNetBalanceMinor: 4_000,
+        myShareMinor: 6_000,
+      },
+      {
+        currency: 'USD',
+        myNetBalanceMinor: -2_000,
+        myShareMinor: 2_000,
+      },
+    ]);
+  });
+
+  it('filters unrelated and deleted expenses and distinguishes unresolved identity', () => {
+    const group: ExpenseGroup = {
+      id: 'shared-space',
+      name: 'Household',
+      createdAt: '2026-08-20T00:00:00.000Z',
+      participants: [
+        {
+          id: 'participant-alex',
+          name: 'Alex',
+          userId: 'account-alex',
+        },
+      ],
+    };
+    const deletedExpense: Expense = {
+      id: 'deleted',
+      title: 'Deleted',
+      amountMinor: 1_000,
+      currency: 'AUD',
+      date: '2026-08-20',
+      category: 'Other',
+      spaceId: group.id,
+      spaceKind: 'shared',
+      payments: [{ participantId: 'participant-alex', amountMinor: 1_000 }],
+      shares: [{ participantId: 'participant-alex', amountMinor: 1_000 }],
+      sync: {
+        mutationId: 'delete-mutation',
+        serverVersion: 0,
+        localRevision: 1,
+        status: 'pending',
+        updatedAt: '2026-08-24T00:00:00.000Z',
+        deletedAt: '2026-08-24T00:00:00.000Z',
+      },
+    };
+    const unrelatedExpense: Expense = {
+      ...deletedExpense,
+      id: 'other-space',
+      spaceId: 'other-space',
+      sync: undefined,
+    };
+
+    expect(
+      calculateCurrentUserGroupSummaryByCurrency(
+        group,
+        [deletedExpense, unrelatedExpense],
+        'account-alex',
+      ),
+    ).toEqual([]);
+    expect(
+      calculateCurrentUserGroupSummaryByCurrency(
+        group,
+        [unrelatedExpense],
+        'unknown-account',
+      ),
+    ).toBeNull();
   });
 });

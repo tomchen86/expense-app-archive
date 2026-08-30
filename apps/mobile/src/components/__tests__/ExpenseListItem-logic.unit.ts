@@ -5,10 +5,14 @@ describe('ExpenseListItem Logic', () => {
   const mockExpense: Expense = {
     id: 'expense-1',
     title: 'Test Lunch',
-    amount: 25.5,
+    amountMinor: 2550,
+    currency: 'USD',
     date: '2025-09-20',
     category: 'Food & Dining',
-    paidBy: 'participant-1',
+    spaceId: 'group-1',
+    spaceKind: 'shared',
+    payments: [{ participantId: 'participant-1', amountMinor: 2550 }],
+    shares: [{ participantId: 'participant-1', amountMinor: 2550 }],
   };
 
   const mockParticipants: Participant[] = [
@@ -26,8 +30,9 @@ describe('ExpenseListItem Logic', () => {
   describe('participant resolution logic', () => {
     it('should find payer when participant exists', () => {
       const findPayer = (expense: Expense, allParticipants: Participant[]) => {
-        return expense.paidBy && allParticipants
-          ? allParticipants.find((p) => p.id === expense.paidBy)
+        const payerId = expense.payments[0]?.participantId;
+        return payerId && allParticipants
+          ? allParticipants.find((p) => p.id === payerId)
           : null;
       };
 
@@ -36,26 +41,31 @@ describe('ExpenseListItem Logic', () => {
       expect(payer?.id).toBe('participant-1');
     });
 
-    it('should return null when paidBy is not set', () => {
+    it('should return null when payments are empty', () => {
       const findPayer = (expense: Expense, allParticipants: Participant[]) => {
-        return expense.paidBy && allParticipants
-          ? allParticipants.find((p) => p.id === expense.paidBy)
+        const payerId = expense.payments[0]?.participantId;
+        return payerId && allParticipants
+          ? allParticipants.find((p) => p.id === payerId)
           : null;
       };
 
-      const expenseWithoutPayer = { ...mockExpense, paidBy: undefined };
+      const expenseWithoutPayer = { ...mockExpense, payments: [] };
       const payer = findPayer(expenseWithoutPayer, mockParticipants);
       expect(payer).toBeNull();
     });
 
     it('should return null when participant not found', () => {
       const findPayer = (expense: Expense, allParticipants: Participant[]) => {
-        return expense.paidBy && allParticipants
-          ? allParticipants.find((p) => p.id === expense.paidBy)
+        const payerId = expense.payments[0]?.participantId;
+        return payerId && allParticipants
+          ? allParticipants.find((p) => p.id === payerId)
           : null;
       };
 
-      const expenseWithUnknownPayer = { ...mockExpense, paidBy: 'unknown-id' };
+      const expenseWithUnknownPayer = {
+        ...mockExpense,
+        payments: [{ participantId: 'unknown-id', amountMinor: 2550 }],
+      };
       const payer = findPayer(expenseWithUnknownPayer, mockParticipants);
       expect(payer).toBeUndefined();
     });
@@ -65,8 +75,9 @@ describe('ExpenseListItem Logic', () => {
         expense: Expense,
         allParticipants: Participant[] | null,
       ) => {
-        return expense.paidBy && allParticipants
-          ? allParticipants.find((p) => p.id === expense.paidBy)
+        const payerId = expense.payments[0]?.participantId;
+        return payerId && allParticipants
+          ? allParticipants.find((p) => p.id === payerId)
           : null;
       };
 
@@ -186,7 +197,7 @@ describe('ExpenseListItem Logic', () => {
         if (!expense.title || expense.title.trim().length === 0) {
           errors.push('Title is required');
         }
-        if ((expense.amount ?? 0) <= 0) {
+        if (expense.amountMinor <= 0) {
           errors.push('Amount must be greater than 0');
         }
         if (!expense.date) {
@@ -208,13 +219,14 @@ describe('ExpenseListItem Logic', () => {
       expect(validResult.errors).toHaveLength(0);
 
       // Invalid expense
-      const invalidExpense = {
+      const invalidExpense: Expense = {
+        ...mockExpense,
         id: '',
         title: '',
-        amount: -5,
+        amountMinor: -500,
         date: '',
         category: '',
-      } as Expense;
+      };
 
       const invalidResult = validateExpense(invalidExpense);
       expect(invalidResult.isValid).toBe(false);
@@ -349,8 +361,8 @@ describe('ExpenseListItem Logic', () => {
       const processExpense = (expense: Expense) => {
         return {
           hasCaption: !!expense.caption,
-          hasPaidBy: !!expense.paidBy,
-          hasGroupId: !!expense.groupId,
+          hasPayer: expense.payments.length > 0,
+          isShared: expense.spaceKind === 'shared',
           captionLength: expense.caption?.length || 0,
         };
       };
@@ -359,35 +371,42 @@ describe('ExpenseListItem Logic', () => {
       const fullExpense: Expense = {
         ...mockExpense,
         caption: 'Business lunch',
-        groupId: 'group-1',
+        spaceId: 'group-1',
+        spaceKind: 'shared',
       };
 
       const fullResult = processExpense(fullExpense);
       expect(fullResult.hasCaption).toBe(true);
-      expect(fullResult.hasPaidBy).toBe(true);
-      expect(fullResult.hasGroupId).toBe(true);
+      expect(fullResult.hasPayer).toBe(true);
+      expect(fullResult.isShared).toBe(true);
       expect(fullResult.captionLength).toBe(14);
 
       // Minimal expense
       const minimalExpense: Expense = {
         id: 'exp-1',
         title: 'Coffee',
-        amount: 4.5,
+        amountMinor: 450,
+        currency: 'USD',
         date: '2025-09-20',
         category: 'Food',
+        spaceId: 'personal-space',
+        spaceKind: 'personal',
+        payments: [],
+        shares: [],
       };
 
       const minimalResult = processExpense(minimalExpense);
       expect(minimalResult.hasCaption).toBe(false);
-      expect(minimalResult.hasPaidBy).toBe(false);
-      expect(minimalResult.hasGroupId).toBe(false);
+      expect(minimalResult.hasPayer).toBe(false);
+      expect(minimalResult.isShared).toBe(false);
       expect(minimalResult.captionLength).toBe(0);
     });
 
     it('should handle empty participants array', () => {
       const findPayer = (expense: Expense, allParticipants: Participant[]) => {
-        return expense.paidBy && allParticipants && allParticipants.length > 0
-          ? allParticipants.find((p) => p.id === expense.paidBy)
+        const payerId = expense.payments[0]?.participantId;
+        return payerId && allParticipants.length > 0
+          ? allParticipants.find((p) => p.id === payerId)
           : null;
       };
 

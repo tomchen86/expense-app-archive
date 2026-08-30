@@ -15,13 +15,25 @@ const now = () => {
 
 const createExpense = (index: number) => ({
   title: `Performance Test Expense ${index}`,
-  amount: (index % 50) + 1,
+  amountMinor: ((index % 50) + 1) * 100,
+  currency: 'USD',
   date: new Date(2025, index % 12, (index % 28) + 1).toISOString(),
   category: `category-${index % 6}`,
   caption: index % 10 === 0 ? 'Recurring expense' : undefined,
-  groupId: index % 5 === 0 ? `group-${index % 3}` : undefined,
-  paidBy: index % 3 === 0 ? `participant-${index % 4}` : undefined,
-  splitBetween: index % 2 === 0 ? [`participant-${index % 4}`] : undefined,
+  spaceId: index % 5 === 0 ? `group-${index % 3}` : 'personal-space',
+  spaceKind: index % 5 === 0 ? ('shared' as const) : ('personal' as const),
+  payments: [
+    {
+      participantId: `participant-${index % 4}`,
+      amountMinor: ((index % 50) + 1) * 100,
+    },
+  ],
+  shares: [
+    {
+      participantId: `participant-${index % 4}`,
+      amountMinor: ((index % 50) + 1) * 100,
+    },
+  ],
 });
 
 const isCoverageRun = Boolean(
@@ -76,7 +88,8 @@ describe('Store Performance Benchmarks', () => {
         (accumulated, expense) => {
           const key = expense.category;
 
-          accumulated[key] = (accumulated[key] ?? 0) + (expense.amount ?? 0);
+          accumulated[key] =
+            (accumulated[key] ?? 0) + expense.amountMinor;
           return accumulated;
         },
         {} as Record<string, number>,

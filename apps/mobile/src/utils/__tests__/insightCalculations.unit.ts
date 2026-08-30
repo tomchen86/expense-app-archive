@@ -1,5 +1,4 @@
 import {
-  calculateCategoryTotals,
   generateCategoryChartData,
   filterExpensesByDate,
   getRelevantExpenses,
@@ -7,6 +6,8 @@ import {
   getDisplayPeriodText,
   getPreviousPeriod,
   getNextPeriod,
+  buildCurrencyInsights,
+  resolveInsightChartKind,
 } from '../calculations/insightCalculations';
 import {
   mockExpenses,
@@ -16,76 +17,11 @@ import {
 import type { Expense } from '../../types';
 
 describe('insightCalculations', () => {
-  describe('calculateCategoryTotals', () => {
-    it('should calculate correct category totals', () => {
-      const expenses = [
-        createMockExpense({ category: 'Food & Dining', amount: 50 }),
-        createMockExpense({ category: 'Food & Dining', amount: 30 }),
-        createMockExpense({ category: 'Transportation', amount: 20 }),
-      ];
-
-      const result = calculateCategoryTotals(expenses);
-
-      expect(result.totals).toEqual({
-        'Food & Dining': 80,
-        Transportation: 20,
-      });
-      expect(result.total).toBe(100);
-    });
-
-    it('should handle single expense', () => {
-      const expenses = [
-        createMockExpense({ category: 'Food & Dining', amount: 50 }),
-      ];
-
-      const result = calculateCategoryTotals(expenses);
-
-      expect(result.totals).toEqual({
-        'Food & Dining': 50,
-      });
-      expect(result.total).toBe(50);
-    });
-
-    it('should return empty totals for no expenses', () => {
-      const result = calculateCategoryTotals([]);
-
-      expect(result.totals).toEqual({});
-      expect(result.total).toBe(0);
-    });
-
-    it('should handle decimal amounts correctly', () => {
-      const expenses = [
-        createMockExpense({ category: 'Food & Dining', amount: 25.5 }),
-        createMockExpense({ category: 'Food & Dining', amount: 12.75 }),
-      ];
-
-      const result = calculateCategoryTotals(expenses);
-
-      expect(result.totals['Food & Dining']).toBe(38.25);
-      expect(result.total).toBe(38.25);
-    });
-
-    it('should handle zero amounts', () => {
-      const expenses = [
-        createMockExpense({ category: 'Food & Dining', amount: 0 }),
-        createMockExpense({ category: 'Transportation', amount: 25 }),
-      ];
-
-      const result = calculateCategoryTotals(expenses);
-
-      expect(result.totals).toEqual({
-        'Food & Dining': 0,
-        Transportation: 25,
-      });
-      expect(result.total).toBe(25);
-    });
-  });
-
   describe('generateCategoryChartData', () => {
     it('should generate chart data with correct percentages', () => {
       const expenses = [
-        createMockExpense({ category: 'Food & Dining', amount: 80 }),
-        createMockExpense({ category: 'Transportation', amount: 20 }),
+        createMockExpense({ category: 'Food & Dining', amountMinor: 8000 }),
+        createMockExpense({ category: 'Transportation', amountMinor: 2000 }),
       ];
 
       const result = generateCategoryChartData(expenses, mockCategories);
@@ -118,7 +54,7 @@ describe('insightCalculations', () => {
 
     it('should handle categories not in category list with default color', () => {
       const expenses = [
-        createMockExpense({ category: 'Unknown Category', amount: 50 }),
+        createMockExpense({ category: 'Unknown Category', amountMinor: 5000 }),
       ];
 
       const result = generateCategoryChartData(
@@ -136,6 +72,27 @@ describe('insightCalculations', () => {
       });
     });
 
+    it('uses an expense category snapshot when its reference is unavailable', () => {
+      const expenses = [
+        createMockExpense({
+          category: 'Uncategorized',
+          categoryId: 'missing-category',
+          categorySnapshot: {
+            name: 'Road Trip',
+            color: '#5678C8',
+          },
+          amountMinor: 5000,
+        }),
+      ];
+
+      const result = generateCategoryChartData(expenses, [], '#CCCCCC');
+
+      expect(result[0]).toMatchObject({
+        category: 'Road Trip',
+        color: '#5678C8',
+      });
+    });
+
     it('should return empty array for no expenses', () => {
       const result = generateCategoryChartData([], mockCategories);
       expect(result).toEqual([]);
@@ -143,7 +100,7 @@ describe('insightCalculations', () => {
 
     it('should return empty array for zero total', () => {
       const expenses = [
-        createMockExpense({ category: 'Food & Dining', amount: 0 }),
+        createMockExpense({ category: 'Food & Dining', amountMinor: 0 }),
       ];
 
       const result = generateCategoryChartData(expenses, mockCategories);
@@ -152,9 +109,9 @@ describe('insightCalculations', () => {
 
     it('should calculate percentages correctly for multiple categories', () => {
       const expenses = [
-        createMockExpense({ category: 'Food & Dining', amount: 60 }),
-        createMockExpense({ category: 'Transportation', amount: 30 }),
-        createMockExpense({ category: 'Entertainment', amount: 10 }),
+        createMockExpense({ category: 'Food & Dining', amountMinor: 6000 }),
+        createMockExpense({ category: 'Transportation', amountMinor: 3000 }),
+        createMockExpense({ category: 'Entertainment', amountMinor: 1000 }),
       ];
 
       const result = generateCategoryChartData(expenses, mockCategories);
@@ -174,10 +131,26 @@ describe('insightCalculations', () => {
 
   describe('filterExpensesByDate', () => {
     const testExpenses = [
-      createMockExpense({ title: 'Jan 2025', date: '2025-01-15', amount: 100 }),
-      createMockExpense({ title: 'Mar 2025', date: '2025-03-10', amount: 150 }),
-      createMockExpense({ title: 'Jan 2024', date: '2024-01-20', amount: 200 }),
-      createMockExpense({ title: 'Dec 2024', date: '2024-12-25', amount: 75 }),
+      createMockExpense({
+        title: 'Jan 2025',
+        date: '2025-01-15',
+        amountMinor: 10000,
+      }),
+      createMockExpense({
+        title: 'Mar 2025',
+        date: '2025-03-10',
+        amountMinor: 15000,
+      }),
+      createMockExpense({
+        title: 'Jan 2024',
+        date: '2024-01-20',
+        amountMinor: 20000,
+      }),
+      createMockExpense({
+        title: 'Dec 2024',
+        date: '2024-12-25',
+        amountMinor: 7500,
+      }),
     ];
 
     it('should filter by year correctly', () => {
@@ -205,12 +178,12 @@ describe('insightCalculations', () => {
         createMockExpense({
           title: 'Last day of Jan',
           date: '2025-01-31',
-          amount: 100,
+          amountMinor: 10000,
         }),
         createMockExpense({
           title: 'First day of Feb',
           date: '2025-02-01',
-          amount: 150,
+          amountMinor: 15000,
         }),
       ];
 
@@ -238,42 +211,52 @@ describe('insightCalculations', () => {
     const testExpenses = [
       createMockExpense({
         title: 'Personal 1',
-        paidBy: 'user-1',
-        groupId: undefined,
+        spaceId: 'personal-space',
+        spaceKind: 'personal',
       }),
       createMockExpense({
         title: 'Personal 2',
-        paidBy: 'user-1',
-        groupId: 'some-group',
+        spaceId: 'some-group',
+        spaceKind: 'shared',
       }),
       createMockExpense({
         title: 'Group 1',
-        paidBy: 'user-2',
-        groupId: 'group-1',
+        spaceId: 'group-1',
+        spaceKind: 'shared',
+        payments: [{ participantId: 'user-2', amountMinor: 2500 }],
+        shares: [
+          { participantId: 'user-1', amountMinor: 1250 },
+          { participantId: 'user-2', amountMinor: 1250 },
+        ],
       }),
       createMockExpense({
         title: 'Group 2',
-        paidBy: 'user-1',
-        groupId: 'group-1',
+        spaceId: 'group-1',
+        spaceKind: 'shared',
       }),
       createMockExpense({
         title: 'Other Group',
-        paidBy: 'user-3',
-        groupId: 'group-2',
+        spaceId: 'group-2',
+        spaceKind: 'shared',
+        payments: [{ participantId: 'user-3', amountMinor: 2500 }],
+        shares: [{ participantId: 'user-3', amountMinor: 2500 }],
       }),
     ];
 
-    it('should return personal expenses for user', () => {
+    it('returns personal-space expenses and shared allocations for the canonical participant', () => {
       const result = getRelevantExpenses(
         testExpenses,
         'personal',
         '',
         'user-1',
+        'personal-space',
+        ['user-1'],
       );
 
-      expect(result).toHaveLength(3); // All expenses paid by user-1
+      expect(result).toHaveLength(4);
       expect(result.map((e) => e.title)).toContain('Personal 1');
       expect(result.map((e) => e.title)).toContain('Personal 2');
+      expect(result.map((e) => e.title)).toContain('Group 1');
       expect(result.map((e) => e.title)).toContain('Group 2');
     });
 
@@ -290,7 +273,7 @@ describe('insightCalculations', () => {
       expect(result.map((e) => e.title)).toContain('Group 2');
     });
 
-    it('should return empty array for personal context without internal user ID', () => {
+    it('returns an empty array for personal context without a canonical user ID', () => {
       const result = getRelevantExpenses(testExpenses, 'personal', '', null);
       expect(result).toEqual([]);
     });
@@ -526,6 +509,141 @@ describe('insightCalculations', () => {
     it('should return null for future years', () => {
       const result = getNextPeriod(2026, 8, 'year');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('adaptive insight presentation', () => {
+    const categories = Array.from({ length: 7 }, (_, index) => ({
+      id: `category-${index + 1}`,
+      name: `Category ${index + 1}`,
+      color: `#${`${index + 1}`.repeat(6)}`,
+    }));
+
+    const expense = (
+      id: string,
+      categoryIndex: number,
+      amountMinor: number,
+      currency = 'AUD',
+    ): Expense => ({
+      id,
+      title: id,
+      amountMinor,
+      currency,
+      date: '2026-08-01',
+      category: categories[categoryIndex].name,
+      categoryId: categories[categoryIndex].id,
+      spaceId: 'personal-space',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'user-1', amountMinor }],
+      shares: [{ participantId: 'user-1', amountMinor }],
+    });
+
+    it.each([
+      ['auto', 0, 'empty'],
+      ['auto', 1, 'progress'],
+      ['auto', 2, 'donut'],
+      ['auto', 5, 'donut'],
+      ['auto', 6, 'bar'],
+      ['donut', 1, 'donut'],
+      ['donut', 7, 'donut'],
+      ['bar', 1, 'bar'],
+      ['bar', 7, 'bar'],
+    ] as const)(
+      'resolves %s with %i categories to %s',
+      (preference, count, expected) => {
+        expect(resolveInsightChartKind(preference, count)).toBe(expected);
+      },
+    );
+
+    it('keeps currencies separate and produces a finite prior comparison', () => {
+      const result = buildCurrencyInsights({
+        currentExpenses: [
+          expense('aud-current', 0, 12_00),
+          expense('jpy-current', 1, 2_000, 'JPY'),
+        ],
+        priorExpenses: [expense('aud-prior', 0, 8_00)],
+        categories,
+        preference: 'auto',
+      });
+
+      expect(result.map((item) => item.currency)).toEqual(['AUD', 'JPY']);
+      expect(result[0]).toMatchObject({
+        totalMinor: 12_00,
+        priorTotalMinor: 8_00,
+        deltaMinor: 4_00,
+        deltaPercentage: 50,
+      });
+      expect(result[1]).toMatchObject({
+        totalMinor: 2_000,
+        priorTotalMinor: 0,
+        deltaMinor: 2_000,
+        deltaPercentage: null,
+      });
+      expect(Number.isFinite(result[0].deltaPercentage)).toBe(true);
+    });
+
+    it('uses stable category identity and current category metadata', () => {
+      const renamedExpense = {
+        ...expense('renamed', 0, 4_00),
+        category: 'Old category name',
+      };
+      const currentExpense = expense('current', 0, 6_00);
+
+      const [aud] = buildCurrencyInsights({
+        currentExpenses: [renamedExpense, currentExpense],
+        priorExpenses: [],
+        categories,
+        preference: 'auto',
+      });
+
+      expect(aud.exactCategories).toHaveLength(1);
+      expect(aud.exactCategories[0]).toMatchObject({
+        categoryId: 'category-1',
+        category: 'Category 1',
+        amountMinor: 10_00,
+      });
+    });
+
+    it('limits a manual donut to top five plus Others without changing the exact list', () => {
+      const currentExpenses = [70, 60, 50, 40, 30, 20, 10].map(
+        (amountMinor, index) => expense(`expense-${index}`, index, amountMinor),
+      );
+
+      const [aud] = buildCurrencyInsights({
+        currentExpenses,
+        priorExpenses: [],
+        categories,
+        preference: 'donut',
+      });
+
+      expect(aud.chartKind).toBe('donut');
+      expect(aud.chartCategories.map((item) => item.category)).toEqual([
+        'Category 1',
+        'Category 2',
+        'Category 3',
+        'Category 4',
+        'Category 5',
+        'Others',
+      ]);
+      expect(aud.chartCategories.at(-1)).toMatchObject({ amountMinor: 30 });
+      expect(aud.exactCategories).toHaveLength(7);
+      expect(
+        aud.exactCategories.some((item) => item.category === 'Others'),
+      ).toBe(false);
+    });
+
+    it('keeps every exact category in manual bar mode', () => {
+      const [aud] = buildCurrencyInsights({
+        currentExpenses: [70, 60, 50, 40, 30, 20].map((amountMinor, index) =>
+          expense(`bar-expense-${index}`, index, amountMinor),
+        ),
+        priorExpenses: [],
+        categories,
+        preference: 'bar',
+      });
+
+      expect(aud.chartKind).toBe('bar');
+      expect(aud.chartCategories).toEqual(aud.exactCategories);
     });
   });
 });

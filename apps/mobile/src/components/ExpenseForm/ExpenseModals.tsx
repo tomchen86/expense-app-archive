@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, StyleSheet } from 'react-native';
+import { semanticColors } from '../../theme/semantic-colors';
 import { ExpenseCategory, ExpenseGroup, Participant } from '../../types';
 import SelectionModal from '../SelectionModal';
 
@@ -66,7 +67,7 @@ export const ExpenseModals: React.FC<ExpenseModalsProps> = ({
       {/* Category Modal */}
       <SelectionModal<ExpenseCategory | string>
         visible={showCategoryModal}
-        title='Select Category'
+        title='Category'
         data={categoryModalData}
         renderItemContent={(item) => (
           <Text style={styles.modalItemText}>{item}</Text>
@@ -130,6 +131,7 @@ export const ExpenseModals: React.FC<ExpenseModalsProps> = ({
 
 const styles = StyleSheet.create({
   modalItemText: {
+    color: semanticColors.text,
     fontSize: 16,
     paddingVertical: 5,
   },

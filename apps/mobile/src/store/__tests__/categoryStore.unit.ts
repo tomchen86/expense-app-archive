@@ -1,5 +1,6 @@
 import { useCategoryStore } from '../features/categoryStore';
 import { useExpenseStore } from '../features/expenseStore';
+import { createMockExpense } from '../../__tests__/fixtures';
 import { DEFAULT_CATEGORIES } from '../../constants/expenses';
 
 describe('CategoryStore', () => {
@@ -28,6 +29,21 @@ describe('CategoryStore', () => {
       color: '#111111',
     });
     expect(categories).toContainEqual(result);
+  });
+
+  it('rejects a color already assigned to another category', () => {
+    const existing = useCategoryStore.getState().categories[0];
+
+    expect(() =>
+      useCategoryStore
+        .getState()
+        .addCategory({ name: 'Fitness', color: existing.color.toLowerCase() }),
+    ).toThrow('already uses this color');
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.some((category) => category.name === 'Fitness'),
+    ).toBe(false);
   });
 
   it('warns and returns the existing category when adding a duplicate name', () => {
@@ -74,10 +90,7 @@ describe('CategoryStore', () => {
     );
   });
 
-  it('prevents deleting every protected default category', () => {
-    const warnSpy = jest
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
+  it('permanently deletes an unused default category', () => {
     const defaultCategory = useCategoryStore.getState().categories[0];
 
     expect(defaultCategory).toBeDefined();
@@ -86,10 +99,45 @@ describe('CategoryStore', () => {
 
     const categories = useCategoryStore.getState().categories;
 
-    expect(categories).toContainEqual(defaultCategory);
-    expect(warnSpy).toHaveBeenCalledWith(
-      `Cannot delete the default category "${defaultCategory.name}".`,
-    );
+    expect(categories).not.toContainEqual(defaultCategory);
+  });
+
+  it('never archives or deletes the reserved Uncategorized category', () => {
+    const uncategorized = useCategoryStore
+      .getState()
+      .categories.find((category) => category.name === 'Uncategorized');
+
+    expect(uncategorized).toBeDefined();
+
+    useCategoryStore.getState().archiveCategory(uncategorized!.id);
+    useCategoryStore.getState().deleteCategory(uncategorized!.id);
+
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find((category) => category.id === uncategorized!.id),
+    ).toEqual(uncategorized);
+  });
+
+  it('archives a used default category while preserving its expense', () => {
+    const defaultCategory = useCategoryStore.getState().categories[0];
+    const expense = createMockExpense({
+      id: 'expense-default-category',
+      title: 'Dinner',
+      date: '2026-08-25',
+      category: defaultCategory.name,
+      categoryId: defaultCategory.id,
+    });
+    useExpenseStore.setState({ expenses: [expense] });
+
+    useCategoryStore.getState().archiveCategory(defaultCategory.id);
+
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find((category) => category.id === defaultCategory.id),
+    ).toHaveProperty('archivedAt');
+    expect(useExpenseStore.getState().expenses).toEqual([expense]);
   });
 
   it('retrieves categories by name after updates', () => {
@@ -105,6 +153,40 @@ describe('CategoryStore', () => {
     expect(getCategoryByName('Outdoors')?.color).toBe('#654321');
   });
 
+  it('rejects changing a category to another category color', () => {
+    const [first, second] = useCategoryStore.getState().categories;
+
+    expect(() =>
+      useCategoryStore
+        .getState()
+        .updateCategory({ ...second, color: first.color.toLowerCase() }),
+    ).toThrow('already uses this color');
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find((category) => category.id === second.id)?.color,
+    ).toBe(second.color);
+  });
+
+  it('prevents renaming the reserved Uncategorized category', () => {
+    const uncategorized = useCategoryStore
+      .getState()
+      .categories.find((category) => category.name === 'Uncategorized');
+
+    expect(uncategorized).toBeDefined();
+    expect(() =>
+      useCategoryStore.getState().updateCategory({
+        ...uncategorized!,
+        name: 'Something Else',
+      }),
+    ).toThrow('Uncategorized cannot be renamed');
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find((category) => category.id === uncategorized?.id)?.name,
+    ).toBe('Uncategorized');
+  });
+
   it('does not delete a custom category referenced by an active expense', () => {
     const warnSpy = jest
       .spyOn(console, 'warn')
@@ -114,13 +196,13 @@ describe('CategoryStore', () => {
       .addCategory({ name: 'Fitness', color: '#111111' });
     useExpenseStore.setState({
       expenses: [
-        {
+        createMockExpense({
           id: 'expense-1',
           title: 'Gym',
           date: '2026-08-13',
           category: category.name,
           categoryId: category.id,
-        },
+        }),
       ],
     });
 
@@ -130,5 +212,49 @@ describe('CategoryStore', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       `Cannot delete category "${category.name}" while active expenses use it.`,
     );
+  });
+
+  it('archives and restores a used custom category without rewriting expenses', () => {
+    const category = useCategoryStore
+      .getState()
+      .addCategory({ name: 'Coffee', color: '#111111' });
+    const expense = createMockExpense({
+      id: 'expense-coffee',
+      title: 'Flat white',
+      date: '2026-08-25',
+      category: category.name,
+      categoryId: category.id,
+    });
+    useExpenseStore.setState({ expenses: [expense] });
+
+    useCategoryStore.getState().archiveCategory(category.id);
+
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find(({ id }) => id === category.id)?.archivedAt,
+    ).toEqual(expect.any(String));
+    expect(useExpenseStore.getState().expenses[0]).toEqual(expense);
+
+    useCategoryStore.getState().restoreCategory(category.id);
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.find(({ id }) => id === category.id),
+    ).not.toHaveProperty('archivedAt');
+  });
+
+  it('permanently deletes a custom category only when it is unused', () => {
+    const category = useCategoryStore
+      .getState()
+      .addCategory({ name: 'Temporary', color: '#111111' });
+
+    useCategoryStore.getState().deleteCategory(category.id);
+
+    expect(
+      useCategoryStore
+        .getState()
+        .categories.some(({ id }) => id === category.id),
+    ).toBe(false);
   });
 });

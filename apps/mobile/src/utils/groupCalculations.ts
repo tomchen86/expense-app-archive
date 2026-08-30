@@ -16,18 +16,14 @@ export interface CurrencyTotal {
 
 export const resolveGroupParticipantIdForUser = (
   group: ExpenseGroup | undefined,
-  internalUserId: string | null,
+  userId: string | null,
 ): string | null => {
-  if (!group || !internalUserId) {
+  if (!group || !userId) {
     return null;
   }
 
   return (
-    group.participants.find(
-      (participant) => participant.userId === internalUserId,
-    )?.id ??
-    group.participants.find((participant) => participant.id === internalUserId)
-      ?.id ??
+    group.participants.find((candidate) => candidate.userId === userId)?.id ??
     null
   );
 };
@@ -55,16 +51,6 @@ export const calculateGroupTotalsByCurrency = (
   }));
 };
 
-// Legacy major-unit facade retained for older callers and persisted records.
-export const calculateGroupTotal = (
-  expenses: Expense[],
-  groupId: string,
-): number =>
-  calculateGroupTotalsByCurrency(expenses, groupId).reduce(
-    (sum, total) => sum + minorUnitsToMajor(total.amountMinor, total.currency),
-    0,
-  );
-
 export const calculateUserTotalContributionMinorInGroup = (
   userId: string,
   expenses: Expense[],
@@ -91,16 +77,6 @@ export const calculateUserTotalContributionMinorInGroup = (
   }));
 };
 
-export const calculateUserTotalContributionInGroup = (
-  userId: string,
-  expenses: Expense[],
-  groupId: string,
-): number =>
-  calculateUserTotalContributionMinorInGroup(userId, expenses, groupId).reduce(
-    (sum, total) => sum + minorUnitsToMajor(total.amountMinor, total.currency),
-    0,
-  );
-
 export interface MemberBalanceDetails {
   memberId: string;
   memberName: string;
@@ -114,6 +90,12 @@ export interface MemberBalanceDetails {
   totalShare: number;
   /** @deprecated major-unit compatibility */
   netBalance: number;
+}
+
+export interface CurrentUserGroupCurrencySummary {
+  currency: string;
+  myShareMinor: number;
+  myNetBalanceMinor: number;
 }
 
 export const calculateAllMemberBalancesInGroup = (
@@ -132,12 +114,6 @@ export const calculateAllMemberBalancesInGroup = (
   [...allParticipants, ...groupMembers].forEach((participant) =>
     names.set(participant.id, participant.name),
   );
-  activeExpenses.forEach((expense) =>
-    expense.participants?.forEach((participant) =>
-      names.set(participant.id, participant.name),
-    ),
-  );
-
   const balances = new Map<
     string,
     { memberId: string; currency: string; paid: number; share: number }
@@ -179,4 +155,32 @@ export const calculateAllMemberBalancesInGroup = (
       netBalance: minorUnitsToMajor(net, currency),
     };
   });
+};
+
+export const calculateCurrentUserGroupSummaryByCurrency = (
+  group: ExpenseGroup,
+  expenses: Expense[],
+  userId: string | null,
+): CurrentUserGroupCurrencySummary[] | null => {
+  const participantId = resolveGroupParticipantIdForUser(group, userId);
+  if (!participantId) {
+    return null;
+  }
+
+  const groupExpenses = expenses.filter(
+    (expense) =>
+      !isExpenseDeleted(expense) && getExpenseSpaceId(expense) === group.id,
+  );
+  if (groupExpenses.length === 0) {
+    return [];
+  }
+
+  return calculateAllMemberBalancesInGroup(group.participants, groupExpenses)
+    .filter((balance) => balance.memberId === participantId)
+    .map((balance) => ({
+      currency: balance.currency,
+      myShareMinor: balance.totalShareMinor,
+      myNetBalanceMinor: balance.netBalanceMinor,
+    }))
+    .sort((left, right) => left.currency.localeCompare(right.currency));
 };

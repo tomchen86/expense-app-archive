@@ -1,26 +1,27 @@
 import React from 'react';
 import {
-  Modal,
-  View,
-  Text,
   FlatList,
-  TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+
+import { semanticColors } from '../theme/semantic-colors';
+import { mobileTheme } from '../theme/tokens';
+import { AdaptiveSheet } from './ui/adaptive-sheet';
+import { AdaptiveSheetSection } from './ui/adaptive-sheet-section';
 
 interface SelectionModalProps<T> {
   visible: boolean;
   title: string;
   data: T[];
-  renderItemContent: (item: T) => React.ReactNode; // Function to render the display text/content of an item
+  renderItemContent: (item: T) => React.ReactNode;
   keyExtractor: (item: T) => string;
   onSelect: (item: T) => void;
   onClose: () => void;
-  isSelected: (item: T) => boolean; // Function to check if an item is currently selected
-  multiSelect?: boolean; // If true, selecting an item doesn't close the modal immediately
-  // Optional: Add props for custom styling or additional buttons if needed
-  // Optional: Add a "Clear Selection" button prop
+  isSelected: (item: T) => boolean;
+  multiSelect?: boolean;
   onClearSelection?: () => void;
 }
 
@@ -39,120 +40,140 @@ function SelectionModal<T>({
   const handleItemPress = (item: T) => {
     onSelect(item);
     if (!multiSelect) {
-      onClose(); // Close immediately for single select
+      onClose();
     }
   };
 
+  const compactRowCount = data.length + (onClearSelection ? 1 : 0);
+  const sheetSizing =
+    !multiSelect && compactRowCount <= 5 ? 'content' : 'resizable';
+
   return (
-    <Modal
+    <AdaptiveSheet
+      leadingAction={
+        multiSelect
+          ? undefined
+          : { label: 'Cancel', onPress: onClose, variant: 'plain' }
+      }
+      onClose={onClose}
+      sizing={sheetSizing}
+      testID='selection-modal-content'
+      title={title}
+      trailingAction={
+        multiSelect
+          ? { label: 'Done', onPress: onClose, variant: 'prominent' }
+          : undefined
+      }
       visible={visible}
-      transparent
-      animationType='slide'
-      onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{title}</Text>
-            <FlatList
-              data={data}
-              keyExtractor={keyExtractor}
-              renderItem={({ item }) => (
+      <View
+        style={[
+          styles.content,
+          sheetSizing === 'resizable' && styles.resizableContent,
+        ]}
+      >
+        <AdaptiveSheetSection style={styles.listSection}>
+          <FlatList
+            data={data}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            keyExtractor={keyExtractor}
+            keyboardShouldPersistTaps='handled'
+            renderItem={({ item }) => {
+              const selected = isSelected(item);
+              return (
                 <TouchableOpacity
-                  style={[
-                    styles.itemContainer,
-                    isSelected(item) && styles.selectedItem, // Highlight selected item(s)
-                  ]}
+                  accessibilityRole='button'
+                  accessibilityState={{ selected }}
                   onPress={() => handleItemPress(item)}
+                  style={[styles.item, selected && styles.selectedItem]}
                 >
-                  {renderItemContent(item)}
+                  <View style={styles.itemContent}>
+                    {renderItemContent(item)}
+                  </View>
+                  {selected ? (
+                    <Text
+                      accessibilityElementsHidden
+                      importantForAccessibility='no-hide-descendants'
+                      style={styles.checkmark}
+                    >
+                      ✓
+                    </Text>
+                  ) : null}
                 </TouchableOpacity>
-              )}
-              style={styles.list}
-            />
-            <View style={styles.buttonContainer}>
-              {onClearSelection && (
-                <TouchableOpacity
-                  style={styles.clearButton}
-                  onPress={onClearSelection}
-                >
-                  <Text style={styles.buttonText}>Clear</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Text style={styles.buttonText}>
-                  {multiSelect ? 'Done' : 'Cancel'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </SafeAreaView>
-    </Modal>
+              );
+            }}
+            style={styles.list}
+          />
+        </AdaptiveSheetSection>
+
+        {onClearSelection ? (
+          <AdaptiveSheetSection style={styles.clearSection}>
+            <TouchableOpacity
+              accessibilityLabel='Clear selection'
+              accessibilityRole='button'
+              onPress={onClearSelection}
+              style={styles.clearRow}
+            >
+              <Text style={styles.clearText}>Clear Selection</Text>
+            </TouchableOpacity>
+          </AdaptiveSheetSection>
+        ) : null}
+      </View>
+    </AdaptiveSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  content: {
+    paddingHorizontal: mobileTheme.spacing.lg,
+    paddingTop: mobileTheme.spacing.xl,
+    paddingBottom: mobileTheme.spacing.xl,
+  },
+  resizableContent: {
     flex: 1,
-    justifyContent: 'flex-end', // Position modal at the bottom
   },
-  modalContainer: {
-    flex: 1, // Take full screen height
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Dim background
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    padding: 20,
-    maxHeight: '70%', // Limit modal height
-    boxShadow: '0 -2px 4px rgba(0, 0, 0, 0.25)',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+  listSection: {
+    flexShrink: 1,
   },
   list: {
-    marginBottom: 15,
+    flexGrow: 0,
   },
-  itemContainer: {
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: mobileTheme.spacing.lg,
+    backgroundColor: semanticColors.separator,
+  },
+  item: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: mobileTheme.spacing.lg,
+    backgroundColor: semanticColors.groupedRow,
+  },
+  itemContent: {
+    flex: 1,
   },
   selectedItem: {
-    backgroundColor: '#e3f2fd', // Light blue for selected item
+    backgroundColor: semanticColors.fill,
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between', // Space out buttons
-    marginTop: 10,
+  checkmark: {
+    marginLeft: mobileTheme.spacing.md,
+    color: semanticColors.primary,
+    fontSize: 18,
+    fontWeight: '600',
   },
-  closeButton: {
-    flex: 1, // Make buttons take equal width if needed
-    backgroundColor: '#007bff',
-    padding: 12,
-    borderRadius: 8,
+  clearSection: {
+    marginTop: mobileTheme.spacing.xl,
+  },
+  clearRow: {
+    minHeight: 50,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 5, // Add space if clear button exists
+    paddingHorizontal: mobileTheme.spacing.lg,
   },
-  clearButton: {
-    flex: 1,
-    backgroundColor: '#6c757d', // Grey for clear/cancel
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginRight: 5,
-  },
-  buttonText: {
-    color: '#fff',
+  clearText: {
+    color: semanticColors.primary,
     fontSize: 16,
-    fontWeight: '500',
   },
 });
 

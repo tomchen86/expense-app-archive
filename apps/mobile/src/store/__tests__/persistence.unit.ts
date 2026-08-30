@@ -3,11 +3,15 @@ import {
   flushExpensePersistence,
   useExpenseStore as useExpenseFeatureStore,
 } from '../features/expenseStore';
-import { useUserStore } from '../features/userStore';
+import { flushUserPersistence, useUserStore } from '../features/userStore';
 import { useCategoryStore } from '../features/categoryStore';
-import { useGroupStore } from '../features/groupStore';
-import { useParticipantStore } from '../features/participantStore';
+import { flushGroupPersistence, useGroupStore } from '../features/groupStore';
+import {
+  flushParticipantPersistence,
+  useParticipantStore,
+} from '../features/participantStore';
 import type { Expense } from '../../types';
+import { isExpenseGroupArchived } from '../../utils/groupDomain';
 
 const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 
@@ -17,6 +21,7 @@ describe('durable mobile store hydration', () => {
     storage.getItem.mockResolvedValue(null);
     storage.setItem.mockResolvedValue(undefined);
     useExpenseFeatureStore.setState({ expenses: [] });
+    useGroupStore.setState({ groups: [] });
     await useExpenseFeatureStore.persist.clearStorage();
   });
 
@@ -35,6 +40,36 @@ describe('durable mobile store hydration', () => {
     );
     expect(useCategoryStore.persist.getOptions().name).toBe(
       'expense-mobile-categories-v2',
+    );
+
+    [
+      useExpenseFeatureStore,
+      useUserStore,
+      useGroupStore,
+      useParticipantStore,
+      useCategoryStore,
+    ].forEach((store) => {
+      expect(store.persist.getOptions().migrate).toEqual(expect.any(Function));
+    });
+  });
+
+  it('persists the anonymous local identity before it owns ledger data', async () => {
+    const { user, personalParticipantId } = useUserStore.getState();
+    storage.setItem.mockClear();
+
+    await useUserStore.getState().ensureLocalIdentityPersisted();
+
+    expect(storage.setItem).toHaveBeenCalledWith(
+      'expense-mobile-user-v2',
+      expect.stringContaining(user.id),
+    );
+    expect(storage.setItem).toHaveBeenCalledWith(
+      'expense-mobile-user-v2',
+      expect.stringContaining(user.personalSpaceId),
+    );
+    expect(storage.setItem).toHaveBeenCalledWith(
+      'expense-mobile-user-v2',
+      expect.stringContaining(personalParticipantId),
     );
   });
 
@@ -102,6 +137,240 @@ describe('durable mobile store hydration', () => {
     expect(flushed).toBe(true);
   });
 
+  it('keeps flushing when a newer expense snapshot arrives as the worker settles', async () => {
+    await flushExpensePersistence();
+    storage.setItem.mockClear();
+    let resolveFirstWrite: (() => void) | undefined;
+    const firstWrite = new Promise<void>((resolve) => {
+      resolveFirstWrite = resolve;
+    });
+    storage.setItem.mockImplementationOnce(() => firstWrite);
+
+    useExpenseFeatureStore.getState().addExpense({
+      title: 'First snapshot',
+      amountMinor: 500,
+      currency: 'AUD',
+      date: '2026-08-13',
+      category: 'Food & Dining',
+      spaceId: 'personal-space-1',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'user-1', amountMinor: 500 }],
+      shares: [{ participantId: 'user-1', amountMinor: 500 }],
+    });
+    const flushed = flushExpensePersistence();
+    await Promise.resolve();
+    firstWrite.then(() => {
+      useExpenseFeatureStore.getState().addExpense({
+        title: 'Settlement snapshot',
+        amountMinor: 700,
+        currency: 'AUD',
+        date: '2026-08-13',
+        category: 'Food & Dining',
+        spaceId: 'personal-space-1',
+        spaceKind: 'personal',
+        payments: [{ participantId: 'user-1', amountMinor: 700 }],
+        shares: [{ participantId: 'user-1', amountMinor: 700 }],
+      });
+    });
+
+    resolveFirstWrite?.();
+    await flushed;
+
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual([
+      'expense-mobile-expenses-v2',
+      expect.stringContaining('Settlement snapshot'),
+    ]);
+  });
+
+  it('keeps flushing when a newer user snapshot arrives as the worker settles', async () => {
+    await flushUserPersistence();
+    storage.setItem.mockClear();
+    let resolveFirstWrite: (() => void) | undefined;
+    const firstWrite = new Promise<void>((resolve) => {
+      resolveFirstWrite = resolve;
+    });
+    storage.setItem.mockImplementationOnce(() => firstWrite);
+
+    const flushed = useUserStore.getState().ensureLocalIdentityPersisted();
+    await Promise.resolve();
+    firstWrite.then(() => {
+      useUserStore.getState().updateSettings({ currency: 'EUR' });
+    });
+
+    resolveFirstWrite?.();
+    await flushed;
+
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual([
+      'expense-mobile-user-v2',
+      expect.stringContaining('EUR'),
+    ]);
+  });
+
+  it('retains a failed user payload so a later flush retries it', async () => {
+    await flushUserPersistence();
+    storage.setItem.mockClear();
+    storage.setItem.mockRejectedValueOnce(new Error('identity unavailable'));
+
+    await expect(
+      useUserStore.getState().ensureLocalIdentityPersisted(),
+    ).rejects.toThrow('identity unavailable');
+    const failedWrite = storage.setItem.mock.calls[0];
+
+    await expect(flushUserPersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual(failedWrite);
+  });
+
+  it('does not revive a failed user snapshot after storage is cleared', async () => {
+    await flushUserPersistence();
+    storage.setItem.mockClear();
+    let rejectWrite: ((error: Error) => void) | undefined;
+    let confirmStorageRemoved: (() => void) | undefined;
+    const storageRemoved = new Promise<void>((resolve) => {
+      confirmStorageRemoved = resolve;
+    });
+    storage.setItem.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectWrite = reject;
+        }),
+    );
+    storage.removeItem.mockImplementationOnce(async () => {
+      confirmStorageRemoved?.();
+    });
+
+    const failedFlush = useUserStore.getState().ensureLocalIdentityPersisted();
+    await Promise.resolve();
+    useUserStore.persist.clearStorage();
+    rejectWrite?.(new Error('identity unavailable'));
+
+    await expect(failedFlush).rejects.toThrow('identity unavailable');
+    await storageRemoved;
+    storage.setItem.mockClear();
+    await expect(flushUserPersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('retains a failed expense payload so a later flush retries it', async () => {
+    await flushExpensePersistence();
+    storage.setItem.mockClear();
+    storage.setItem.mockRejectedValueOnce(new Error('disk unavailable'));
+
+    useExpenseFeatureStore.getState().addExpense({
+      title: 'Retry the same payload',
+      amountMinor: 500,
+      currency: 'AUD',
+      date: '2026-08-13',
+      category: 'Food & Dining',
+      spaceId: 'personal-space-1',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'user-1', amountMinor: 500 }],
+      shares: [{ participantId: 'user-1', amountMinor: 500 }],
+    });
+
+    await expect(flushExpensePersistence()).rejects.toThrow('disk unavailable');
+    const failedWrite = storage.setItem.mock.calls[0];
+
+    await expect(flushExpensePersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual(failedWrite);
+  });
+
+  it('retains a failed group payload so a later flush retries the exact snapshot', async () => {
+    await flushGroupPersistence();
+    storage.setItem.mockClear();
+    storage.setItem.mockRejectedValueOnce(new Error('group disk unavailable'));
+    useGroupStore.setState({
+      groups: [
+        {
+          id: 'group-retry',
+          name: 'Retry group snapshot',
+          participants: [{ id: 'owner-1', name: 'Owner' }],
+          createdAt: '2026-08-24T00:00:00.000Z',
+        },
+      ],
+    });
+
+    await expect(flushGroupPersistence()).rejects.toThrow(
+      'group disk unavailable',
+    );
+    const failedWrite = storage.setItem.mock.calls[0];
+
+    await expect(flushGroupPersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem.mock.calls[1]).toEqual(failedWrite);
+  });
+
+  it('exposes a participant flush that waits for the durable snapshot', async () => {
+    await flushParticipantPersistence();
+    storage.setItem.mockClear();
+    let releaseWrite: (() => void) | undefined;
+    storage.setItem.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseWrite = resolve;
+        }),
+    );
+    useParticipantStore.setState({
+      participants: [{ id: 'participant-await', name: 'Await durability' }],
+    });
+
+    let flushed = false;
+    const flush = flushParticipantPersistence().then(() => {
+      flushed = true;
+    });
+    await Promise.resolve();
+    expect(flushed).toBe(false);
+
+    releaseWrite!();
+    await flush;
+    expect(flushed).toBe(true);
+  });
+
+  it('does not revive a failed snapshot after storage is cleared', async () => {
+    await flushExpensePersistence();
+    storage.setItem.mockClear();
+    let rejectWrite: ((error: Error) => void) | undefined;
+    let confirmStorageRemoved: (() => void) | undefined;
+    const storageRemoved = new Promise<void>((resolve) => {
+      confirmStorageRemoved = resolve;
+    });
+    storage.setItem.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectWrite = reject;
+        }),
+    );
+    storage.removeItem.mockImplementationOnce(async () => {
+      confirmStorageRemoved?.();
+    });
+
+    useExpenseFeatureStore.getState().addExpense({
+      title: 'Must stay cleared',
+      amountMinor: 500,
+      currency: 'AUD',
+      date: '2026-08-13',
+      category: 'Food & Dining',
+      spaceId: 'personal-space-1',
+      spaceKind: 'personal',
+      payments: [{ participantId: 'user-1', amountMinor: 500 }],
+      shares: [{ participantId: 'user-1', amountMinor: 500 }],
+    });
+
+    const failedFlush = flushExpensePersistence();
+    await Promise.resolve();
+    useExpenseFeatureStore.persist.clearStorage();
+    rejectWrite?.(new Error('disk unavailable'));
+
+    await expect(failedFlush).rejects.toThrow('disk unavailable');
+    await storageRemoved;
+    storage.setItem.mockClear();
+    await expect(flushExpensePersistence()).resolves.toBeUndefined();
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
   it('retains a shared-expense deletion as a durable versioned tombstone', () => {
     useExpenseFeatureStore.setState({
       expenses: [
@@ -137,6 +406,54 @@ describe('durable mobile store hydration', () => {
       status: 'pending',
       deletedAt: expect.any(String),
     });
+  });
+
+  it('persists archive and restore under the existing group storage contract', async () => {
+    const group = {
+      id: 'group-archive-persist',
+      name: 'Persisted Archive',
+      participants: [],
+      createdAt: '2026-08-20T00:00:00.000Z',
+    };
+    useGroupStore.setState({ groups: [group] });
+    await Promise.resolve();
+    storage.setItem.mockClear();
+
+    useGroupStore.getState().archiveGroup(group.id);
+    await Promise.resolve();
+
+    const archiveWrite = storage.setItem.mock.calls.find(
+      ([key, value]) =>
+        key === 'expense-mobile-groups-v2' && value.includes('archivedAt'),
+    );
+    expect(archiveWrite).toBeDefined();
+
+    storage.setItem.mockClear();
+    useGroupStore.getState().restoreGroup(group.id);
+    await Promise.resolve();
+
+    const restoreWrite = storage.setItem.mock.calls.find(
+      ([key]) => key === 'expense-mobile-groups-v2',
+    );
+    expect(restoreWrite?.[1]).not.toContain('archivedAt');
+  });
+
+  it('rehydrates a legacy v2 group as active', async () => {
+    const legacyGroup = {
+      id: 'legacy-active-group',
+      name: 'Legacy Active',
+      participants: [],
+      createdAt: '2025-01-01T00:00:00.000Z',
+    };
+    storage.getItem.mockResolvedValueOnce(
+      JSON.stringify({ state: { groups: [legacyGroup] }, version: 2 }),
+    );
+
+    await useGroupStore.persist.rehydrate();
+
+    const hydrated = useGroupStore.getState().getGroupById(legacyGroup.id);
+    expect(hydrated).toEqual(legacyGroup);
+    expect(isExpenseGroupArchived(hydrated!)).toBe(false);
   });
 
   it('rehydrates the same expense after an offline restart', async () => {
@@ -178,43 +495,21 @@ describe('durable mobile store hydration', () => {
             displayName: 'Morgan',
             personalSpaceId: 'personal-stable',
           },
-          internalUserId: 'user-stable',
-          personalSpaceId: 'personal-stable',
+          personalParticipantId: 'participant-stable',
         },
-        version: 2,
+        version: 3,
       }),
     );
 
     await useUserStore.persist.rehydrate();
 
     expect(useUserStore.getState()).toMatchObject({
-      internalUserId: 'user-stable',
-      personalSpaceId: 'personal-stable',
-      personalParticipantId: expect.stringMatching(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-      ),
+      user: {
+        id: 'user-stable',
+        displayName: 'Morgan',
+        personalSpaceId: 'personal-stable',
+      },
+      personalParticipantId: 'participant-stable',
     });
-  });
-
-  it('preserves legacy identity and space values while backfilling participant identity', async () => {
-    storage.getItem.mockResolvedValueOnce(
-      JSON.stringify({
-        state: {
-          internalUserId: 'user_legacy',
-          personalSpaceId: 'personal_legacy',
-          userSettings: { name: 'Legacy' },
-        },
-        version: 2,
-      }),
-    );
-
-    await useUserStore.persist.rehydrate();
-
-    const state = useUserStore.getState();
-    expect(state.internalUserId).toBe('user_legacy');
-    expect(state.personalSpaceId).toBe('personal_legacy');
-    expect(state.personalParticipantId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
   });
 });

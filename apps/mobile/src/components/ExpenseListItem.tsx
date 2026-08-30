@@ -1,202 +1,232 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Expense, ExpenseGroup, Participant } from '../types'; // Import necessary types
-import { getExpenseCurrency, getExpensePayments } from '../utils/expenseDomain';
-import { formatMinorUnits } from '../utils/money';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
+import type { Expense, ExpenseGroup } from '../types';
+import {
+  getExpenseCurrency,
+  getExpenseSpaceKind,
+} from '../utils/expenseDomain';
+import { formatMinorUnits, minorUnitsToDecimalString } from '../utils/money';
+import { mobileTheme } from '../theme/tokens';
+import { formatLocalDateForDisplay } from '../utils/dateFormat';
+import { AdaptiveCardSurface } from './ui/adaptive-card-surface';
+import { AdaptiveSwipeAction } from './ui/adaptive-swipe-action';
 
 interface ExpenseListItemProps {
   item: Expense;
   group: ExpenseGroup | null;
-  allParticipants: Participant[]; // Add allParticipants prop
   displayAmountMinor: number;
+  categoryLabel?: string;
   currency?: string;
-  onEdit: (expense: Expense) => void;
-  onDelete: (expenseId: string) => void;
+  onPress: (expense: Expense) => void;
+  onDelete: (expense: Expense) => void;
 }
 
 const ExpenseListItem: React.FC<ExpenseListItemProps> = ({
   item,
   group,
-  allParticipants, // Destructure the new prop
   displayAmountMinor,
+  categoryLabel,
   currency,
-  onEdit,
+  onPress,
   onDelete,
 }) => {
-  // Safeguard: Ensure allParticipants is defined before calling .find()
-  const payerId = getExpensePayments(item)[0]?.participantId;
-  const payer =
-    payerId && allParticipants
-      ? allParticipants.find((p) => p.id === payerId)
-      : null;
+  const isSharedExpense = getExpenseSpaceKind(item) === 'shared';
+  const isHistoricalSharedExpense =
+    isSharedExpense && (!group || Boolean(group.archivedAt));
+  const groupBadgeLabel = group
+    ? `${group.name}${group.archivedAt ? ' · Archived' : ''}`
+    : 'Archived group';
 
-  const handleDeletePress = () => {
-    Alert.alert(
-      'Delete Expense',
-      'Are you sure you want to delete this expense?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          onPress: () => onDelete(item.id),
-          style: 'destructive',
-        },
-      ],
-    );
-  };
+  const renderDeleteAction = (
+    _progress: unknown,
+    _translation: unknown,
+    swipeable: SwipeableMethods,
+  ) => (
+    <AdaptiveSwipeAction
+      accessibilityLabel={`Delete ${item.title} expense`}
+      accessibilityRole='button'
+      label='Delete'
+      onPress={() => {
+        swipeable.close();
+        onDelete(item);
+      }}
+      style={styles.deleteAction}
+      tone='destructive'
+    />
+  );
 
   return (
-    <View style={styles.expenseItem}>
-      {/* Main Content Area */}
-      <View style={styles.expenseContent}>
-        <View style={styles.expenseMain}>
-          <Text style={styles.expenseTitle}>{item.title}</Text>
-          {/* Use displayAmount for rendering */}
-          <Text style={styles.expenseAmount}>
-            {formatMinorUnits(
-              displayAmountMinor,
-              currency ?? getExpenseCurrency(item),
-            )}
-          </Text>
-        </View>
-        <View style={styles.expenseDetails}>
-          <View style={styles.expenseMetadata}>
-            <Text style={styles.expenseCategory}>{item.category}</Text>
-            {/* Display group tag if group exists */}
-            {group && (
-              <View style={styles.groupTag}>
-                <Text style={styles.groupTagText}>{group.name}</Text>
-              </View>
-            )}
+    <ReanimatedSwipeable
+      childrenContainerStyle={styles.swipeableOverflow}
+      containerStyle={styles.swipeableOverflow}
+      overshootRight={false}
+      renderRightActions={
+        isHistoricalSharedExpense ? undefined : renderDeleteAction
+      }
+      rightThreshold={40}
+      testID={`expense-swipeable-${item.id}`}
+    >
+      <AdaptiveCardSurface
+        interactive
+        style={styles.expenseItemSurface}
+        testID={`expense-card-surface-${item.id}`}
+        tone={isSharedExpense ? 'shared' : 'neutral'}
+      >
+        <TouchableOpacity
+          accessibilityActions={
+            isHistoricalSharedExpense
+              ? undefined
+              : [{ name: 'delete', label: 'Delete expense' }]
+          }
+          accessibilityHint={
+            isHistoricalSharedExpense
+              ? 'Opens read-only expense details.'
+              : 'Opens expense details. Swipe left for Delete.'
+          }
+          accessibilityLabel={`Open ${item.title} expense`}
+          accessibilityRole='button'
+          activeOpacity={0.82}
+          onAccessibilityAction={(event) => {
+            if (
+              !isHistoricalSharedExpense &&
+              event.nativeEvent.actionName === 'delete'
+            ) {
+              onDelete(item);
+            }
+          }}
+          onPress={() => onPress(item)}
+          style={styles.expenseItem}
+          testID={`expense-card-${item.id}`}
+        >
+          <View style={styles.expenseContent}>
+            <View style={styles.expenseMain}>
+              <Text
+                ellipsizeMode='tail'
+                numberOfLines={1}
+                style={styles.expenseTitle}
+              >
+                {item.title}
+              </Text>
+              <Text
+                accessibilityLabel={`Expense amount ${currency ?? getExpenseCurrency(item)} ${minorUnitsToDecimalString(
+                  displayAmountMinor,
+                  currency ?? getExpenseCurrency(item),
+                )}`}
+                style={styles.expenseAmount}
+              >
+                {formatMinorUnits(
+                  displayAmountMinor,
+                  currency ?? getExpenseCurrency(item),
+                )}
+              </Text>
+            </View>
+            <View style={styles.expenseMetadata}>
+              <Text
+                ellipsizeMode='tail'
+                numberOfLines={1}
+                style={styles.expenseCategory}
+              >
+                {categoryLabel ?? item.category}
+              </Text>
+              {isSharedExpense ? (
+                <View
+                  style={styles.groupBadge}
+                  testID={`expense-group-badge-${item.id}`}
+                >
+                  <Text
+                    ellipsizeMode='tail'
+                    numberOfLines={1}
+                    style={styles.groupBadgeText}
+                  >
+                    {groupBadgeLabel}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.expenseDate}>
+              {formatLocalDateForDisplay(item.date)}
+            </Text>
           </View>
-          {payer && (
-            <Text style={styles.paidByText}>Paid by: {payer.name}</Text>
-          )}
-          <Text style={styles.expenseDate}>{item.date}</Text>
-          {/* Display caption if it exists */}
-          {item.caption && (
-            <Text style={styles.expenseCaption}>{item.caption}</Text>
-          )}
-        </View>
-      </View>
-
-      {/* Action Buttons Area */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => onEdit(item)}
-        >
-          <Text style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={handleDeletePress}
-        >
-          <Text style={styles.deleteButtonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      </AdaptiveCardSurface>
+    </ReanimatedSwipeable>
   );
 };
 
-// Styles copied and adapted from HomeScreen.tsx
 const styles = StyleSheet.create({
+  swipeableOverflow: {
+    overflow: 'visible',
+  },
+  expenseItemSurface: {
+    marginBottom: mobileTheme.spacing.md,
+    minHeight: 112,
+  },
   expenseItem: {
-    backgroundColor: '#ffffff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    boxShadow: '0 1px 1.41px rgba(0, 0, 0, 0.2)',
-    // Consider adding flexDirection: 'row' if actions should be beside content
-    // flexDirection: 'row',
-    // alignItems: 'center',
+    flex: 1,
+    minHeight: 112,
+    padding: mobileTheme.spacing.lg,
   },
   expenseContent: {
-    flex: 1, // Takes available space if row direction is used
-    // marginRight: 10, // Add margin if actions are beside content
+    flex: 1,
   },
   expenseMain: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: mobileTheme.spacing.xs,
   },
   expenseTitle: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 18,
-    fontWeight: 'bold',
-    // flexShrink: 1, // Allow title to shrink if too long
+    fontWeight: '700',
+    color: mobileTheme.colors.text,
+    marginRight: mobileTheme.spacing.md,
   },
   expenseAmount: {
     fontSize: 16,
-    color: '#28a745', // Green for amount
-    fontWeight: '500',
-  },
-  expenseDetails: {
-    // No changes needed here for now
+    color: mobileTheme.colors.text,
+    flexShrink: 0,
+    fontWeight: '600',
   },
   expenseMetadata: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 4, // Add some space above metadata
+    flexDirection: 'row',
+    marginTop: mobileTheme.spacing.xs,
+    minHeight: 24,
   },
   expenseCategory: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 14,
-    color: '#666',
-  },
-  groupTag: {
-    backgroundColor: '#e3f2fd', // Light blue background
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  groupTagText: {
-    color: '#1976d2', // Blue text
-    fontSize: 12,
+    color: mobileTheme.colors.textMuted,
+    marginRight: mobileTheme.spacing.sm,
   },
   expenseDate: {
     fontSize: 14,
-    color: '#6c757d',
-    marginTop: 4,
+    color: mobileTheme.colors.textMuted,
+    marginTop: mobileTheme.spacing.xs,
   },
-  expenseCaption: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 4,
+  groupBadge: {
+    backgroundColor: mobileTheme.colors.surface,
+    borderRadius: mobileTheme.radii.pill,
+    flexShrink: 1,
+    maxWidth: '48%',
+    paddingHorizontal: mobileTheme.spacing.sm,
+    paddingVertical: mobileTheme.spacing.xs,
   },
-  paidByText: {
-    fontSize: 13,
-    color: '#555',
-    marginTop: 4,
+  groupBadgeText: {
+    color: mobileTheme.colors.text,
+    fontSize: 12,
+    fontWeight: '600',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end', // Align buttons to the right
-    marginTop: 10, // Space between content and buttons
-    gap: 10, // Space between buttons
-  },
-  editButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#007bff', // Blue for edit
-    borderRadius: 4,
-  },
-  editButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#dc3545', // Red for delete
-    borderRadius: 4,
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+  deleteAction: {
+    minWidth: 88,
+    marginBottom: mobileTheme.spacing.md,
+    borderRadius: mobileTheme.radii.card,
   },
 });
 

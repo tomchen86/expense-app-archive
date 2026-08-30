@@ -1,26 +1,19 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import {
+  CATEGORY_COLOR_OPTIONS,
+  normalizeCategoryColor,
+} from '../../theme/category-palette';
+import { semanticColors } from '../../theme/semantic-colors';
 
-export const DEFAULT_COLORS = [
-  '#FF6384',
-  '#36A2EB',
-  '#FFCE56',
-  '#4BC0C0',
-  '#9966FF',
-  '#FF9F40',
-  '#C9CBCF',
-  '#61C0BF',
-  '#F7464A',
-  '#46BFBD',
-  '#FDB45C',
-  '#949FB1',
-];
+export const DEFAULT_COLORS = CATEGORY_COLOR_OPTIONS;
 
 interface ColorPickerProps {
   selectedColor: string;
   onColorSelect: (color: string) => void;
-  colors?: string[];
-  label?: string;
+  colors?: readonly string[];
+  label?: string | null;
+  unavailableColors?: readonly string[];
 }
 
 const ColorPicker: React.FC<ColorPickerProps> = ({
@@ -28,24 +21,50 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   onColorSelect,
   colors = DEFAULT_COLORS,
   label = 'Select Color:',
+  unavailableColors = [],
 }) => {
+  const normalizedUnavailableColors = new Set(
+    unavailableColors.map(normalizeCategoryColor),
+  );
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       <View style={styles.colorGrid}>
-        {colors.map((color) => (
-          <TouchableOpacity
-            key={color}
-            style={[
-              styles.colorOption,
-              { backgroundColor: color },
-              selectedColor === color && styles.selectedColorOption,
-            ]}
-            onPress={() => onColorSelect(color)}
-            accessibilityRole='button'
-            accessibilityLabel={`Select color ${color}`}
-          />
-        ))}
+        {colors.map((color) => {
+          const unavailable = normalizedUnavailableColors.has(
+            normalizeCategoryColor(color),
+          );
+          const selected =
+            normalizeCategoryColor(selectedColor) ===
+            normalizeCategoryColor(color);
+
+          return (
+            <TouchableOpacity
+              key={color}
+              accessibilityLabel={
+                unavailable
+                  ? `Color ${color} already in use`
+                  : `Select color ${color}`
+              }
+              accessibilityRole='button'
+              accessibilityState={{ disabled: unavailable, selected }}
+              disabled={unavailable}
+              hitSlop={2}
+              onPress={() => {
+                if (!unavailable) {
+                  onColorSelect(color);
+                }
+              }}
+              style={[
+                styles.colorOption,
+                { backgroundColor: color },
+                unavailable && styles.unavailableColorOption,
+                selected && styles.selectedColorOption,
+              ]}
+            />
+          );
+        })}
       </View>
     </View>
   );
@@ -59,24 +78,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 10,
-    color: '#333',
+    color: semanticColors.text,
   },
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   colorOption: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    margin: 5,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    margin: 4,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   selectedColorOption: {
-    borderColor: '#000',
+    borderColor: semanticColors.primary,
     borderWidth: 3,
+  },
+  unavailableColorOption: {
+    opacity: 0.22,
   },
 });
 

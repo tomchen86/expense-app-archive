@@ -14,35 +14,35 @@ export interface ChartDataPoint {
   text: string;
   color: string;
   category: ExpenseCategory;
+  categoryId?: string;
+  amountMinor: number;
   absoluteValue: number;
   percentage: number;
   currency?: string;
 }
 
-export interface CategoryTotals {
-  [key: string]: number;
+export type InsightChartPreference = 'auto' | 'donut' | 'bar';
+export type InsightChartKind = 'empty' | 'progress' | 'donut' | 'bar';
+
+export interface CurrencyInsight {
+  currency: string;
+  totalMinor: number;
+  priorTotalMinor: number;
+  deltaMinor: number;
+  deltaPercentage: number | null;
+  exactCategories: ChartDataPoint[];
+  chartCategories: ChartDataPoint[];
+  chartKind: InsightChartKind;
 }
 
-/**
- * Calculate category totals from a list of expenses
- */
-export const calculateCategoryTotals = (
-  expenses: Expense[],
-): { totals: CategoryTotals; total: number } => {
-  const totals: CategoryTotals = {};
-  let totalAmount = 0;
-
-  expenses.forEach((expense) => {
-    const amount = minorUnitsToMajor(
-      getExpenseAmountMinor(expense),
-      getExpenseCurrency(expense),
-    );
-    totals[expense.category] = (totals[expense.category] || 0) + amount;
-    totalAmount += amount;
-  });
-
-  return { totals, total: totalAmount };
-};
+interface BuildCurrencyInsightsOptions {
+  currentExpenses: Expense[];
+  priorExpenses: Expense[];
+  categories: Category[];
+  preference: InsightChartPreference;
+  amountMinorSelector?: (expense: Expense) => number;
+  defaultColor?: string;
+}
 
 /**
  * Generate chart data for category visualization
@@ -59,7 +59,13 @@ export const generateCategoryChartData = (
 
   const totals = new Map<
     string,
-    { category: ExpenseCategory; currency: string; amountMinor: number }
+    {
+      category: ExpenseCategory;
+      categoryId?: string;
+      color: string;
+      currency: string;
+      amountMinor: number;
+    }
   >();
   const currencyTotals = new Map<string, number>();
   expenses.forEach((expense) => {
@@ -68,10 +74,25 @@ export const generateCategoryChartData = (
       return;
     }
     const currency = getExpenseCurrency(expense);
-    const key = `${currency}\u0000${expense.category}`;
+    const categoryDetails = expense.categoryId
+      ? categories.find((category) => category.id === expense.categoryId)
+      : categories.find((category) => category.name === expense.category);
+    const categoryId = expense.categoryId ?? categoryDetails?.id;
+    const category =
+      categoryDetails?.name ??
+      expense.categorySnapshot?.name ??
+      expense.category;
+    const key = `${currency}\u0000${
+      categoryId ? `id:${categoryId}` : `legacy:${category}`
+    }`;
     const existing = totals.get(key);
     totals.set(key, {
-      category: expense.category,
+      category,
+      ...(categoryId ? { categoryId } : {}),
+      color:
+        categoryDetails?.color ??
+        expense.categorySnapshot?.color ??
+        defaultColor,
       currency,
       amountMinor: (existing?.amountMinor ?? 0) + amountMinor,
     });
@@ -85,19 +106,142 @@ export const generateCategoryChartData = (
     return [];
   }
 
-  return [...totals.values()].map(({ category, currency, amountMinor }) => {
-    const categoryDetails = categories.find((c) => c.name === category);
-    const absoluteValue = minorUnitsToMajor(amountMinor, currency);
+  return [...totals.values()]
+    .map(({ category, categoryId, color, currency, amountMinor }) => {
+      const absoluteValue = minorUnitsToMajor(amountMinor, currency);
+
+      return {
+        value: absoluteValue,
+        label: category,
+        text: category,
+        color,
+        category,
+        ...(categoryId ? { categoryId } : {}),
+        currency,
+        amountMinor,
+        absoluteValue,
+        percentage: (amountMinor / (currencyTotals.get(currency) ?? 1)) * 100,
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.amountMinor - left.amountMinor ||
+        left.category.localeCompare(right.category),
+    );
+};
+
+export const resolveInsightChartKind = (
+  preference: InsightChartPreference,
+  categoryCount: number,
+): InsightChartKind => {
+  if (categoryCount === 0) {
+    return 'empty';
+  }
+  if (preference === 'donut') {
+    return 'donut';
+  }
+  if (preference === 'bar') {
+    return 'bar';
+  }
+  if (categoryCount === 1) {
+    return 'progress';
+  }
+  return categoryCount <= 5 ? 'donut' : 'bar';
+};
+
+const createOthersPoint = (
+  categories: ChartDataPoint[],
+  totalMinor: number,
+  currency: string,
+  defaultColor: string,
+): ChartDataPoint => {
+  const amountMinor = categories.reduce(
+    (sum, category) => sum + category.amountMinor,
+    0,
+  );
+  const absoluteValue = minorUnitsToMajor(amountMinor, currency);
+  return {
+    value: absoluteValue,
+    label: 'Others',
+    text: 'Others',
+    color: defaultColor,
+    category: 'Others',
+    currency,
+    amountMinor,
+    absoluteValue,
+    percentage: totalMinor > 0 ? (amountMinor / totalMinor) * 100 : 0,
+  };
+};
+
+export const buildCurrencyInsights = ({
+  currentExpenses,
+  priorExpenses,
+  categories,
+  preference,
+  amountMinorSelector,
+  defaultColor = '#808080',
+}: BuildCurrencyInsightsOptions): CurrencyInsight[] => {
+  const current = generateCategoryChartData(
+    currentExpenses,
+    categories,
+    defaultColor,
+    amountMinorSelector,
+  );
+  const prior = generateCategoryChartData(
+    priorExpenses,
+    categories,
+    defaultColor,
+    amountMinorSelector,
+  );
+  const currencies = Array.from(
+    new Set(
+      [...current, ...prior].map((category) => category.currency ?? 'USD'),
+    ),
+  ).sort();
+
+  return currencies.map((currency) => {
+    const exactCategories = current.filter(
+      (category) => (category.currency ?? 'USD') === currency,
+    );
+    const priorCategories = prior.filter(
+      (category) => (category.currency ?? 'USD') === currency,
+    );
+    const totalMinor = exactCategories.reduce(
+      (sum, category) => sum + category.amountMinor,
+      0,
+    );
+    const priorTotalMinor = priorCategories.reduce(
+      (sum, category) => sum + category.amountMinor,
+      0,
+    );
+    const deltaMinor = totalMinor - priorTotalMinor;
+    const chartKind = resolveInsightChartKind(
+      preference,
+      exactCategories.length,
+    );
+    const chartCategories =
+      preference === 'donut' && exactCategories.length > 5
+        ? [
+            ...exactCategories.slice(0, 5),
+            createOthersPoint(
+              exactCategories.slice(5),
+              totalMinor,
+              currency,
+              defaultColor,
+            ),
+          ]
+        : exactCategories;
 
     return {
-      value: absoluteValue,
-      label: category,
-      text: category,
-      color: categoryDetails ? categoryDetails.color : defaultColor,
-      category,
       currency,
-      absoluteValue,
-      percentage: (amountMinor / (currencyTotals.get(currency) ?? 1)) * 100,
+      totalMinor,
+      priorTotalMinor,
+      deltaMinor,
+      deltaPercentage:
+        priorTotalMinor > 0 ? (deltaMinor / priorTotalMinor) * 100 : null,
+      exactCategories,
+      chartCategories,
+      chartKind,
     };
   });
 };
@@ -136,11 +280,11 @@ export const getRelevantExpenses = (
   allExpenses: Expense[],
   contextType: 'personal' | 'group',
   contextId: string,
-  internalUserId: string | null,
+  userId: string | null,
   personalSpaceId?: string,
-  participantIds: string[] = internalUserId ? [internalUserId] : [],
+  participantIds: string[] = [],
 ): Expense[] => {
-  if (contextType === 'personal' && internalUserId) {
+  if (contextType === 'personal' && userId) {
     return allExpenses.filter(
       (expense) =>
         !isExpenseDeleted(expense) &&

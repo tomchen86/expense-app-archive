@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, TextInput, View } from 'react-native';
+
+import { semanticColors } from '../theme/semantic-colors';
+import { mobileTheme } from '../theme/tokens';
+import { AdaptiveSheet } from './ui/adaptive-sheet';
+import { AdaptiveSheetSection } from './ui/adaptive-sheet-section';
 
 interface TextInputModalProps {
   visible: boolean;
@@ -16,9 +12,11 @@ interface TextInputModalProps {
   placeholder: string;
   submitButtonText?: string;
   cancelButtonText?: string;
-  onSubmit: (inputText: string) => void; // Callback with the entered text
+  onSubmit: (inputText: string) => boolean | void | Promise<boolean | void>;
   onClose: () => void;
-  initialValue?: string; // Optional initial value for the input
+  initialValue?: string;
+  inputTestID?: string;
+  submitButtonTestID?: string;
 }
 
 const TextInputModal: React.FC<TextInputModalProps> = ({
@@ -30,128 +28,110 @@ const TextInputModal: React.FC<TextInputModalProps> = ({
   onSubmit,
   onClose,
   initialValue = '',
+  inputTestID,
+  submitButtonTestID,
 }) => {
   const [inputValue, setInputValue] = useState(initialValue);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
-  // Reset input value when modal becomes visible or initialValue changes
   useEffect(() => {
     if (visible) {
       setInputValue(initialValue);
     }
   }, [visible, initialValue]);
 
-  const handleSubmit = () => {
-    if (inputValue.trim()) {
-      onSubmit(inputValue.trim());
-      onClose(); // Close after successful submit
-    } else {
-      // Optional: Add validation feedback (e.g., Alert or inline message)
-      alert('Input cannot be empty.');
+  const handleClose = () => {
+    if (!isSubmittingRef.current) {
+      onClose();
     }
   };
 
+  const handleSubmit = async () => {
+    if (isSubmittingRef.current) {
+      return;
+    }
+
+    const trimmedInput = inputValue.trim();
+    if (!trimmedInput) {
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    let shouldClose: boolean;
+    try {
+      shouldClose = (await onSubmit(trimmedInput)) !== false;
+    } catch {
+      shouldClose = false;
+    }
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
+
+    if (shouldClose) {
+      onClose();
+    }
+  };
+
+  const isSubmitDisabled = isSubmitting || inputValue.trim().length === 0;
+
   return (
-    <Modal
+    <AdaptiveSheet
+      leadingAction={{
+        accessibilityLabel: cancelButtonText,
+        disabled: isSubmitting,
+        label: cancelButtonText,
+        onPress: handleClose,
+        testID: 'text-input-modal-cancel',
+        variant: 'plain',
+      }}
+      onClose={handleClose}
+      title={title}
+      trailingAction={{
+        accessibilityLabel: submitButtonText,
+        busy: isSubmitting,
+        disabled: isSubmitDisabled,
+        label: submitButtonText,
+        onPress: () => void handleSubmit(),
+        testID: submitButtonTestID,
+        variant: 'prominent',
+      }}
+      sizing='content'
       visible={visible}
-      transparent
-      animationType='slide'
-      onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoidingView}
-      >
-        <View style={styles.modalContainer}>
-          {/* Clickable overlay to close */}
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            onPress={onClose}
-            activeOpacity={1}
+      <View style={styles.content}>
+        <AdaptiveSheetSection>
+          <TextInput
+            accessibilityLabel={placeholder}
+            autoCapitalize='words'
+            autoCorrect={false}
+            autoFocus
+            editable={!isSubmitting}
+            onChangeText={setInputValue}
+            onSubmitEditing={() => void handleSubmit()}
+            placeholder={placeholder}
+            placeholderTextColor={semanticColors.placeholder}
+            returnKeyType='done'
+            style={styles.input}
+            testID={inputTestID}
+            value={inputValue}
           />
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{title}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={placeholder}
-              value={inputValue}
-              onChangeText={setInputValue}
-              autoFocus={true} // Focus input when modal opens
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                <Text style={styles.buttonText}>{cancelButtonText}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.submitButton}
-                onPress={handleSubmit}
-              >
-                <Text style={styles.buttonText}>{submitButtonText}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+        </AdaptiveSheetSection>
+      </View>
+    </AdaptiveSheet>
   );
 };
 
-// Styles adapted from HistoryScreen and SelectionModal for consistency
 const styles = StyleSheet.create({
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center', // Center modal vertically
-    alignItems: 'center', // Center modal horizontally
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 20,
-    width: '85%', // Adjust width as needed
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.25)',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+  content: {
+    paddingHorizontal: mobileTheme.spacing.lg,
+    paddingTop: mobileTheme.spacing.xl,
   },
   input: {
-    height: 45, // Slightly taller input
-    borderColor: '#ccc',
-    borderWidth: 1,
-    marginBottom: 20,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-    fontSize: 16,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#6c757d',
-    padding: 12,
-    borderRadius: 5,
-    marginRight: 10,
-    alignItems: 'center',
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#007bff',
-    padding: 12,
-    borderRadius: 5,
-    marginLeft: 10,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '500',
+    minHeight: 50,
+    paddingHorizontal: mobileTheme.spacing.lg,
+    color: semanticColors.text,
+    fontSize: 17,
   },
 });
 

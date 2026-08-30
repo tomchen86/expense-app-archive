@@ -1,63 +1,84 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 
+import { mobileTheme } from '../theme/tokens';
+import { buildCreateExpenseRoute } from '../navigation/expense-edit-route';
+import { AdaptiveActionSurface } from './ui/adaptive-action-surface';
+import { AdaptiveAddIcon } from './ui/adaptive-add-icon';
+import { useAdaptivePressFeedback } from './ui/use-adaptive-press-feedback';
+import { useFloatingActionOffset } from './ui/use-floating-action-offset';
+
 interface FloatingActionButtonProps {
+  accessibilityLabel?: string;
   onPress?: () => void; // Custom press action
   style?: ViewStyle;
   groupId?: string; // Optional groupId to pass to AddExpense screen
+  nativeTabsContentInsetApplied?: boolean;
+  surfaceTestID?: string;
+  testID?: string;
 }
 
 const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
+  accessibilityLabel = 'Add expense',
   onPress,
   style,
   groupId,
+  nativeTabsContentInsetApplied = false,
+  surfaceTestID = 'add-expense-surface',
+  testID = 'add-expense-fab',
 }) => {
+  const bottomOffset = useFloatingActionOffset({
+    nativeTabsContentInsetApplied,
+  });
+  const { onPressIn, onPressOut, surfaceStyle, triggerFeedback } =
+    useAdaptivePressFeedback();
+
   const handlePress = () => {
+    triggerFeedback();
     if (onPress) {
       onPress();
     } else {
-      if (groupId) {
-        router.push({
-          pathname: '/add-expense',
-          params: { groupId },
-        });
-      } else {
-        router.push('/add-expense');
-      }
+      router.push(buildCreateExpenseRoute({ groupId }));
     }
   };
 
   return (
-    <TouchableOpacity
-      style={[styles.fab, style]}
-      onPress={handlePress}
-      testID='add-expense-fab'
+    <AdaptiveActionSurface
+      interactive
+      tone='neutral'
+      style={[styles.surface, { bottom: bottomOffset }, style, surfaceStyle]}
+      testID={surfaceTestID}
     >
-      <Text style={styles.fabText}>+</Text>
-    </TouchableOpacity>
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole='button'
+        android_ripple={{ color: 'rgba(10, 102, 217, 0.16)' }}
+        hitSlop={mobileTheme.spacing.sm}
+        onPress={handlePress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        style={styles.fab}
+        testID={testID}
+      >
+        <AdaptiveAddIcon />
+      </Pressable>
+    </AdaptiveActionSurface>
   );
 };
 
 const styles = StyleSheet.create({
-  fab: {
+  surface: {
     position: 'absolute',
-    bottom: 25,
-    // right: 25, // Removed to allow centering
-    alignSelf: 'center', // Center horizontally
+    alignSelf: 'center',
     width: 60,
     height: 60,
-    borderRadius: 30,
-    backgroundColor: '#007bff', // Example color, adjust as needed
+    borderRadius: mobileTheme.radii.pill,
+  },
+  fab: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
-    opacity: 0.85, // Slightly transparent
-  },
-  fabText: {
-    fontSize: 30,
-    color: 'white',
-    lineHeight: 30, // Adjust for vertical centering of '+'
   },
 });
 

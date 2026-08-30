@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-} from 'react-native';
+import { Text, TextInput, StyleSheet, ScrollView } from 'react-native';
 import ColorPicker, { DEFAULT_COLORS } from './ColorPicker';
 import { Category } from '../../types';
+import { semanticColors } from '../../theme/semantic-colors';
+import {
+  getFirstAvailableCategoryColor,
+  normalizeCategoryColor,
+} from '../../theme/category-palette';
+import { mobileTheme } from '../../theme/tokens';
+import { AdaptiveSheet } from '../ui/adaptive-sheet';
+import { AdaptiveSheetSection } from '../ui/adaptive-sheet-section';
 
 interface CategoryFormProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (name: string, color: string) => void;
+  onSave: (name: string, color: string) => boolean | void;
   editingCategory?: Category | null;
   title?: string;
+  usedColors?: readonly string[];
 }
 
 const CategoryForm: React.FC<CategoryFormProps> = ({
@@ -24,9 +26,10 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
   onSave,
   editingCategory,
   title,
+  usedColors = [],
 }) => {
   const [categoryName, setCategoryName] = useState('');
-  const [selectedColor, setSelectedColor] = useState(DEFAULT_COLORS[0]);
+  const [selectedColor, setSelectedColor] = useState<string>(DEFAULT_COLORS[0]);
 
   useEffect(() => {
     if (editingCategory) {
@@ -34,18 +37,26 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
       setSelectedColor(editingCategory.color);
     } else {
       setCategoryName('');
-      setSelectedColor(DEFAULT_COLORS[0]);
+      setSelectedColor(getFirstAvailableCategoryColor(usedColors) ?? '');
     }
-  }, [editingCategory, visible]);
+  }, [editingCategory, usedColors, visible]);
+
+  const unavailableColors = usedColors.filter(
+    (color) =>
+      !editingCategory ||
+      normalizeCategoryColor(color) !==
+        normalizeCategoryColor(editingCategory.color),
+  );
 
   const handleSave = () => {
     const trimmedName = categoryName.trim();
-    if (!trimmedName) {
-      return; // Don't save empty categories
+    if (!trimmedName || !selectedColor) {
+      return;
     }
 
-    onSave(trimmedName, selectedColor);
-    handleClose();
+    if (onSave(trimmedName, selectedColor) !== false) {
+      handleClose();
+    }
   };
 
   const handleClose = () => {
@@ -54,124 +65,95 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
     onClose();
   };
 
-  const modalTitle = title || `${editingCategory ? 'Edit' : 'Add'} Category`;
+  const modalTitle = title || `${editingCategory ? 'Edit' : 'New'} Category`;
 
   return (
-    <Modal
-      animationType='slide'
-      transparent={true}
+    <AdaptiveSheet
+      leadingAction={{
+        label: 'Cancel',
+        onPress: handleClose,
+        variant: 'plain',
+      }}
+      onClose={handleClose}
+      testID='category-form-sheet'
+      title={modalTitle}
+      trailingAction={{
+        disabled: !categoryName.trim() || !selectedColor,
+        label: editingCategory ? 'Save' : 'Add',
+        onPress: handleSave,
+        testID: 'category-save-action',
+        variant: 'prominent',
+      }}
       visible={visible}
-      onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>{modalTitle}</Text>
-
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps='handled'
+      >
+        <Text style={styles.sectionLabel}>NAME</Text>
+        <AdaptiveSheetSection>
           <TextInput
+            accessibilityLabel='Category name'
             style={styles.input}
-            placeholder='Category Name'
+            placeholder='Category name'
+            placeholderTextColor={semanticColors.placeholder}
             value={categoryName}
             onChangeText={setCategoryName}
             autoFocus
             maxLength={50}
+            testID='category-name-input'
           />
+        </AdaptiveSheetSection>
 
+        <Text style={styles.sectionLabel}>COLOR</Text>
+        <AdaptiveSheetSection style={styles.colorSection}>
           <ColorPicker
+            label={null}
             selectedColor={selectedColor}
             onColorSelect={setSelectedColor}
+            unavailableColors={unavailableColors}
           />
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton]}
-              onPress={handleClose}
-            >
-              <Text style={styles.modalButtonText}>Cancel</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.modalButton,
-                styles.saveButton,
-                !categoryName.trim() && styles.disabledButton,
-              ]}
-              onPress={handleSave}
-              disabled={!categoryName.trim()}
-            >
-              <Text
-                style={[
-                  styles.modalButtonText,
-                  !categoryName.trim() && styles.disabledButtonText,
-                ]}
-              >
-                Save
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
+        </AdaptiveSheetSection>
+        {!selectedColor ? (
+          <Text accessibilityLiveRegion='polite' style={styles.helperText}>
+            All category colors are already in use.
+          </Text>
+        ) : null}
+      </ScrollView>
+    </AdaptiveSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  content: {
+    padding: mobileTheme.spacing.xl,
+    paddingBottom: mobileTheme.spacing.xxxl,
   },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 15,
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#333',
+  sectionLabel: {
+    color: semanticColors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: mobileTheme.spacing.sm,
+    marginLeft: mobileTheme.spacing.md,
+    marginTop: mobileTheme.spacing.lg,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 15,
-    borderRadius: 8,
+    minHeight: 54,
+    color: semanticColors.text,
+    paddingHorizontal: mobileTheme.spacing.lg,
     fontSize: 16,
-    marginBottom: 10,
-    backgroundColor: '#f9f9f9',
   },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
+  colorSection: {
+    padding: mobileTheme.spacing.md,
   },
-  modalButton: {
-    padding: 15,
-    borderRadius: 8,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#6c757d',
-  },
-  saveButton: {
-    backgroundColor: '#007bff',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  modalButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabledButtonText: {
-    color: '#999',
+  helperText: {
+    color: semanticColors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginHorizontal: mobileTheme.spacing.md,
+    marginTop: mobileTheme.spacing.sm,
   },
 });
 

@@ -1,145 +1,241 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ExpenseGroup, Participant as _Participant } from '../types';
-import type { CurrencyTotal } from '../utils/groupCalculations';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { ExpenseGroup } from '../types';
+import type { CurrentUserGroupCurrencySummary } from '../utils/groupCalculations';
 import { formatMinorUnits } from '../utils/money';
+import { mobileTheme } from '../theme/tokens';
+import { isExpenseGroupArchived } from '../utils/groupDomain';
+import { AdaptiveCardSurface } from './ui/adaptive-card-surface';
+import { AdaptiveSwipeAction } from './ui/adaptive-swipe-action';
 
 interface GroupListItemProps {
   group: ExpenseGroup;
-  totals: CurrencyTotal[];
-  onDeleteGroup: (groupId: string) => void;
-  onRemoveParticipant: (groupId: string, participantId: string) => void;
-  onAddParticipant: (group: ExpenseGroup) => void;
-  onPress: (groupId: string) => void; // Add onPress prop for navigation
+  summary: CurrentUserGroupCurrencySummary[] | null;
+  isLifecyclePending?: boolean;
+  onArchiveGroup: (groupId: string) => void | Promise<unknown>;
+  onRestoreGroup: (groupId: string) => void | Promise<unknown>;
+  onPress: (groupId: string) => void;
 }
+
+const getBalanceCopy = (item: CurrentUserGroupCurrencySummary): string =>
+  item.myNetBalanceMinor > 0
+    ? `You're owed: ${formatMinorUnits(item.myNetBalanceMinor, item.currency)}`
+    : item.myNetBalanceMinor < 0
+      ? `You owe: ${formatMinorUnits(
+          Math.abs(item.myNetBalanceMinor),
+          item.currency,
+        )}`
+      : 'Settled up';
+
+const getSummaryAccessibilityText = (
+  isArchived: boolean,
+  summary: CurrentUserGroupCurrencySummary[] | null,
+): string => {
+  if (isArchived) {
+    return 'Archived group';
+  }
+  if (summary === null) {
+    return 'Your balance is unavailable';
+  }
+  if (summary.length === 0) {
+    return 'No spending yet';
+  }
+  return summary
+    .map(
+      (item) =>
+        `Your share: ${formatMinorUnits(item.myShareMinor, item.currency)}. ${getBalanceCopy(item)}`,
+    )
+    .join('. ');
+};
 
 const GroupListItem: React.FC<GroupListItemProps> = ({
   group,
-  totals,
-  onDeleteGroup,
-  onRemoveParticipant,
-  onAddParticipant,
-  onPress, // Destructure onPress
+  summary,
+  isLifecyclePending = false,
+  onArchiveGroup,
+  onRestoreGroup,
+  onPress,
 }) => {
-  return (
-    <TouchableOpacity
-      onPress={() => onPress(group.id)}
-      style={styles.groupCard}
+  const isArchived = isExpenseGroupArchived(group);
+
+  const card = (
+    <AdaptiveCardSurface
+      interactive
+      style={styles.groupCardSurface}
+      testID={`group-card-surface-${group.id}`}
+      tone='shared'
     >
-      {/* Group Header */}
-      <View style={styles.groupHeader}>
+      <TouchableOpacity
+        accessibilityActions={
+          isArchived || isLifecyclePending
+            ? undefined
+            : [{ label: 'Archive group', name: 'archive' }]
+        }
+        accessibilityHint={
+          isArchived
+            ? 'Opens archived group details'
+            : 'Opens group details. Swipe left for Archive.'
+        }
+        accessibilityLabel={`Open ${group.name}`}
+        accessibilityRole='button'
+        accessibilityValue={{
+          text: getSummaryAccessibilityText(isArchived, summary),
+        }}
+        activeOpacity={0.82}
+        onAccessibilityAction={(event) => {
+          if (
+            !isLifecyclePending &&
+            event.nativeEvent.actionName === 'archive'
+          ) {
+            void onArchiveGroup(group.id);
+          }
+        }}
+        onPress={() => onPress(group.id)}
+        style={styles.groupCard}
+        testID={`group-card-${group.id}`}
+      >
         <Text style={styles.groupName}>{group.name}</Text>
+        {isArchived ? (
+          <Text style={styles.archivedStatus}>Archived group</Text>
+        ) : summary === null ? (
+          <Text style={styles.emptySummary}>Your balance is unavailable</Text>
+        ) : summary.length === 0 ? (
+          <Text style={styles.emptySummary}>No spending yet</Text>
+        ) : (
+          summary.map((item) => (
+            <View key={item.currency} style={styles.summaryRow}>
+              <Text style={styles.shareText}>
+                Your share: {formatMinorUnits(item.myShareMinor, item.currency)}
+              </Text>
+              <Text style={styles.balanceText}>{getBalanceCopy(item)}</Text>
+            </View>
+          ))
+        )}
+      </TouchableOpacity>
+    </AdaptiveCardSurface>
+  );
+
+  if (isArchived) {
+    return (
+      <View style={styles.archivedCardContainer}>
+        {card}
         <TouchableOpacity
-          onPress={() => onDeleteGroup(group.id)}
-          style={styles.deleteButton}
+          accessibilityLabel={`Restore ${group.name}`}
+          accessibilityRole='button'
+          accessibilityState={{
+            busy: isLifecyclePending,
+            disabled: isLifecyclePending,
+          }}
+          disabled={isLifecyclePending}
+          onPress={() => void onRestoreGroup(group.id)}
+          style={styles.restoreButton}
         >
-          <Text style={styles.deleteButtonText}>Delete</Text>
+          <Text style={styles.restoreButtonText}>Restore</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
 
-      {/* Group Total */}
-      {totals.length === 0 ? (
-        <Text style={styles.groupTotal}>Total: —</Text>
-      ) : (
-        totals.map((total) => (
-          <Text key={total.currency} style={styles.groupTotal}>
-            Total: {formatMinorUnits(total.amountMinor, total.currency)}
-          </Text>
-        ))
-      )}
+  const renderArchiveAction = (
+    _progress: unknown,
+    _translation: unknown,
+    swipeable: SwipeableMethods,
+  ) => (
+    <AdaptiveSwipeAction
+      accessibilityLabel={`Archive ${group.name}`}
+      accessibilityRole='button'
+      accessibilityState={{
+        busy: isLifecyclePending,
+        disabled: isLifecyclePending,
+      }}
+      disabled={isLifecyclePending}
+      label='Archive'
+      onPress={() => {
+        swipeable.close();
+        void onArchiveGroup(group.id);
+      }}
+      style={styles.archiveSwipeAction}
+      tone='neutral'
+    />
+  );
 
-      {/* Participants Section */}
-      <Text style={styles.participantsLabel}>Participants:</Text>
-      <View style={styles.participantsList}>
-        {group.participants.map((participant) => (
-          <View key={participant.id} style={styles.participantItem}>
-            <Text style={styles.participantName}>{participant.name}</Text>
-            <TouchableOpacity
-              onPress={() => onRemoveParticipant(group.id, participant.id)}
-              style={styles.removeParticipantButton}
-            >
-              <Text style={styles.removeParticipantText}>×</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-        {/* Add Participant Button */}
-        <TouchableOpacity
-          style={styles.addParticipantButton}
-          onPress={() => onAddParticipant(group)}
-        >
-          <Text style={styles.addParticipantText}>+ Add Participant</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+  return (
+    <ReanimatedSwipeable
+      childrenContainerStyle={styles.swipeableOverflow}
+      containerStyle={styles.swipeableOverflow}
+      overshootRight={false}
+      renderRightActions={renderArchiveAction}
+      rightThreshold={40}
+      testID={`group-swipeable-${group.id}`}
+    >
+      {card}
+    </ReanimatedSwipeable>
   );
 };
 
-// Styles copied and adapted from HistoryScreen.tsx
 const styles = StyleSheet.create({
-  groupCard: {
-    backgroundColor: '#ffffff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-    boxShadow: '0 1px 1.41px rgba(0, 0, 0, 0.2)',
+  swipeableOverflow: {
+    overflow: 'visible',
   },
-  groupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+  groupCardSurface: {
+    marginBottom: mobileTheme.spacing.lg,
+  },
+  groupCard: {
+    padding: mobileTheme.spacing.lg,
   },
   groupName: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: mobileTheme.colors.text,
   },
-  deleteButton: {
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  deleteButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  groupTotal: {
-    fontSize: 16,
-    color: '#28a745',
-    marginBottom: 10,
-  },
-  participantsLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 10,
-  },
-  participantsList: {
-    marginLeft: 10,
-  },
-  participantItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  restoreButton: {
+    minHeight: 44,
+    alignSelf: 'flex-end',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 5,
+    paddingHorizontal: mobileTheme.spacing.lg,
+    borderRadius: mobileTheme.radii.control,
+    marginTop: -4,
+    marginBottom: mobileTheme.spacing.lg,
+    backgroundColor: mobileTheme.colors.primary,
   },
-  participantName: {
-    fontSize: 16,
+  restoreButtonText: {
+    color: mobileTheme.colors.onPrimary,
+    fontWeight: '600',
   },
-  removeParticipantButton: {
-    padding: 5,
+  archivedCardContainer: {
+    marginBottom: mobileTheme.spacing.xs,
   },
-  removeParticipantText: {
-    color: '#dc3545',
-    fontSize: 20,
-    fontWeight: 'bold',
+  archivedStatus: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 15,
+    marginTop: mobileTheme.spacing.sm,
   },
-  addParticipantButton: {
-    marginTop: 10,
+  emptySummary: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 15,
+    marginTop: mobileTheme.spacing.sm,
   },
-  addParticipantText: {
-    color: '#007bff',
-    fontSize: 16,
+  summaryRow: {
+    marginTop: mobileTheme.spacing.md,
+  },
+  shareText: {
+    color: mobileTheme.colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  balanceText: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 14,
+    marginTop: mobileTheme.spacing.xs,
+  },
+  archiveSwipeAction: {
+    minWidth: 88,
+    marginBottom: mobileTheme.spacing.lg,
+    borderRadius: mobileTheme.radii.card,
   },
 });
 

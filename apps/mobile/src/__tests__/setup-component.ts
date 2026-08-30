@@ -12,6 +12,15 @@ jest.mock('react-native-gesture-handler', () =>
   require('react-native-gesture-handler/jestSetup'),
 );
 
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ children, ...props }: any) =>
+      React.createElement('Swipeable', props, children),
+  };
+});
+
 // Mock react-native-safe-area-context
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: any) => children,

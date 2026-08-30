@@ -1,100 +1,188 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
+  Alert,
+  ScrollView,
   StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { Stack, useLocalSearchParams } from 'expo-router';
 
 import { useCategoryManager } from '../src/hooks/useCategoryManager';
 import CategoryForm from '../src/components/categories/CategoryForm';
 import CategoryListItem from '../src/components/categories/CategoryListItem';
-import { Category } from '../src/types';
+import SelectionModal from '../src/components/SelectionModal';
+import { AdaptiveGroupedScreen } from '../src/components/ui/adaptive-grouped-list';
+import { AdaptiveGroupedSection } from '../src/components/ui/adaptive-grouped-list';
+import { semanticColors } from '../src/theme/semantic-colors';
+import { mobileTheme } from '../src/theme/tokens';
 
 const ManageCategoriesScreen = () => {
-  const categoryManager = useCategoryManager();
-
-  const renderCategoryItem = ({ item }: { item: Category }) => (
-    <CategoryListItem
-      category={item}
-      onEdit={categoryManager.openEditModal}
-      onDelete={categoryManager.deleteCategory}
-      canDelete={categoryManager.canDeleteCategory(item)}
-    />
-  );
+  const params = useLocalSearchParams<{
+    scopeKind?: string | string[];
+    spaceId?: string | string[];
+  }>();
+  const spaceId =
+    typeof params.spaceId === 'string' ? params.spaceId : undefined;
+  const isGroupScope = params.scopeKind === 'group' && Boolean(spaceId);
+  const categoryManager = useCategoryManager({
+    scopeKind: isGroupScope ? 'group' : 'personal',
+    spaceId,
+  });
+  const showCategoryInfo = () =>
+    Alert.alert(
+      'About Categories',
+      'Tap a category to edit it. Swipe left to remove a custom category. Categories used by expenses can be archived or moved, so historical classifications stay intact. Uncategorized is reserved and cannot be renamed or removed.',
+    );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Manage Categories</Text>
-      <Text style={styles.subtitle}>
-        Tap to edit, swipe left to delete (except "Other")
-      </Text>
-
-      <FlatList
-        data={categoryManager.categories}
-        renderItem={renderCategoryItem}
-        keyExtractor={(item) => item.id}
-        style={styles.list}
-        showsVerticalScrollIndicator={false}
+    <AdaptiveGroupedScreen>
+      <Stack.Screen
+        options={{
+          title: isGroupScope ? 'Group Categories' : 'Manage Categories',
+        }}
       />
+      <Stack.Toolbar placement='right'>
+        <Stack.Toolbar.Button
+          accessibilityLabel='Add category'
+          icon='plus'
+          onPress={categoryManager.openAddModal}
+        />
+      </Stack.Toolbar>
 
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={categoryManager.openAddModal}
-        activeOpacity={0.8}
+      <ScrollView
+        contentInsetAdjustmentBehavior='automatic'
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.addButtonText}>+ Add New Category</Text>
-      </TouchableOpacity>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>CATEGORIES</Text>
+          <TouchableOpacity
+            accessibilityLabel='About categories'
+            accessibilityRole='button'
+            hitSlop={mobileTheme.spacing.sm}
+            onPress={showCategoryInfo}
+            style={styles.infoButton}
+          >
+            <Ionicons
+              color={semanticColors.primary}
+              name='information-circle-outline'
+              size={18}
+            />
+          </TouchableOpacity>
+        </View>
+        <AdaptiveGroupedSection>
+          {categoryManager.activeCategories.map((category, index) => (
+            <CategoryListItem
+              canDelete={categoryManager.canDeleteCategory(category)}
+              canEdit={categoryManager.canEditCategory(category)}
+              category={category}
+              isLast={index === categoryManager.activeCategories.length - 1}
+              key={category.id}
+              onDelete={categoryManager.deleteCategory}
+              onEdit={categoryManager.openEditModal}
+            />
+          ))}
+        </AdaptiveGroupedSection>
+        {categoryManager.archivedCategories.length > 0 ? (
+          <>
+            <Text style={[styles.sectionLabel, styles.archivedSectionLabel]}>
+              ARCHIVED
+            </Text>
+            <AdaptiveGroupedSection>
+              {categoryManager.archivedCategories.map((category, index) => (
+                <CategoryListItem
+                  archived
+                  canDelete={categoryManager.canPermanentlyDeleteCategory(
+                    category,
+                  )}
+                  canEdit={false}
+                  category={category}
+                  isLast={
+                    index === categoryManager.archivedCategories.length - 1
+                  }
+                  key={category.id}
+                  onDelete={categoryManager.deleteCategory}
+                  onEdit={categoryManager.openEditModal}
+                  onRestore={categoryManager.restoreCategory}
+                />
+              ))}
+            </AdaptiveGroupedSection>
+            <Text style={styles.footerText}>
+              Archived categories remain on historical expenses and in Insights.
+            </Text>
+          </>
+        ) : null}
+      </ScrollView>
 
       <CategoryForm
-        visible={categoryManager.modalVisible}
+        editingCategory={categoryManager.isEditing}
         onClose={categoryManager.closeModal}
         onSave={categoryManager.saveCategory}
-        editingCategory={categoryManager.isEditing}
+        usedColors={categoryManager.categories.map(
+          (category) => category.color,
+        )}
+        visible={categoryManager.modalVisible}
       />
-    </View>
+
+      <SelectionModal
+        data={categoryManager.moveTargetCategories}
+        isSelected={() => false}
+        keyExtractor={(category) => category.id}
+        onClose={categoryManager.closeMoveExpenses}
+        onSelect={categoryManager.moveExpensesToCategory}
+        renderItemContent={(category) => (
+          <Text style={styles.moveTargetText}>{category.name}</Text>
+        )}
+        title={`Move ${categoryManager.movingCategory?.name ?? ''} Expenses`}
+        visible={Boolean(categoryManager.movingCategory)}
+      />
+    </AdaptiveGroupedScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
+  content: {
+    paddingHorizontal: mobileTheme.spacing.xl,
+    paddingTop: mobileTheme.spacing.lg,
+    paddingBottom: mobileTheme.spacing.xxxl,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 20,
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#666',
-    paddingHorizontal: 20,
-  },
-  list: {
-    flex: 1,
-    backgroundColor: 'white',
-    marginHorizontal: 15,
-    borderRadius: 10,
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-  },
-  addButton: {
-    backgroundColor: '#007bff',
-    margin: 20,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 18,
+  sectionLabel: {
+    color: semanticColors.textMuted,
+    fontSize: 12,
     fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: mobileTheme.spacing.sm,
+    marginLeft: mobileTheme.spacing.md,
+  },
+  infoButton: {
+    alignItems: 'center',
+    height: 28,
+    justifyContent: 'center',
+    marginLeft: mobileTheme.spacing.xs,
+    width: 28,
+  },
+  footerText: {
+    color: semanticColors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginHorizontal: mobileTheme.spacing.md,
+    marginTop: mobileTheme.spacing.sm,
+  },
+  archivedSectionLabel: {
+    marginBottom: mobileTheme.spacing.sm,
+    marginLeft: mobileTheme.spacing.md,
+    marginTop: mobileTheme.spacing.xxl,
+  },
+  moveTargetText: {
+    color: semanticColors.text,
+    fontSize: 16,
   },
 });
 

@@ -1,29 +1,25 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  StyleSheet,
-  Pressable,
-  FlatList,
-} from 'react-native';
-import { Participant, Expense } from '../types'; // Use Participant type
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+
+import { semanticColors } from '../theme/semantic-colors';
+import { mobileTheme } from '../theme/tokens';
+import type { Expense, Participant } from '../types';
 import {
   calculateAllMemberBalancesInGroup,
-  MemberBalanceDetails,
-} from '../utils/groupCalculations'; // Import the new util
+  type MemberBalanceDetails,
+} from '../utils/groupCalculations';
 import { formatMinorUnits } from '../utils/money';
+import { AdaptiveSheet } from './ui/adaptive-sheet';
+import { AdaptiveSheetSection } from './ui/adaptive-sheet-section';
 
 interface GroupBalancesOverlayProps {
   visible: boolean;
   onClose: () => void;
-  members: Participant[]; // Use Participant type
-  expenses: Expense[]; // Define or import Expense type
-  currentUserId: string; // To identify the current user
+  members: Participant[];
+  expenses: Expense[];
+  currentUserId: string;
   allParticipants?: Participant[];
 }
-
-// Removed local calculateMemberBalance function
 
 const GroupBalancesOverlay: React.FC<GroupBalancesOverlayProps> = ({
   visible,
@@ -33,7 +29,6 @@ const GroupBalancesOverlay: React.FC<GroupBalancesOverlayProps> = ({
   currentUserId,
   allParticipants = members,
 }) => {
-  // Calculate all balances once
   const memberBalanceDetails = React.useMemo(() => {
     return calculateAllMemberBalancesInGroup(
       members,
@@ -53,13 +48,23 @@ const GroupBalancesOverlay: React.FC<GroupBalancesOverlayProps> = ({
 
     return (
       <View style={styles.memberItem}>
-        <Text style={styles.memberName}>
-          {item.memberName}
-          {item.memberId === currentUserId ? ' (You)' : ''}
-        </Text>
-        <Text style={styles.memberBalance}>{balanceText}</Text>
+        <View style={styles.memberSummary}>
+          <Text numberOfLines={1} style={styles.memberName}>
+            {item.memberName}
+            {item.memberId === currentUserId ? ' (You)' : ''}
+          </Text>
+          <Text
+            style={[
+              styles.memberBalance,
+              balance > 0 && styles.positiveBalance,
+              balance < 0 && styles.negativeBalance,
+            ]}
+          >
+            {balanceText}
+          </Text>
+        </View>
         <Text style={styles.balanceDetail}>
-          Paid: {formatMinorUnits(item.totalPaidMinor, item.currency)}, Share:{' '}
+          Paid {formatMinorUnits(item.totalPaidMinor, item.currency)} · Share{' '}
           {formatMinorUnits(item.totalShareMinor, item.currency)}
         </Text>
       </View>
@@ -67,90 +72,82 @@ const GroupBalancesOverlay: React.FC<GroupBalancesOverlayProps> = ({
   };
 
   return (
-    <Modal
-      animationType='slide'
-      transparent={true}
+    <AdaptiveSheet
+      leadingAction={{ label: 'Close', onPress: onClose, variant: 'plain' }}
+      onClose={onClose}
+      title='Balances'
       visible={visible}
-      onRequestClose={onClose}
     >
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
-          <Text style={styles.modalTitle}>Group Member Balances</Text>
+      <View style={styles.content}>
+        <AdaptiveSheetSection style={styles.listSection}>
           <FlatList
-            data={memberBalanceDetails} // Use pre-calculated balances
-            renderItem={renderMemberBalance}
+            data={memberBalanceDetails}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
             keyExtractor={(item) => `${item.memberId}:${item.currency}`}
-            style={styles.list}
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>No balances to show.</Text>
+            }
+            renderItem={renderMemberBalance}
           />
-          <Pressable
-            style={[styles.button, styles.buttonClose]}
-            onPress={onClose}
-          >
-            <Text style={styles.textStyle}>Close</Text>
-          </Pressable>
-        </View>
+        </AdaptiveSheetSection>
       </View>
-    </Modal>
+    </AdaptiveSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  centeredView: {
+  content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)', // Semi-transparent background
+    paddingHorizontal: mobileTheme.spacing.lg,
+    paddingTop: mobileTheme.spacing.xl,
   },
-  modalView: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.25)',
-    width: '90%', // Occupy approx half screen, adjust as needed
-    maxHeight: '80%',
+  listSection: {
+    flexShrink: 1,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  list: {
-    width: '100%',
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: mobileTheme.spacing.lg,
+    backgroundColor: semanticColors.separator,
   },
   memberItem: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    width: '100%',
+    minHeight: 72,
+    justifyContent: 'center',
+    paddingHorizontal: mobileTheme.spacing.lg,
+    paddingVertical: mobileTheme.spacing.md,
+    backgroundColor: semanticColors.groupedRow,
+  },
+  memberSummary: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: mobileTheme.spacing.md,
   },
   memberName: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    flex: 1,
+    color: semanticColors.text,
+    fontSize: 17,
+    fontWeight: '600',
   },
   memberBalance: {
-    fontSize: 14,
-    color: 'gray',
+    color: semanticColors.textMuted,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  positiveBalance: {
+    color: semanticColors.primary,
+  },
+  negativeBalance: {
+    color: semanticColors.destructive,
   },
   balanceDetail: {
-    fontSize: 12,
-    color: 'darkgray',
-    fontStyle: 'italic',
+    marginTop: mobileTheme.spacing.xs,
+    color: semanticColors.textMuted,
+    fontSize: 13,
   },
-  button: {
-    borderRadius: 10,
-    padding: 10,
-    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-    marginTop: 15,
-  },
-  buttonClose: {
-    backgroundColor: '#2196F3',
-  },
-  textStyle: {
-    color: 'white',
-    fontWeight: 'bold',
+  emptyText: {
+    padding: mobileTheme.spacing.xxl,
+    color: semanticColors.textMuted,
+    fontSize: 16,
     textAlign: 'center',
   },
 });

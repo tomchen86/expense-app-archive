@@ -7,6 +7,8 @@ import {
   TextInputProps,
   KeyboardTypeOptions,
 } from 'react-native';
+import { semanticColors } from '../theme/semantic-colors';
+import { mobileTheme } from '../theme/tokens';
 
 interface FormInputProps extends TextInputProps {
   label: string;
@@ -16,7 +18,6 @@ interface FormInputProps extends TextInputProps {
   keyboardType?: KeyboardTypeOptions;
   multiline?: boolean;
   numberOfLines?: number;
-  // Add any other TextInput props you might need
 }
 
 const FormInput: React.FC<FormInputProps> = ({
@@ -27,7 +28,7 @@ const FormInput: React.FC<FormInputProps> = ({
   keyboardType = 'default',
   multiline = false,
   numberOfLines,
-  ...rest // Pass down any other TextInput props
+  ...rest
 }) => {
   return (
     <View style={styles.container}>
@@ -35,13 +36,14 @@ const FormInput: React.FC<FormInputProps> = ({
       <TextInput
         style={[styles.input, multiline && styles.multilineInput]}
         placeholder={placeholder}
+        placeholderTextColor={semanticColors.placeholder}
         value={value}
         onChangeText={onChangeText}
         keyboardType={keyboardType}
         multiline={multiline}
         numberOfLines={multiline ? numberOfLines : 1}
-        textAlignVertical={multiline ? 'top' : 'center'} // Better multiline editing
-        {...rest} // Apply remaining props
+        textAlignVertical={multiline ? 'top' : 'center'}
+        {...rest}
       />
     </View>
   );
@@ -49,26 +51,27 @@ const FormInput: React.FC<FormInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 15,
+    marginBottom: mobileTheme.spacing.lg,
   },
   label: {
     fontSize: 16,
-    marginBottom: 5,
-    color: '#333',
+    marginBottom: mobileTheme.spacing.xs,
+    color: semanticColors.text,
     fontWeight: '500',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderColor: semanticColors.separator,
+    borderRadius: mobileTheme.radii.control,
+    paddingHorizontal: mobileTheme.spacing.md,
+    paddingVertical: mobileTheme.spacing.sm,
     fontSize: 16,
-    backgroundColor: '#fff',
-    minHeight: 40, // Ensure consistent height
+    backgroundColor: semanticColors.surface,
+    color: semanticColors.text,
+    minHeight: 44,
   },
   multilineInput: {
-    height: 100, // Default height for multiline, adjust as needed
+    height: 100,
   },
 });
 
