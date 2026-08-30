@@ -1,5 +1,69 @@
 # Repository Workflow
 
+## R-000 Product Purpose and Trust Model
+
+### Product Purpose
+
+The Agent Harness Engine is an AI-agent coding harness system. It exists to
+improve the development outcomes of well-intentioned AI agents by:
+
+- preserving working memory and durable state;
+- preventing drift from approved plans and task scope;
+- avoiding duplicated, omitted, or incorrectly repeated work;
+- supporting recovery, role collaboration, and progress visibility;
+- keeping agents in an optimal, fixed development flow so that required steps
+  and document updates are not forgotten;
+- maintaining accurate development documents that support subsequent
+  maintenance and implementation;
+- improving completion accuracy, development speed, and cost efficiency.
+
+Security governance is supporting infrastructure, not the product objective.
+Controls must not impose disproportionate process cost, materially slow the
+ordinary development path, or create avoidable deadlocks.
+An agent must not independently raise a security classification, invent a new
+non-grantable category, make a workflow step unskippable, or add approval,
+signing, review, or evidence ceremony merely because stricter behavior appears
+safer. Any such escalation is a product decision and requires explicit owner
+direction.
+
+### Trust Model
+
+- Agents are assumed to be well-intentioned but capable of mistakes,
+  forgetting, misjudgment, or plan drift.
+- The core product does not use malicious, adversarial, or Byzantine agents as
+  its primary threat model.
+- Defenses against malicious agents bypassing controls, forging evidence, or
+  attacking the host must not be prerequisites for the ordinary MVP path.
+- Fail-closed is not the default response to a decision that can be submitted
+  to Grant Core. The engine must prefer a precise Fail-Grant transition,
+  especially when repeating the interrupted work is expensive.
+- Grant Core is the sole product authority boundary. Any entity admitted by
+  Grant Core for an exact Grant may authorize any operation, risk acceptance,
+  recovery choice, or workflow override. The engine must not apply a second
+  safety veto after that Grant is accepted.
+- No operation category is inherently non-grantable. Exact Grants may authorize
+  continuation despite corruption or tampering, unknown external effects,
+  secret access, monetary cost, irreversible actions, commit/merge/sign
+  operations, or skipped tests, reviews, documents, and workflow steps.
+- Fail-Grant pauses the operation and requests exact authorization. It records
+  an explicit exception; it must never silently permit an action.
+- Authorization must preserve factual truth. A Grant may authorize proceeding,
+  accepting risk, or skipping a check, but it must not describe corrupted data
+  as valid, a skipped check as passed, or a failed external effect as
+  successful. Authorized exceptions remain explicit in durable evidence.
+- Corruption acceptance is bound to the exact record digest and remains valid
+  for subsequent operations until that record changes, the Grant is revoked,
+  or the record is repaired. Derived evidence must retain a
+  `corruption-authorized` marker.
+- A technical inability to execute is not a non-grantable policy boundary. The
+  engine must report the inability truthfully and, where possible, offer exact
+  grantable recovery choices such as continue, retry, ignore, replace, rebuild,
+  or accept an uncertain result.
+- Every new control must demonstrably improve development outcomes or reduce a
+  concrete correctness, recovery, cost, or data-exposure risk on an active
+  production path. A control that primarily adds governance ceremony or risks
+  deadlock must be simplified or removed.
+
 This repository uses OpenSpec artifacts as versioned planning data and a
 repository-owned workflow engine for execution assurance.
 
@@ -17,10 +81,13 @@ Only an executable workflow command may authorize a planning commit, task
 completion, controlled-document update, staging, managed commit, or archive.
 Never treat an AI claim, checked box, or prose status as evidence.
 
-Break-glass authority is human-only. An agent may explain the maintainer
-commands or prepare an ordinary reviewed OpenSpec change, but must not attempt
-to satisfy the controlling-terminal, trusted-signer, protected-tag, or remote
-approval requirements on the maintainer's behalf.
+Grant Core owns break-glass authority. An agent may explain the maintainer
+commands or prepare an ordinary reviewed OpenSpec change, but must not
+impersonate another principal or fabricate a Grant. Current interactive signer
+or maintainer ceremonies are implementation mechanisms, not permanent
+non-grantable product boundaries. Once Grant Core accepts an exact Grant from
+an eligible entity, the engine must honor it and preserve the resulting facts
+and exception markers accurately.
 
 ## Repository Skill Routing
 
@@ -283,11 +350,10 @@ API tests are destructive to their configured PostgreSQL database. Before any AP
 - For local dev, stash secrets in `.env.local` (ignored) and document required keys in the PR.
 - Run `pnpm --filter api build` and targeted tests before pushing to avoid CI regressions.
 
-## Explicit human override for workflow-engine repair
+## Explicit human override
 
 When the repository owner explicitly authorizes a named action, an agent may
-perform that exact action without workflow-engine authorization only when
-repairing or bootstrapping the workflow engine itself.
+perform that exact action without workflow-engine authorization.
 
 The authorization must identify the exact scope, worktree or branch, and
 permitted Git operations. It does not authorize destructive operations,
